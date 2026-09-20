@@ -1,0 +1,351 @@
+body {
+	font-family: Segoe UI, Arial, sans-serif;
+	margin: 0;
+	color: #222;
+}
+
+.page {
+	display: flex;
+	min-height: 100vh;
+}
+
+.sidebar {
+	width: 210px;
+	background: #1f3a5f;
+	color: #fff;
+	padding: 16px;
+}
+
+.sidebar .brand {
+	font-weight: 700;
+	font-size: 1.1rem;
+	margin-bottom: 20px;
+}
+
+.sidebar .nav-item {
+	display: block;
+	color: #dbe6f5;
+	text-decoration: none;
+	padding: 8px;
+	border-radius: 6px;
+}
+
+.sidebar .nav-item.active {
+	background: #33557f;
+	color: #fff;
+}
+
+.content {
+	flex: 1;
+	padding: 20px;
+}
+
+.filters {
+	display: flex;
+	gap: 16px;
+	align-items: end;
+	flex-wrap: wrap;
+	margin-bottom: 16px;
+}
+
+.filters label {
+	display: flex;
+	flex-direction: column;
+	font-size: .85rem;
+	gap: 4px;
+}
+
+.filters select, .filters button {
+	padding: 6px;
+}
+
+table.grid {
+	border-collapse: collapse;
+	width: 420px;
+}
+
+table.grid th, table.grid td {
+	border: 1px solid #ccc;
+	padding: 4px 8px;
+	text-align: left;
+}
+
+table.grid tr.sun {
+	background: #fce4d6;
+}
+
+.actions {
+	margin-top: 14px;
+	display: flex;
+	gap: 12px;
+	align-items: center;
+}
+
+.ok {
+	color: #2e7d32;
+	font-weight: 600;
+}
+
+button {
+	cursor: pointer;
+}
+.login-shell {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 100vh;
+	background: #eef2f7;
+}
+
+.login-card {
+	background: #fff;
+	padding: 28px 32px;
+	border-radius: 10px;
+	box-shadow: 0 4px 18px rgba(0,0,0,.12);
+	width: 300px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.login-card h2 {
+	margin: 0 0 8px;
+}
+
+.login-card label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: .9rem;
+}
+
+.login-card input {
+	padding: 8px;
+}
+
+.login-card button {
+	padding: 9px;
+	background: #1f3a5f;
+	color: #fff;
+	border: none;
+	border-radius: 6px;
+}
+
+.login-card .err {
+	color: #c00;
+	margin: 0;
+}
+
+.user-box {
+	margin-top: 24px;
+	padding-top: 12px;
+	border-top: 1px solid #33557f;
+}
+
+.user-name {
+	font-size: .9rem;
+	color: #dbe6f5;
+	margin-bottom: 6px;
+}
+
+.linklike {
+	background: none;
+	border: none;
+	color: #ffd;
+	text-decoration: underline;
+	cursor: pointer;
+	padding: 0;
+}
+
+.indiv-scroll {
+	overflow-x: auto;
+	margin-top: 12px;
+}
+
+table.indiv {
+	border-collapse: collapse;
+	font-size: 11px;
+}
+
+table.indiv th, table.indiv td {
+	border: 1px solid #999;
+	padding: 2px 4px;
+	text-align: center;
+	white-space: nowrap;
+}
+
+table.indiv th {
+	background: #d9e1f2;
+}
+
+table.indiv td.lft {
+	text-align: left;
+}
+
+table.indiv tr.sun td {
+	background: #fce4d6;
+}
+
+table.indiv.totals {
+	margin-top: 14px;
+}
+
+table.indiv.totals td {
+	min-width: 70px;
+}
+/* Hidden by default; Blazor toggles it to visible only on an actual component error. */
+#blazor-error-ui {
+	display: none;
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background: #ffe0e0;
+	border-top: 1px solid #e0a0a0;
+	padding: 8px 16px;
+	font-size: .9rem;
+	box-shadow: 0 -2px 6px rgba(0,0,0,.1);
+	z-index: 1000;
+}
+
+#blazor-error-ui .reload {
+	color: #c00;
+	margin-left: 8px;
+}
+
+.filters .chk {
+	flex-direction: row;
+	align-items: center;
+	gap: 6px;
+}
+
+.master-detail {
+	display: flex;
+	gap: 20px;
+	margin-top: 14px;
+	align-items: flex-start;
+}
+
+.emp-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	width: 260px;
+	border: 1px solid #ccc;
+	border-radius: 6px;
+	max-height: 60vh;
+	overflow-y: auto;
+}
+
+.emp-list li {
+	padding: 8px 10px;
+	cursor: pointer;
+	border-bottom: 1px solid #eee;
+}
+
+.emp-list li:hover {
+	background: #f2f6fc;
+}
+
+.emp-list li.sel {
+	background: #d9e1f2;
+	font-weight: 600;
+}
+
+.emp-list li.inactive {
+	color: #999;
+	font-style: italic;
+}
+
+.emp-list li .tag {
+	font-size: .7rem;
+	background: #eee;
+	padding: 1px 6px;
+	border-radius: 8px;
+	margin-left: 6px;
+}
+
+.emp-list li.muted {
+	color: #999;
+	cursor: default;
+}
+
+.emp-form {
+	flex: 1;
+	max-width: 360px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.emp-form label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: .9rem;
+}
+
+.emp-form input, .emp-form select {
+	padding: 6px;
+}
+
+.emp-form .actions {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	margin-top: 6px;
+}
+
+.emp-form .danger {
+	background: #c0392b;
+	color: #fff;
+	border: none;
+	border-radius: 6px;
+	padding: 8px 12px;
+}
+
+.validation-message {
+	color: #c0392b;
+	font-size: .8rem;
+}
+
+.fortnights {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 24px;
+	align-items: start;
+}
+
+.fortnight {
+	padding: 16px;
+	background: #fff;
+	border: 1px solid #e5e7eb;
+	border-radius: 10px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.fortnight h2 {
+	align-self: stretch;
+	text-align: left;
+	margin: 0 0 12px;
+	font-size: 1.05rem;
+}
+
+.fortnight table.grid {
+	margin: 0 auto;
+}
+
+.grid {
+	width: auto;
+	min-width: 360px;
+	border-collapse: collapse;
+}
+
+
+@media (max-width: 800px) {
+	.fortnights {
+		grid-template-columns: 1fr;
+	}
+}

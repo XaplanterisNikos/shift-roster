@@ -1,0 +1,211 @@
+﻿@page "/employees"
+@using Vardiologio.Application.Employees
+@using Microsoft.AspNetCore.Components.Forms
+@inject IEmployeeService EmployeeService
+
+@* Employees CRUD (master-detail): pick a specialty (auto-reloads the list),
+   select a name to edit, or [+] to add. Soft-delete/restore live in the form. *@
+<h1>Εργαζόμενοι</h1>
+
+@* @bind:after => reload the list automatically when the specialty or the
+   "show inactive" toggle changes (no button needed here). *@
+<div class="filters">
+    <label>
+        Ειδικότητα
+        <select @bind="specialityId" @bind:after="OnSpecialityChanged">
+            <option value="0">— επίλεξε —</option>
+            @foreach (var s in specialities)
+            {
+                <option value="@s.Id">@s.Name</option>
+            }
+        </select>
+    </label>
+
+    <label class="chk">
+        <input type="checkbox" @bind="includeInactive" @bind:after="ReloadListAsync" />
+        Εμφάνιση ανενεργών
+    </label>
+
+    <button @onclick="NewEmployee" disabled="@(specialityId == 0)">＋ Νέος</button>
+</div>
+
+@if (specialityId != 0)
+{
+    <div class="master-detail">
+        <!-- LEFT: employee list of the selected specialty -->
+        <ul class="emp-list">
+            @foreach (var e in list)
+            {
+                <li class="@(e.Id == selectedId ? "sel" : "") @(e.IsActive ? "" : "inactive")"
+                    @onclick="() => SelectAsync(e.Id)">
+                    @e.FullName
+                    @if (!e.IsActive)
+                    {
+                        <span class="tag">ανενεργός</span>
+                    }
+                </li>
+            }
+            @if (list.Count == 0)
+            {
+                <li class="muted">— κανένας —</li>
+            }
+        </ul>
+
+        <!-- RIGHT: create/edit form -->
+        @if (form is not null)
+        {
+           <EditForm class="emp-form" Model="form" OnValidSubmit="SaveAsync">
+    <DataAnnotationsValidator />
+
+    <h3>@(form.Id == 0 ? "Νέος εργαζόμενος" : "Επεξεργασία")</h3>
+
+    <label>Επώνυμο
+        <InputText @bind-Value="form.LastName" />
+        <ValidationMessage For="@(() => form.LastName)" />
+    </label>
+
+    <label>Όνομα
+        <InputText @bind-Value="form.FirstName" />
+        <ValidationMessage For="@(() => form.FirstName)" />
+    </label>
+
+    <label>Ειδικότητα
+        <InputSelect @bind-Value="form.SpecialityId">
+            <option value="0">— επίλεξε —</option>
+            @foreach (var s in lookups!.Specialities)
+            { <option value="@s.Id">@s.Name</option> }
+        </InputSelect>
+        <ValidationMessage For="@(() => form.SpecialityId)" />
+    </label>
+
+                <label>
+                    Σύμβαση
+                    <InputSelect @bind-Value="form.EmploymentTypeId">
+                        <option value="">—</option>
+                        @foreach (var t in lookups!.EmploymentTypes)
+                        {
+                            <option value="@t.Id">@t.Name</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="@(() => form.EmploymentTypeId)" />
+                </label>
+
+                <label>
+                    Θέση
+                    <InputSelect @bind-Value="form.WorkPositionId">
+                        <option value="">—</option>
+                        @foreach (var p in lookups!.WorkPositions)
+                        {
+                            <option value="@p.Id">@p.Name</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="@(() => form.WorkPositionId)" />
+                </label>
+
+    <div class="actions">
+        <button type="submit">Αποθήκευση</button>
+
+        @if (form.Id != 0)
+        {
+            @if (form.IsActive)
+            {
+                <button type="button" class="danger" @onclick="() => SetActiveAsync(false)">Διαγραφή</button>
+            }
+            else
+            {
+                <button type="button" @onclick="() => SetActiveAsync(true)">Επαναφορά</button>
+            }
+        }
+
+        @if (message is not null) { <span class="ok">@message</span> }
+    </div>
+</EditForm> 
+        }
+    </div>
+}
+
+@code {
+    // Lookups + list state
+    private IReadOnlyList<LookupOption> specialities = Array.Empty<LookupOption>();
+    private EmployeeLookups? lookups;
+    private List<EmployeeListItem> list = new();
+
+    // Selection / form state
+    private int specialityId;
+    private bool includeInactive;
+    private int selectedId;
+    private EmployeeDetail? form;
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        specialities = await EmployeeService.GetSpecialitiesAsync();
+        lookups = await EmployeeService.GetLookupsAsync();
+    }
+
+    /// <summary>When the specialty changes, reset selection/form and reload the list.</summary>
+    private async Task OnSpecialityChanged()
+    {
+        selectedId = 0;
+        form = null;
+        message = null;
+        await ReloadListAsync();
+    }
+
+    /// <summary>Reloads the list for the current specialty + inactive toggle.</summary>
+    private async Task ReloadListAsync()
+    {
+        if (specialityId == 0) { list = new(); return; }
+        list = (await EmployeeService.GetBySpecialityAsync(specialityId, includeInactive)).ToList();
+    }
+
+    /// <summary>Loads one employee into the edit form.</summary>
+    private async Task SelectAsync(int id)
+    {
+        message = null;
+        selectedId = id;
+        form = await EmployeeService.GetAsync(id);
+    }
+
+    /// <summary>Prepares a blank form for a new employee (specialty pre-filled).</summary>
+    private void NewEmployee()
+    {
+        message = null;
+        selectedId = 0;
+        form = new EmployeeDetail { SpecialityId = specialityId, IsActive = true };
+    }
+
+    /// <summary>Creates or updates, then refreshes the list.</summary>
+    private async Task SaveAsync()
+    {
+        if (form is null) return;
+
+        if (form.Id == 0)
+        {
+            var newId = await EmployeeService.CreateAsync(form);
+            selectedId = newId;
+            form.Id = newId;
+        }
+        else
+        {
+            await EmployeeService.UpdateAsync(form);
+        }
+
+        message = "Αποθηκεύτηκε.";
+        await ReloadListAsync();
+    }
+
+    /// <summary>Soft-delete or restore the current employee.</summary>
+    private async Task SetActiveAsync(bool isActive)
+    {
+        if (form is null || form.Id == 0) return;
+
+        await EmployeeService.SetActiveAsync(form.Id, isActive);
+        form.IsActive = isActive;
+        message = isActive ? "Επαναφέρθηκε." : "Διαγράφηκε.";
+        await ReloadListAsync();
+
+        // If it became inactive and we're not showing inactive, clear the form.
+        if (!isActive && !includeInactive) { form = null; selectedId = 0; }
+    }
+}

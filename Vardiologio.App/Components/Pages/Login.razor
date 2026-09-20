@@ -1,0 +1,58 @@
+﻿@page "/login"
+@layout LoginLayout
+@using Microsoft.AspNetCore.Components.Web
+@using Vardiologio.Application.Auth
+@inject IAuthService Auth
+@inject IUserSession Session
+@inject NavigationManager Nav
+
+<div class="login-card">
+    <h2>Σύνδεση</h2>
+    <label>
+        Χρήστης
+        @* User picker — populated from LoginOption (no passwords exposed). *@
+        <select @bind="username">
+            @foreach (var u in options)
+            {
+                <option value="@u.Username">@u.DisplayName</option>
+            }
+        </select>
+    </label>
+    <label>
+        Κωδικός
+        @* oninput => update on every keystroke; onkeydown => allow Enter to submit. *@
+        <input type="password" @bind="password" @bind:event="oninput" @onkeydown="OnKey" />
+    </label>
+    <button @onclick="DoLogin">Είσοδος</button>
+    @if (error is not null)
+    {
+        <p class="err">@error</p>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<LoginOption> options = Array.Empty<LoginOption>();
+    private string username = "";
+    private string password = "";
+    private string? error;// shown to the user when login fails
+
+    protected override void OnInitialized()
+    {
+        // Already signed in? skip the login screen.
+        if (Session.IsAuthenticated) { Nav.NavigateTo("/"); return; }
+        options = Auth.GetLoginOptions();
+        username = options.FirstOrDefault()?.Username ?? "";   // default to the first user
+    }
+
+    // Let Enter submit the form.
+    private void OnKey(KeyboardEventArgs e) { if (e.Key == "Enter") DoLogin(); }
+
+    private void DoLogin()
+    {
+        error = null;
+        var user = Auth.Authenticate(username, password);
+        if (user is null) { error = "Wrong Password."; return; }
+        Session.SignIn(user);// fires Session.Changed -> MainLayout re-renders
+        Nav.NavigateTo("/");
+    }
+}

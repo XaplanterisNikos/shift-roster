@@ -1,0 +1,40 @@
+@inherits LayoutComponentBase
+@using Vardiologio.Application.Auth
+@inject IUserSession Session
+@inject NavigationManager Nav
+@implements IDisposable
+
+@* Shell (sidebar + content) shown only when signed in; otherwise the guard below redirects to /login. *@
+@if (Session.IsAuthenticated)
+{
+    <div class="page">
+        <nav class="sidebar">
+            <div class="brand">Βαρδιολόγιο</div>
+                <NavLink class="nav-item" href="employees">Εργαζόμενοι</NavLink>
+                @* Match.All so this is active only at "/", not on every route. *@
+                <NavLink class="nav-item" href="" Match="NavLinkMatch.All">Εισαγωγή προγραμμάτων</NavLink>
+                <NavLink class="nav-item" href="export">Εξαγωγή Αναφοράς Συνολική Μηνιαία</NavLink>
+                <NavLink class="nav-item" href="individual">Εξαγωγή Αναφοράς Ατομική Μηνιαία</NavLink>        
+            <div class="user-box">
+                <div class="user-name">@Session.Current!.DisplayName</div>
+                <button class="linklike" @onclick="Logout">Αποσύνδεση</button>
+            </div>
+        </nav>
+        <main class="content">@Body</main>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        // React to sign-in/out to refresh the shell.
+        Session.Changed += OnChanged;
+        // Auth guard: no session -> go to the login page.
+        if (!Session.IsAuthenticated) Nav.NavigateTo("/login");
+    }
+    // Session event may arrive off the UI thread -> marshal back with InvokeAsync.
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+    private void Logout() { Session.SignOut(); Nav.NavigateTo("/login"); }
+    // Unsubscribe to avoid a memory leak (pairs with the subscribe in OnInitialized).
+    public void Dispose() => Session.Changed -= OnChanged;
+}

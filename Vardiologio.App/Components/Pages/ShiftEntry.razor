@@ -1,0 +1,154 @@
+﻿@page "/"
+@using Vardiologio.Application.ShiftEntry
+@inject IShiftEntryService ShiftService
+
+<h1>Εισαγωγή προγραμμάτων βάρδιας</h1>
+@* Daily shift-entry screen (route "/"): pick year/month/employee, load the month,
+   fill a code per day across two fortnights, then save (upsert). *@
+<div class="filters">
+    <label>
+        Έτος
+        <select @bind="year">
+            @for (int y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+    </label>
+    <label>
+        Μήνας
+        <select @bind="month">
+            @for (int m = 1; m <= 12; m++)
+            {
+                <option value="@m">@Months[m - 1]</option>
+            }
+        </select>
+    </label>
+    <label>
+        Εργαζόμενος
+        <select @bind="employeeId">
+            <option value="0">— επίλεξε —</option>
+            @foreach (var emp in employees)
+            {
+                <option value="@emp.Id">@emp.Display</option>
+            }
+        </select>
+    </label>
+    <button @onclick="LoadAsync" disabled="@(employeeId == 0)">Φόρτωση μήνα</button>
+</div>
+
+@if (entry is not null)
+{
+    <div class="fortnights">
+        @* First fortnight: days 1–15. (Second section below is the same for days 16–end.) *@
+    <section class="fortnight">
+        <h2>1ο δεκαπενθήμερο</h2>
+
+        <table class="grid">
+            <thead>
+                <tr>
+                    <th>Ημ.</th>
+                    <th>Ημέρα</th>
+                    <th>Βάρδια / Κατάσταση</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var day in entry.Days.Where(d => d.Date.Day <= 15))
+                {
+                    <tr class="@(day.Date.DayOfWeek == DayOfWeek.Sunday ? "sun" : "")">
+                        <td>@day.Date.Day</td>
+                        <td>@Wd[((int)day.Date.DayOfWeek + 6) % 7]</td>
+                        <td>
+                    @* Bind directly to the DayEntry in the list; "—" (empty) means no code = null. *@
+                            <select @bind="day.ShiftCodeId">
+                                <option value="">—</option>
+                                @foreach (var c in shiftCodes)
+                                {
+                                    <option value="@c.Id">@c.Label</option>
+                                }
+                            </select>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+
+    <section class="fortnight">
+        <h2>2ο δεκαπενθήμερο</h2>
+
+        <table class="grid">
+            <thead>
+                <tr>
+                    <th>Ημ.</th>
+                    <th>Ημέρα</th>
+                    <th>Βάρδια / Κατάσταση</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var day in entry.Days.Where(d => d.Date.Day > 15))
+                {
+                    <tr class="@(day.Date.DayOfWeek == DayOfWeek.Sunday ? "sun" : "")">
+                        <td>@day.Date.Day</td>
+                        <td>@Wd[((int)day.Date.DayOfWeek + 6) % 7]</td>
+                        <td>
+                            <select @bind="day.ShiftCodeId">
+                                <option value="">—</option>
+                                @foreach (var c in shiftCodes)
+                                {
+                                    <option value="@c.Id">@c.Label</option>
+                                }
+                            </select>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+</div>
+
+    <div class="actions">
+        <button @onclick="SaveAsync">Αποθήκευση</button>
+        @if (saved is not null)
+        {
+            <span class="ok">@saved</span>
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<EmployeeListItem> employees = Array.Empty<EmployeeListItem>();
+    private IReadOnlyList<ShiftCodeOption> shiftCodes = Array.Empty<ShiftCodeOption>();
+    private int year = DateTime.Today.Year;
+    private int month = DateTime.Today.Month;
+    private int employeeId;
+    private MonthEntry? entry;
+    private string? saved;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load dropdown data once when the page opens.
+        employees = await ShiftService.GetEmployeesAsync();
+        shiftCodes = await ShiftService.GetShiftCodesAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        saved = null;
+        entry = await ShiftService.LoadMonthAsync(employeeId, year, month);// build the month grid
+    }
+
+    private async Task SaveAsync()
+    {
+        if (entry is null) return;
+        await ShiftService.SaveMonthAsync(entry); // per-day upsert
+        saved = "Αποθηκεύτηκε.";
+    }
+
+    private static readonly string[] Months =
+        { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",
+          "Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος" };
+    // Greek week order: .NET has Sunday=0, so (+6)%7 shifts Monday to index 0.
+    private static readonly string[] Wd =
+        { "Δευτέρα","Τρίτη","Τετάρτη","Πέμπτη","Παρασκευή","Σάββατο","Κυριακή" };
+}

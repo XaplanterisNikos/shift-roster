@@ -1,0 +1,27 @@
+[
+  {
+    "lastName": "Παπαδόπουλος",
+    "firstName": "Ι.",
+    "speciality": "ΔΕ Οδηγών"
+  },
+  {
+    "lastName": "Γεωργίου",
+    "firstName": "Α.",
+    "speciality": "ΥΕ Εργάτης"
+  },
+  {
+    "lastName": "Δημητρίου",
+    "firstName": "Κ.",
+    "speciality": "ΔΕ Διοικητικού - Λογιστικού"
+  },
+  {
+    "lastName": "Νικολάου",
+    "firstName": "Μ.",
+    "speciality": "ΔΕ Τεχνικού"
+  },
+  {
+    "lastName": "Αντωνίου",
+    "firstName": "Σ.",
+    "speciality": "ΥΕ Προσωπικού Καθαριότητας Εξωτ. Χώρων"
+  }
+]

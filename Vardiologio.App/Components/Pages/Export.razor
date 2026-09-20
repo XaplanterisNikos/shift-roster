@@ -1,0 +1,101 @@
+﻿@page "/export"
+@using System.Diagnostics
+@using System.IO
+@using Vardiologio.Application.Reports
+@inject IReportService ReportService
+@inject IExcelReportRenderer Excel
+@inject IPdfReportRenderer Pdf
+
+@* Export the monthly Σ.Ω. report: save+open as Excel or PDF, or preview the PDF inline. *@
+<h1>Εξαγωγή αναφοράς (Σ.Ω.)</h1>
+
+<div class="filters">
+    <label>
+        Έτος
+        <select @bind="year">
+            @for (int y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+    </label>
+    <label>
+        Μήνας
+        <select @bind="month">
+            @for (int mo = 1; mo <= 12; mo++)
+            {
+                <option value="@mo">@Months[mo - 1]</option>
+            }
+        </select>
+    </label>
+    <button @onclick="ExportExcel" disabled="@busy">Εξαγωγή Excel</button>
+    <button @onclick="ExportPdf" disabled="@busy">Εξαγωγή PDF</button>
+    <button @onclick="PreviewPdf" disabled="@busy">Προεπισκόπηση PDF</button>
+</div>
+
+@if (message is not null)
+{
+    <p class="ok">@message</p>
+}
+@if (error is not null)
+{
+    <p style="color:#c00">@error</p>
+}
+
+@if (pdfDataUri is not null)
+{
+    @* Inline PDF preview via a base64 data-URI (WebView2 has a built-in PDF viewer). *@
+    <object data="@pdfDataUri" type="application/pdf" style="width:100%;height:75vh;border:1px solid #ccc;margin-top:12px">
+        <p>
+            Δεν εμφανίζεται η προεπισκόπηση.
+            <a href="@pdfDataUri" target="_blank">Άνοιγμα PDF</a>
+        </p>
+    </object>
+}
+
+@code {
+    private int year = DateTime.Today.Year;
+    private int month = DateTime.Today.Month;
+    private bool busy;
+    private string? message, error, pdfDataUri;
+
+    private async Task ExportExcel() => await SaveAndOpen(m => Excel.Render(m), "xlsx");
+    private async Task ExportPdf() => await SaveAndOpen(m => Pdf.Render(m), "pdf");
+
+    // Shared helper: build the model, render to bytes, save to Documents\Vardiologio, then open with the default app.
+    private async Task SaveAndOpen(Func<ReportModel, byte[]> render, string ext)
+    {
+        busy = true; message = null; error = null;
+        try
+        {
+            var model = await ReportService.BuildMonthlyRosterAsync(year, month);
+            var bytes = render(model);
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Vardiologio");
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, $"ΣΩ_{year}_{month:00}.{ext}");
+            await File.WriteAllBytesAsync(path, bytes);
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            message = $"Δημιουργήθηκε: {path}";
+        }
+        catch (Exception ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+
+    // Build the PDF in memory and show it inline (no file written).
+    private async Task PreviewPdf()
+    {
+        busy = true; message = null; error = null; pdfDataUri = null;
+        try
+        {
+            var model = await ReportService.BuildMonthlyRosterAsync(year, month);
+            var bytes = Pdf.Render(model);
+            pdfDataUri = "data:application/pdf;base64," + Convert.ToBase64String(bytes);
+        }
+        catch (Exception ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+
+    private static readonly string[] Months =
+        { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",
+          "Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος" };
+}

@@ -1,0 +1,5 @@
+﻿@inherits LayoutComponentBase
+
+@* Minimal, menu-less layout used only by the Login page, so it stays outside
+   the MainLayout auth guard (avoids a redirect loop) and shows a clean centered box. *@
+<div class="login-shell">@Body</div>

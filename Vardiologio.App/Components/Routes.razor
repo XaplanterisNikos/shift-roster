@@ -1,0 +1,12 @@
+@* App router: maps the current URL to a page component and wraps it in a layout.
+   Scans this assembly for components decorated with @@page. *@
+<Router AppAssembly="@typeof(Routes).Assembly">
+    @* URL matched a page: render it inside MainLayout (unless the page sets its own @@layout). *@
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+    </Found>
+    @* URL matched nothing: show a simple message inside the main layout. *@
+    <NotFound>
+        <LayoutView Layout="@typeof(MainLayout)"><p>Page not found.</p></LayoutView>
+    </NotFound>
+</Router>
