@@ -4,11 +4,13 @@ using System.Windows;
 using Vardiologio.Application.Auth;
 using Vardiologio.Application.Employees;
 using Vardiologio.Application.Reports;
+using Vardiologio.Application.ShiftCodes;
 using Vardiologio.Application.ShiftEntry;
 using Vardiologio.Infrastructure.Auth;
 using Vardiologio.Infrastructure.Employees;
 using Vardiologio.Infrastructure.Persistence;
 using Vardiologio.Infrastructure.Reports;
+using Vardiologio.Infrastructure.ShiftCodes;
 using Vardiologio.Infrastructure.ShiftEntry;
 
 namespace Vardiologio.App;
@@ -52,6 +54,7 @@ public partial class App : System.Windows.Application
 			services.AddScoped<IReportService, ReportService>();
 			services.AddScoped<IIndividualReportService, IndividualReportService>();
 			services.AddScoped<IEmployeeService, EmployeeService>();
+			services.AddScoped<IShiftCodeService, ShiftCodeService>();
 
 			// Report renderers
 			services.AddSingleton<IExcelReportRenderer, ClosedXmlReportRenderer>();

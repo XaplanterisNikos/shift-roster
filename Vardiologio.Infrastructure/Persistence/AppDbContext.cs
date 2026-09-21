@@ -52,6 +52,11 @@ public class AppDbContext : DbContext
 
 			// Store the ShiftSegment enum as readable text in SQLite (e.g. "Day"/"Night") instead of a number.
 			e.Property(x => x.Segment).HasConversion<string>().HasMaxLength(20);
+
+			// Soft-delete, same convention as Employee: default active, global filter hides
+			// inactive rows everywhere except when IgnoreQueryFilters() is used explicitly.
+			e.Property(x => x.IsActive).HasDefaultValue(true);
+			e.HasQueryFilter(x => x.IsActive);
 		});
 
 		b.Entity<Employee>(e =>

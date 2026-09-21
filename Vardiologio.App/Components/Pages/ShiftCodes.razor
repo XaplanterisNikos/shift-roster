@@ -1,0 +1,258 @@
+﻿@page "/shift-codes"
+@using Vardiologio.Application.ShiftCodes
+@using Vardiologio.Domain.Enums
+@using Microsoft.AspNetCore.Components.Forms
+@inject IShiftCodeService ShiftCodeService
+
+@* Shift-code CRUD (master-detail), same shape as Employees.razor: list on the left,
+   create/edit form on the right. Code is set only on create (immutable after);
+   StartTime/EndTime/Segment changes get a confirm-on-second-click warning when
+   the code is already referenced by existing roster entries. *@
+<h1>Παράμετροι Βαρδιών</h1>
+
+<div class="filters">
+    <label class="chk">
+        <input type="checkbox" @bind="includeInactive" @bind:after="ReloadListAsync" />
+        Εμφάνιση ανενεργών
+    </label>
+
+    <button @onclick="NewShiftCode">＋ Νέος</button>
+</div>
+
+<div class="master-detail">
+    <!-- LEFT: shift-code list -->
+    <ul class="emp-list">
+        @foreach (var c in list)
+        {
+            <li class="@(c.Id == selectedId ? "sel" : "") @(c.IsActive ? "" : "inactive")"
+                @onclick="() => SelectAsync(c.Id)">
+                @c.Code — @c.Description
+                @if (!c.IsActive)
+                {
+                    <span class="tag">ανενεργός</span>
+                }
+            </li>
+        }
+        @if (list.Count == 0)
+        {
+            <li class="muted">— κανένας —</li>
+        }
+    </ul>
+
+    <!-- RIGHT: create/edit form -->
+    @if (form is not null)
+    {
+        <EditForm class="emp-form" Model="form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+
+            <h3>@(form.Id == 0 ? "Νέος κωδικός" : "Επεξεργασία")</h3>
+
+            @if (form.Id == 0)
+            {
+                <label>Κωδικός
+                    <InputText @bind-Value="form.Code" @bind-Value:after="ClearDuplicateMessage" />
+                    <ValidationMessage For="@(() => form.Code)" />
+                </label>
+            }
+            else
+            {
+                @* Code is immutable after creation: shown read-only, not part of the edit form's model. *@
+                <label>Κωδικός
+                    <input value="@form.Code" disabled />
+                </label>
+            }
+
+            <label>Περιγραφή
+                <InputText @bind-Value="form.Description" />
+                <ValidationMessage For="@(() => form.Description)" />
+            </label>
+
+            <label>Ώρα έναρξης
+                <input type="time" @bind="form.StartTime" @bind:after="ClearPendingConfirmation" />
+            </label>
+
+            <label>Ώρα λήξης
+                <input type="time" @bind="form.EndTime" @bind:after="ClearPendingConfirmation" />
+            </label>
+
+            <label>Segment
+                <select @bind="form.Segment" @bind:after="ClearPendingConfirmation">
+                    <option value="">—</option>
+                    <option value="@ShiftSegment.Day">Ημέρα</option>
+                    <option value="@ShiftSegment.Night">Νύχτα</option>
+                </select>
+            </label>
+
+            <label>Extra ώρες
+                <input type="number" step="0.5" @bind="form.ExtraHours" />
+            </label>
+
+            @if (duplicateCodeMessage is not null)
+            {
+                <div class="error">@duplicateCodeMessage</div>
+            }
+
+            @if (pendingConfirmation)
+            {
+                <div class="warning">
+                    Αυτός ο κωδικός χρησιμοποιείται ήδη σε καταχωρήσεις βάρδιας.
+                    Η αλλαγή ώρας/segment θα επηρεάσει την ερμηνεία τους αναδρομικά.
+                    Πατήστε ξανά "Αποθήκευση" για επιβεβαίωση.
+                </div>
+            }
+
+            <div class="actions">
+                <button type="submit">Αποθήκευση</button>
+                <button type="button" @onclick="CancelEdit">Ακύρωση</button>
+
+                @if (form.Id != 0)
+                {
+                    @if (form.IsActive)
+                    {
+                        <button type="button" class="danger" @onclick="() => SetActiveAsync(false)">Διαγραφή</button>
+                    }
+                    else
+                    {
+                        <button type="button" @onclick="() => SetActiveAsync(true)">Επαναφορά</button>
+                    }
+                }
+
+                @if (message is not null) { <span class="ok">@message</span> }
+            </div>
+        </EditForm>
+    }
+</div>
+
+@code {
+    private List<ShiftCodeListItem> list = new();
+
+    private bool includeInactive;
+    private int selectedId;
+    private ShiftCodeDetail? form;
+    private string? message;
+    private string? duplicateCodeMessage;
+
+    // Snapshot of the "critical" fields as loaded, to detect whether they changed
+    // before deciding if the ShiftDay-history warning applies.
+    private TimeOnly? originalStart;
+    private TimeOnly? originalEnd;
+    private ShiftSegment? originalSegment;
+    private bool pendingConfirmation;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadListAsync();
+    }
+
+    /// <summary>Reloads the list for the current inactive toggle.</summary>
+    private async Task ReloadListAsync()
+    {
+        list = (await ShiftCodeService.GetAllAsync(includeInactive)).ToList();
+    }
+
+    /// <summary>Loads one shift code into the edit form and snapshots its critical fields.</summary>
+    private async Task SelectAsync(int id)
+    {
+        message = null;
+        duplicateCodeMessage = null;
+        pendingConfirmation = false;
+        selectedId = id;
+        form = await ShiftCodeService.GetAsync(id);
+
+        if (form is not null)
+        {
+            originalStart = form.StartTime;
+            originalEnd = form.EndTime;
+            originalSegment = form.Segment;
+        }
+    }
+
+    /// <summary>Prepares a blank form for a new shift code.</summary>
+    private void NewShiftCode()
+    {
+        message = null;
+        duplicateCodeMessage = null;
+        pendingConfirmation = false;
+        selectedId = 0;
+        form = new ShiftCodeDetail { IsActive = true };
+        originalStart = null;
+        originalEnd = null;
+        originalSegment = null;
+    }
+
+    /// <summary>Any edit to a critical field re-arms the warning (must be seen again).</summary>
+    private void ClearPendingConfirmation() => pendingConfirmation = false;
+
+    private void ClearDuplicateMessage() => duplicateCodeMessage = null;
+
+    /// <summary>Creates or updates, handling the duplicate-code check and the history warning.</summary>
+    private async Task SaveAsync()
+    {
+        if (form is null) return;
+
+        if (form.Id == 0)
+        {
+            // No exceptions: check up front and show an inline message instead.
+            if (await ShiftCodeService.CodeExistsAsync(form.Code.Trim()))
+            {
+                duplicateCodeMessage = $"Ο κωδικός \"{form.Code}\" χρησιμοποιείται ήδη (ενεργός ή ανενεργός).";
+                return;
+            }
+
+            var newId = await ShiftCodeService.CreateAsync(form);
+            selectedId = newId;
+            form.Id = newId;
+        }
+        else
+        {
+            var criticalFieldsChanged =
+                form.StartTime != originalStart ||
+                form.EndTime != originalEnd ||
+                form.Segment != originalSegment;
+
+            if (criticalFieldsChanged && !pendingConfirmation)
+            {
+                if (await ShiftCodeService.HasShiftDayReferencesAsync(form.Id))
+                {
+                    pendingConfirmation = true;
+                    return; // Wait for a second "Αποθήκευση" click before actually saving.
+                }
+            }
+
+            await ShiftCodeService.UpdateAsync(form);
+            pendingConfirmation = false;
+
+            // Re-snapshot so a further edit in the same session re-arms the warning correctly.
+            originalStart = form.StartTime;
+            originalEnd = form.EndTime;
+            originalSegment = form.Segment;
+        }
+
+        message = "Αποθηκεύτηκε.";
+        await ReloadListAsync();
+    }
+
+    /// <summary>Soft-delete or restore the current shift code.</summary>
+    private async Task SetActiveAsync(bool isActive)
+    {
+        if (form is null || form.Id == 0) return;
+
+        await ShiftCodeService.SetActiveAsync(form.Id, isActive);
+        form.IsActive = isActive;
+        message = isActive ? "Επαναφέρθηκε." : "Διαγράφηκε.";
+        await ReloadListAsync();
+
+        // If it became inactive and we're not showing inactive, clear the form.
+        if (!isActive && !includeInactive) { form = null; selectedId = 0; }
+    }
+
+    /// <summary>Closes the form without saving, discarding any unsaved edits or new entry.</summary>
+    private void CancelEdit()
+    {
+        form = null;
+        selectedId = 0;
+        message = null;
+        duplicateCodeMessage = null;
+        pendingConfirmation = false;
+    }
+}

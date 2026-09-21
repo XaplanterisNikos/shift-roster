@@ -28,9 +28,10 @@
             }
         </select>
     </label>
+    <button @onclick="PreviewPdf" disabled="@busy">Προεπισκόπηση</button>
     <button @onclick="ExportExcel" disabled="@busy">Εξαγωγή Excel</button>
     <button @onclick="ExportPdf" disabled="@busy">Εξαγωγή PDF</button>
-    <button @onclick="PreviewPdf" disabled="@busy">Προεπισκόπηση PDF</button>
+    
 </div>
 
 @if (message is not null)

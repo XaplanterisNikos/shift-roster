@@ -14,7 +14,10 @@
                 @* Match.All so this is active only at "/", not on every route. *@
                 <NavLink class="nav-item" href="" Match="NavLinkMatch.All">Εισαγωγή προγραμμάτων</NavLink>
                 <NavLink class="nav-item" href="export">Εξαγωγή Αναφοράς Συνολική Μηνιαία</NavLink>
-                <NavLink class="nav-item" href="individual">Εξαγωγή Αναφοράς Ατομική Μηνιαία</NavLink>        
+                <NavLink class="nav-item" href="individual">Εξαγωγή Αναφοράς Ατομική Μηνιαία</NavLink>   
+                <div class="settings-box">
+            <NavLink class="nav-item" href="shift-codes">Παράμετροι Βαρδιών</NavLink>
+        </div>
             <div class="user-box">
                 <div class="user-name">@Session.Current!.DisplayName</div>
                 <button class="linklike" @onclick="Logout">Αποσύνδεση</button>

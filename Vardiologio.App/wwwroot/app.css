@@ -349,3 +349,21 @@ table.indiv.totals td {
 		grid-template-columns: 1fr;
 	}
 }
+.settings-box {
+	margin-top: 24px;
+	padding-top: 12px;
+	border-top: 1px solid #33557f;
+}
+.emp-form .warning {
+	background: #fff3cd;
+	color: #7a5c00;
+	border: 1px solid #ffe08a;
+	border-radius: 6px;
+	padding: 8px 10px;
+	font-size: .85rem;
+}
+
+.emp-form .error {
+	color: #c0392b;
+	font-size: .85rem;
+}

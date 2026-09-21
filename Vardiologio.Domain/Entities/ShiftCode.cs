@@ -32,6 +32,13 @@ public class ShiftCode
 	/// </summary>
 	public ShiftSegment? Segment { get; set; }
 
+	/// <summary>
+	/// Whether this code is currently offered in the app's settings screen.
+	/// Soft-delete flag: existing ShiftDay rows keep referencing this code
+	/// (FK delete behaviour is Restrict), so the code itself is never hard-deleted.
+	/// </summary>
+	public bool IsActive { get; set; } = true;
+
 	/// <summary>Indicates whether this code represents a working shift with a time range.</summary>
 	[NotMapped] 
 	public bool IsWorkShift => StartTime.HasValue;

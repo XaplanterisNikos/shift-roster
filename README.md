@@ -11,6 +11,13 @@ staff and producing the official attendance/shift reports.
 
 - **Employee management** — full CRUD with soft-delete (deactivate/restore),
   organized by specialty; contract type and work position per employee.
+- **Shift-code parameters** — shift/status codes and their optional extra hours
+  are editable from a dedicated settings screen (Παράμετροι Βαρδιών), with
+  soft-delete instead of removal: a code is never physically deleted or reused
+  once created, so historical roster entries always keep their original
+  meaning. Editing the time range or Day/Night segment of a code already used
+  in existing entries prompts for confirmation, since it retroactively changes
+  how those entries are interpreted.
 - **Daily shift entry** — pick an employee and month, assign a shift/status code
   to each day (split into two fortnights).
 - **Monthly roster report ** — one row per employee, one column per day,
@@ -55,7 +62,12 @@ demo user (see [Data & seeding](#data--seeding)).
 
 ## Data & seeding
 
-Reference data (specialties, shift codes, positions, etc.) is seeded from code.
+Reference data (specialties, positions, etc.) is seeded from code on first run.
+Shift/status codes are seeded once with their original default values, then
+become fully editable at runtime from the Παράμετροι Βαρδιών screen (add, edit,
+soft-delete) — the code-level seed values are only the installation defaults,
+not a source of truth that gets re-applied over user edits on upgrade.
+
 **Employee names are personal data and are kept out of this repository:**
 
 - `employees.json` — real employee data, **git-ignored** (only on the maintainer's machine).
@@ -70,7 +82,8 @@ be changed before any real use. Real passwords are never stored in plain text.
 ## Status
 
 Working: database + seeding, login, employee CRUD, daily shift entry, monthly
-Σ.Ω. report (Excel/PDF/preview), individual sheet preview (computable fields).
+Σ.Ω. report (Excel/PDF/preview), individual sheet preview (computable fields),
+shift-code & extra-hours parameter management (CRUD + soft-delete).
 
 Not finished yet:
 
