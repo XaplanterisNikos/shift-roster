@@ -492,3 +492,8 @@ $RECYCLE.BIN/
 
 # Startup crash log
 startup-error.log
+/installer-x64.iss
+/installer-x86.iss
+/installer-output/Vardiologio-Setup-1.0.0.exe
+/installer-output/Vardiologio-Setup-1.0.0-x86.exe
+/installer-output/Vardiologio-Setup-1.0.0-x64.exe
