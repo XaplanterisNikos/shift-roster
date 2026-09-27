@@ -1,0 +1,31 @@
+@page "/employee-parameters"
+@using Vardiologio.Application.Parameters
+
+@* Employee lookups (ειδικότητες / συμβάσεις / θέσεις) as tabs over one reusable editor.
+   @key="active" recreates LookupEditor on every tab switch, so each tab starts clean. *@
+<h1>Παράμετροι Εργαζομένων</h1>
+
+<div class="tabs">
+    @foreach (var tab in Tabs)
+    {
+        <button type="button"
+                class="tab @(tab.Kind == active ? "active" : "")"
+                @onclick="() => active = tab.Kind">
+            @tab.Title
+        </button>
+    }
+</div>
+
+<LookupEditor @key="active" Kind="active" />
+
+@code {
+    /// <summary>Tab order and titles; the Kind is what LookupEditor works on.</summary>
+    private static readonly (LookupKind Kind, string Title)[] Tabs =
+    {
+        (LookupKind.Speciality, "Ειδικότητες"),
+        (LookupKind.EmploymentType, "Συμβάσεις"),
+        (LookupKind.WorkPosition, "Θέσεις")
+    };
+
+    private LookupKind active = LookupKind.Speciality;
+}

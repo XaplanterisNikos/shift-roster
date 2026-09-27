@@ -15,9 +15,10 @@ public class EmployeeService : IEmployeeService
 	public async Task<IReadOnlyList<LookupOption>> GetSpecialitiesAsync()
 	{
 		await using var db = await _factory.CreateDbContextAsync();
+		// Inactive ones included (with the flag): the page decides what to show.
 		return await db.Specialities
 			.OrderBy(s => s.Name)
-			.Select(s => new LookupOption(s.Id, s.Name))
+			.Select(s => new LookupOption(s.Id, s.Name, s.IsActive))
 			.ToListAsync();
 	}
 
@@ -64,12 +65,14 @@ public class EmployeeService : IEmployeeService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
+		// All rows WITH their IsActive flag (the lookups have no global filter). The form shows
+		// active ones plus the employee's current value, so a retired value never blanks a dropdown.
 		var specs = await db.Specialities.OrderBy(s => s.Name)
-			.Select(s => new LookupOption(s.Id, s.Name)).ToListAsync();
+			.Select(s => new LookupOption(s.Id, s.Name, s.IsActive)).ToListAsync();
 		var types = await db.EmploymentTypes.OrderBy(t => t.Name)
-			.Select(t => new LookupOption(t.Id, t.Name)).ToListAsync();
+			.Select(t => new LookupOption(t.Id, t.Name, t.IsActive)).ToListAsync();
 		var positions = await db.WorkPositions.OrderBy(p => p.Name)
-			.Select(p => new LookupOption(p.Id, p.Name)).ToListAsync();
+			.Select(p => new LookupOption(p.Id, p.Name, p.IsActive)).ToListAsync();
 
 		return new EmployeeLookups(specs, types, positions);
 	}

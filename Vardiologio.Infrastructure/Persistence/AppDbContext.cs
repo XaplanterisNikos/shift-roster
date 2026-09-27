@@ -45,6 +45,10 @@ public class AppDbContext : DbContext
 		{
 			e.Property(x => x.Name).IsRequired().HasMaxLength(100);
 			e.HasIndex(x => x.Name).IsUnique();
+
+			// Soft-delete flag without a global query filter: Speciality is the required
+			// principal of Employee, so a filter would drop employees from reports.
+			e.Property(x => x.IsActive).HasDefaultValue(true);
 		});
 
 		b.Entity<ShiftCode>(e =>
@@ -130,12 +134,18 @@ public class AppDbContext : DbContext
 			e.Property(x => x.Code).IsRequired().HasMaxLength(10);
 			e.Property(x => x.Name).IsRequired().HasMaxLength(60);
 			e.HasIndex(x => x.Code).IsUnique();
+
+			// Soft-delete flag, no global query filter (same reason as Speciality).
+			e.Property(x => x.IsActive).HasDefaultValue(true);
 		});
 
 		b.Entity<WorkPosition>(e =>
 		{
 			e.Property(x => x.Name).IsRequired().HasMaxLength(60);
 			e.HasIndex(x => x.Name).IsUnique();
+
+			// Soft-delete flag, no global query filter (same reason as Speciality).
+			e.Property(x => x.IsActive).HasDefaultValue(true);
 		});
 
 	}

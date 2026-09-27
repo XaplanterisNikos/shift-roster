@@ -14,9 +14,10 @@
         Ειδικότητα
         <select @bind="specialityId" @bind:after="OnSpecialityChanged">
             <option value="0">— επίλεξε —</option>
-            @foreach (var s in specialities)
+            @* Inactive specialities only when "show inactive" is on (or already selected). *@
+            @foreach (var s in specialities.Where(o => o.IsActive || includeInactive || o.Id == specialityId))
             {
-                <option value="@s.Id">@s.Name</option>
+                <option value="@s.Id">@OptionLabel(s)</option>
             }
         </select>
     </label>
@@ -26,7 +27,8 @@
         Εμφάνιση ανενεργών
     </label>
 
-    <button @onclick="NewEmployee" disabled="@(specialityId == 0)">＋ Νέος</button>
+    @* No new employees under a retired speciality. *@
+    <button @onclick="NewEmployee" disabled="@(specialityId == 0 || !IsSpecialityActive(specialityId))">＋ Νέος</button>
 </div>
 
 @if (specialityId != 0)
@@ -72,8 +74,8 @@
     <label>Ειδικότητα
         <InputSelect @bind-Value="form.SpecialityId">
             <option value="0">— επίλεξε —</option>
-            @foreach (var s in lookups!.Specialities)
-            { <option value="@s.Id">@s.Name</option> }
+            @foreach (var s in Visible(lookups!.Specialities, form.SpecialityId))
+            { <option value="@s.Id">@OptionLabel(s)</option> }
         </InputSelect>
         <ValidationMessage For="@(() => form.SpecialityId)" />
     </label>
@@ -82,9 +84,9 @@
                     Σύμβαση
                     <InputSelect @bind-Value="form.EmploymentTypeId">
                         <option value="">—</option>
-                        @foreach (var t in lookups!.EmploymentTypes)
+                        @foreach (var t in Visible(lookups!.EmploymentTypes, form.EmploymentTypeId))
                         {
-                            <option value="@t.Id">@t.Name</option>
+                            <option value="@t.Id">@OptionLabel(t)</option>
                         }
                     </InputSelect>
                     <ValidationMessage For="@(() => form.EmploymentTypeId)" />
@@ -94,9 +96,9 @@
                     Θέση
                     <InputSelect @bind-Value="form.WorkPositionId">
                         <option value="">—</option>
-                        @foreach (var p in lookups!.WorkPositions)
+                        @foreach (var p in Visible(lookups!.WorkPositions, form.WorkPositionId))
                         {
-                            <option value="@p.Id">@p.Name</option>
+                            <option value="@p.Id">@OptionLabel(p)</option>
                         }
                     </InputSelect>
                     <ValidationMessage For="@(() => form.WorkPositionId)" />
@@ -142,6 +144,19 @@
         specialities = await EmployeeService.GetSpecialitiesAsync();
         lookups = await EmployeeService.GetLookupsAsync();
     }
+
+    /// <summary>
+    /// Options for a form dropdown: active values plus the one currently selected,
+    /// so an employee who already has a retired value still shows it (instead of a blank).
+    /// </summary>
+    private static IEnumerable<LookupOption> Visible(IEnumerable<LookupOption> options, int? currentId) =>
+        options.Where(o => o.IsActive || o.Id == currentId);
+
+    /// <summary>Marks retired values in dropdowns (all three lookups are feminine nouns).</summary>
+    private static string OptionLabel(LookupOption o) => o.IsActive ? o.Name : $"{o.Name} (ανενεργή)";
+
+    /// <summary>True if the given speciality exists and is active.</summary>
+    private bool IsSpecialityActive(int id) => specialities.Any(s => s.Id == id && s.IsActive);
 
     /// <summary>When the specialty changes, reset selection/form and reload the list.</summary>
     private async Task OnSpecialityChanged()

@@ -367,3 +367,26 @@ table.indiv.totals td {
 	color: #c0392b;
 	font-size: .85rem;
 }
+/* Tabs (Παράμετροι Εργαζομένων): simple button row sitting on a bottom border. */
+.tabs {
+	display: flex;
+	gap: 4px;
+	border-bottom: 1px solid #ccc;
+	margin-bottom: 12px;
+}
+
+.tabs .tab {
+	padding: 6px 14px;
+	border: 1px solid #ccc;
+	border-bottom: none;
+	border-radius: 6px 6px 0 0;
+	background: #f4f4f4;
+	cursor: pointer;
+}
+
+/* Active tab overlaps the row border so it looks "attached" to the content. */
+.tabs .tab.active {
+	background: #fff;
+	font-weight: 600;
+	margin-bottom: -1px;
+}

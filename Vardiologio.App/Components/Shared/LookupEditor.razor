@@ -1,0 +1,221 @@
+@using Vardiologio.Application.Parameters
+@using Microsoft.AspNetCore.Components.Forms
+@inject ILookupService LookupService
+
+@* Master-detail CRUD for ONE lookup table (chosen by Kind), same shape as ShiftCodes.razor.
+   Used once per tab in EmployeeParameters.razor; the page gives it @key="Kind" so switching
+   tabs creates a fresh instance (no stale list/form carried across kinds). *@
+<div class="filters">
+    <label class="chk">
+        <input type="checkbox" @bind="includeInactive" @bind:after="ReloadListAsync" />
+        Εμφάνιση ανενεργών
+    </label>
+
+    <button @onclick="NewItem">＋ Νέα</button>
+</div>
+
+<div class="master-detail">
+    <!-- LEFT: rows of this lookup -->
+    <ul class="emp-list">
+        @foreach (var x in list)
+        {
+            <li class="@(x.Id == selectedId ? "sel" : "") @(x.IsActive ? "" : "inactive")"
+                @onclick="() => Select(x)">
+                @Label(x)
+                @if (!x.IsActive)
+                {
+                    <span class="tag">ανενεργή</span>
+                }
+            </li>
+        }
+        @if (list.Count == 0)
+        {
+            <li class="muted">— καμία —</li>
+        }
+    </ul>
+
+    <!-- RIGHT: create/edit form -->
+    @if (form is not null)
+    {
+        <EditForm class="emp-form" Model="form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+
+            <h3>@(form.Id == 0 ? "Νέα εγγραφή" : "Επεξεργασία")</h3>
+
+            @if (HasCode)
+            {
+                <label>Κωδικός
+                    <InputText @bind-Value="form.Code" @bind-Value:after="ClearError" />
+                    <ValidationMessage For="@(() => form.Code)" />
+                </label>
+            }
+
+            <label>Όνομα
+                <InputText @bind-Value="form.Name" @bind-Value:after="ClearError" />
+                <ValidationMessage For="@(() => form.Name)" />
+            </label>
+
+            @if (errorMessage is not null)
+            {
+                <div class="error">@errorMessage</div>
+            }
+
+            <div class="actions">
+                <button type="submit">Αποθήκευση</button>
+                <button type="button" @onclick="CancelEdit">Ακύρωση</button>
+
+                @if (form.Id != 0)
+                {
+                    @if (form.IsActive)
+                    {
+                        <button type="button" class="danger" @onclick="() => SetActiveAsync(false)">Διαγραφή</button>
+                    }
+                    else
+                    {
+                        <button type="button" @onclick="() => SetActiveAsync(true)">Επαναφορά</button>
+                    }
+                }
+
+                @if (message is not null) { <span class="ok">@message</span> }
+            </div>
+        </EditForm>
+    }
+</div>
+
+@code {
+    /// <summary>Which lookup table this editor manages.</summary>
+    [Parameter, EditorRequired] public LookupKind Kind { get; set; }
+
+    private List<LookupItem> list = new();
+
+    private bool includeInactive;
+    private int selectedId;
+    private LookupItem? form;
+    private string? message;
+    private string? errorMessage;
+
+    /// <summary>Only employment types have a short Code (shown in the roster grid).</summary>
+    private bool HasCode => Kind == LookupKind.EmploymentType;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadListAsync();
+    }
+
+    /// <summary>Reloads the list for the current inactive toggle.</summary>
+    private async Task ReloadListAsync()
+    {
+        list = (await LookupService.GetAllAsync(Kind, includeInactive)).ToList();
+    }
+
+    /// <summary>List label: "Code — Name" for employment types, just Name otherwise.</summary>
+    private string Label(LookupItem x) => HasCode ? $"{x.Code} — {x.Name}" : x.Name;
+
+    /// <summary>
+    /// Loads a row into the form as a COPY, so unsaved edits never show up in the list
+    /// (the list row object is not touched until a successful save + reload).
+    /// </summary>
+    private void Select(LookupItem x)
+    {
+        message = null;
+        errorMessage = null;
+        selectedId = x.Id;
+        form = new LookupItem { Id = x.Id, Code = x.Code, Name = x.Name, IsActive = x.IsActive };
+    }
+
+    /// <summary>Prepares a blank form for a new row.</summary>
+    private void NewItem()
+    {
+        message = null;
+        errorMessage = null;
+        selectedId = 0;
+        form = new LookupItem { IsActive = true };
+    }
+
+    private void ClearError() => errorMessage = null;
+
+    /// <summary>Creates or updates after the kind-specific and uniqueness checks (no exceptions).</summary>
+    private async Task SaveAsync()
+    {
+        if (form is null) return;
+        message = null;
+        errorMessage = null;
+
+        var name = form.Name.Trim();
+
+        if (HasCode)
+        {
+            // Code is required only for employment types, so it is checked here, not by an attribute.
+            if (string.IsNullOrWhiteSpace(form.Code))
+            {
+                errorMessage = "Ο κωδικός είναι υποχρεωτικός.";
+                return;
+            }
+
+            var code = form.Code.Trim();
+            if (await LookupService.EmploymentTypeCodeExistsAsync(code, form.Id))
+            {
+                errorMessage = $"Ο κωδικός \"{code}\" χρησιμοποιείται ήδη (ενεργός ή ανενεργός).";
+                return;
+            }
+        }
+
+        if (await LookupService.NameExistsAsync(Kind, name, form.Id))
+        {
+            // Unique across inactive rows too: point the user to "restore" instead of a duplicate.
+            errorMessage = $"Το όνομα \"{name}\" υπάρχει ήδη. Αν είναι ανενεργό, κάνε επαναφορά.";
+            return;
+        }
+
+        if (form.Id == 0)
+        {
+            var newId = await LookupService.CreateAsync(Kind, form);
+            selectedId = newId;
+            form.Id = newId;
+        }
+        else
+        {
+            await LookupService.UpdateAsync(Kind, form);
+        }
+
+        message = "Αποθηκεύτηκε.";
+        await ReloadListAsync();
+    }
+
+    /// <summary>Soft-delete (blocked while active employees use it) or restore.</summary>
+    private async Task SetActiveAsync(bool isActive)
+    {
+        if (form is null || form.Id == 0) return;
+        message = null;
+        errorMessage = null;
+
+        if (!isActive)
+        {
+            // Check-then-act: a value in use by active employees cannot be deactivated.
+            var inUse = await LookupService.CountActiveEmployeesAsync(Kind, form.Id);
+            if (inUse > 0)
+            {
+                errorMessage = $"Χρησιμοποιείται από {inUse} ενεργούς εργαζόμενους. " +
+                               "Άλλαξέ τους πρώτα και μετά κάνε διαγραφή.";
+                return;
+            }
+        }
+
+        await LookupService.SetActiveAsync(Kind, form.Id, isActive);
+        form.IsActive = isActive;
+        message = isActive ? "Επαναφέρθηκε." : "Διαγράφηκε.";
+        await ReloadListAsync();
+
+        // If it became inactive and we're not showing inactive, clear the form.
+        if (!isActive && !includeInactive) { form = null; selectedId = 0; }
+    }
+
+    /// <summary>Closes the form without saving.</summary>
+    private void CancelEdit()
+    {
+        form = null;
+        selectedId = 0;
+        message = null;
+        errorMessage = null;
+    }
+}
