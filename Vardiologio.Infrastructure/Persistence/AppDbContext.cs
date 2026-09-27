@@ -7,6 +7,9 @@ namespace Vardiologio.Infrastructure.Persistence;
 /// EF Core database context: exposes the tables (DbSet) and configures the schema
 /// (keys, required fields, indexes, relationships, delete behaviours, the Employee
 /// soft-delete query filter, and the ShiftCode.Segment enum-to-text mapping).
+/// Rule of thumb: a global IsActive query filter goes only on entities that are NOT the
+/// required principal of another entity (e.g. Employee). Lookups referenced by a required
+/// FK (ShiftCode) keep IsActive without a filter, see the ShiftCode configuration below.
 /// </summary>
 public class AppDbContext : DbContext
 {
@@ -53,10 +56,12 @@ public class AppDbContext : DbContext
 			// Store the ShiftSegment enum as readable text in SQLite (e.g. "Day"/"Night") instead of a number.
 			e.Property(x => x.Segment).HasConversion<string>().HasMaxLength(20);
 
-			// Soft-delete, same convention as Employee: default active, global filter hides
-			// inactive rows everywhere except when IgnoreQueryFilters() is used explicitly.
+			// Soft-delete flag, default active. Deliberately NO global query filter here:
+			// ShiftCode is the required principal of ShiftDay, so a filter would turn every
+			// ShiftDay -> ShiftCode navigation into an INNER JOIN on active codes only and
+			// silently drop historical entries of a retired code from reports.
+			// Filter explicitly (Where(c => c.IsActive)) only where new picks are offered.
 			e.Property(x => x.IsActive).HasDefaultValue(true);
-			e.HasQueryFilter(x => x.IsActive);
 		});
 
 		b.Entity<Employee>(e =>

@@ -26,7 +26,9 @@ public class ShiftEntryService : IShiftEntryService
 	public async Task<IReadOnlyList<ShiftCodeOption>> GetShiftCodesAsync()
 	{
 		await using var db = await _factory.CreateDbContextAsync();
+		// Only active codes are offered for new picks (ShiftCode has no global filter).
 		return await db.ShiftCodes
+			.Where(c => c.IsActive)
 			.OrderBy(c => c.Id)
 			.Select(c => new ShiftCodeOption(c.Id, c.Code + " — " + c.Description))
 			.ToListAsync();

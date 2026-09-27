@@ -16,9 +16,9 @@ public class ShiftCodeService : IShiftCodeService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Base query. When inactive should be shown, bypass the global "IsActive" filter.
+		// No global filter on ShiftCode (see AppDbContext), so hide inactive rows explicitly.
 		var query = db.ShiftCodes.AsQueryable();
-		if (includeInactive) query = query.IgnoreQueryFilters();
+		if (!includeInactive) query = query.Where(c => c.IsActive);
 
 		// Left join to ShiftExtraHours since most status codes have no extra-hours row.
 		return await query
@@ -43,9 +43,8 @@ public class ShiftCodeService : IShiftCodeService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// IgnoreQueryFilters so an inactive code can still be opened (e.g. to view/restore).
+		// No IsActive condition: an inactive code can still be opened (e.g. to view/restore).
 		return await db.ShiftCodes
-			.IgnoreQueryFilters()
 			.Where(c => c.Id == id)
 			.Select(c => new ShiftCodeDetail
 			{
@@ -69,9 +68,8 @@ public class ShiftCodeService : IShiftCodeService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// IgnoreQueryFilters: Code must be unique across active AND inactive rows —
-		// a retired code is never reused (see design decision in chat).
-		return await db.ShiftCodes.IgnoreQueryFilters().AnyAsync(c => c.Code == code);
+		// Checks active AND inactive rows: a retired code is never reused.
+		return await db.ShiftCodes.AnyAsync(c => c.Code == code);
 	}
 
 	/// <inheritdoc/>
@@ -119,8 +117,8 @@ public class ShiftCodeService : IShiftCodeService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// IgnoreQueryFilters so we can also update an inactive code.
-		var entity = await db.ShiftCodes.IgnoreQueryFilters()
+		// No IsActive condition, so an inactive code can be updated too.
+		var entity = await db.ShiftCodes
 			.FirstOrDefaultAsync(c => c.Id == d.Id)
 			?? throw new InvalidOperationException($"ShiftCode {d.Id} not found.");
 
@@ -155,7 +153,7 @@ public class ShiftCodeService : IShiftCodeService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		var entity = await db.ShiftCodes.IgnoreQueryFilters()
+		var entity = await db.ShiftCodes
 			.FirstOrDefaultAsync(c => c.Id == id)
 			?? throw new InvalidOperationException($"ShiftCode {id} not found.");
 
