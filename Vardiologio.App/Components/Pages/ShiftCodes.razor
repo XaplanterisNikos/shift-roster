@@ -7,7 +7,10 @@
 @* Shift-code CRUD (master-detail), same shape as Employees.razor: list on the left,
    create/edit form on the right. Code is set only on create (immutable after);
    StartTime/EndTime/Segment changes get a confirm-on-second-click warning when
-   the code is already referenced by existing roster entries. *@
+   the code is already referenced by existing roster entries.
+   Times are typed as 24h "HH:mm" text (not <input type="time">, which follows the Windows
+   locale and may show AM/PM). Day/Night is suggested from the hours (ShiftTimeRules) and
+   can be overridden by hand. *@
 <h1>Παράμετροι Βαρδιών</h1>
 
 <div class="filters">
@@ -67,21 +70,45 @@
                 <ValidationMessage For="@(() => form.Description)" />
             </label>
 
-            <label>Ώρα έναρξης
-                <input type="time" @bind="form.StartTime" @bind:after="ClearPendingConfirmation" />
+            <label>Ώρα έναρξης (ΗΗ:ΛΛ)
+                <input type="text" inputmode="numeric" maxlength="5" placeholder="π.χ. 22:00"
+                       @bind="startText" @bind:after="OnTimesChanged" />
             </label>
 
-            <label>Ώρα λήξης
-                <input type="time" @bind="form.EndTime" @bind:after="ClearPendingConfirmation" />
+            <label>Ώρα λήξης (ΗΗ:ΛΛ)
+                <input type="text" inputmode="numeric" maxlength="5" placeholder="π.χ. 06:00"
+                       @bind="endText" @bind:after="OnTimesChanged" />
             </label>
+
+            @if (timeError is not null)
+            {
+                <div class="error">@timeError</div>
+            }
+            else if (form.StartTime is TimeOnly st && form.EndTime is TimeOnly en)
+            {
+                @* Live summary so the user sees how the hours were interpreted (e.g. next-day end). *@
+                <div class="hint">
+                    Διάρκεια @ShiftTimeRules.FormatHours(ShiftTimeRules.Duration(st, en)),
+                    νυχτερινές (22:00–06:00) @ShiftTimeRules.FormatHours(ShiftTimeRules.NightOverlap(st, en))
+                    → προτείνεται <b>@SegmentLabel(ShiftTimeRules.SuggestSegment(st, en))</b>
+                </div>
+            }
 
             <label>Segment
-                <select @bind="form.Segment" @bind:after="ClearPendingConfirmation">
+                <select @bind="form.Segment" @bind:after="OnSegmentChangedByUser">
                     <option value="">—</option>
                     <option value="@ShiftSegment.Day">Ημέρα</option>
                     <option value="@ShiftSegment.Night">Νύχτα</option>
                 </select>
             </label>
+
+            @if (segmentManual && form.StartTime is not null && form.EndTime is not null)
+            {
+                <div class="hint">
+                    Χειροκίνητη επιλογή.
+                    <button type="button" class="linklike" @onclick="ResetSegmentToAuto">↺ αυτόματα από τις ώρες</button>
+                </div>
+            }
 
             <label>Extra ώρες
                 <input type="number" step="0.5" @bind="form.ExtraHours" />
@@ -139,6 +166,14 @@
     private ShiftSegment? originalSegment;
     private bool pendingConfirmation;
 
+    // 24h text of the time inputs; parsed into form.StartTime/EndTime by OnTimesChanged.
+    private string startText = "";
+    private string endText = "";
+    private string? timeError;
+
+    // True once the user picks Day/Night by hand: from then on time edits don't overwrite it.
+    private bool segmentManual;
+
     protected override async Task OnInitializedAsync()
     {
         await ReloadListAsync();
@@ -164,6 +199,7 @@
             originalStart = form.StartTime;
             originalEnd = form.EndTime;
             originalSegment = form.Segment;
+            LoadTimeState();
         }
     }
 
@@ -178,7 +214,86 @@
         originalStart = null;
         originalEnd = null;
         originalSegment = null;
+        LoadTimeState();
     }
+
+    /// <summary>
+    /// Fills the 24h texts from the form and decides the initial mode: a stored segment that
+    /// differs from the suggestion was set by hand, so it stays manual and is never overwritten.
+    /// </summary>
+    private void LoadTimeState()
+    {
+        startText = ShiftTimeRules.Format(form?.StartTime);
+        endText = ShiftTimeRules.Format(form?.EndTime);
+        timeError = null;
+
+        segmentManual = form?.StartTime is TimeOnly s && form.EndTime is TimeOnly e
+            && form.Segment != ShiftTimeRules.SuggestSegment(s, e);
+    }
+
+    /// <summary>A time was edited: re-arm the "used in roster" warning, then parse/validate.</summary>
+    private void OnTimesChanged()
+    {
+        ClearPendingConfirmation();
+        ParseAndValidateTimes();
+    }
+
+    /// <summary>
+    /// Parses both 24h texts, validates the pair and (unless manual) re-suggests Day/Night.
+    /// Invalid text leaves the previous value in the form but blocks saving via timeError.
+    /// Does NOT touch pendingConfirmation, so SaveAsync can call it on the confirming click.
+    /// </summary>
+    private void ParseAndValidateTimes()
+    {
+        if (form is null) return;
+
+        var startOk = ShiftTimeRules.TryParse(startText, out var start);
+        var endOk = ShiftTimeRules.TryParse(endText, out var end);
+        if (!startOk || !endOk)
+        {
+            timeError = "Η ώρα πρέπει να είναι σε 24ωρη μορφή ΗΗ:ΛΛ (00:00 – 23:59).";
+            return;
+        }
+
+        form.StartTime = start;
+        form.EndTime = end;
+        startText = ShiftTimeRules.Format(start);   // normalise "7:30" -> "07:30"
+        endText = ShiftTimeRules.Format(end);
+
+        timeError = ShiftTimeRules.Validate(start, end);
+        if (timeError is null && !segmentManual) ApplySuggestedSegment();
+    }
+
+    /// <summary>User picked Day/Night by hand: stop auto-suggesting for this form.</summary>
+    private void OnSegmentChangedByUser()
+    {
+        ClearPendingConfirmation();
+        segmentManual = true;
+    }
+
+    /// <summary>Back to automatic: recompute Day/Night from the current hours.</summary>
+    private void ResetSegmentToAuto()
+    {
+        segmentManual = false;
+        ClearPendingConfirmation();
+        ApplySuggestedSegment();
+    }
+
+    /// <summary>Suggestion from the hours; no hours (status codes) means no segment.</summary>
+    private void ApplySuggestedSegment()
+    {
+        if (form is null) return;
+        form.Segment = form.StartTime is TimeOnly s && form.EndTime is TimeOnly e
+            ? ShiftTimeRules.SuggestSegment(s, e)
+            : null;
+    }
+
+    private static string SegmentLabel(ShiftSegment segment) => segment switch
+    {
+        ShiftSegment.Day => "Ημέρα",
+        ShiftSegment.Night => "Νύχτα",
+        _ => segment.ToString()
+    };
 
     /// <summary>Any edit to a critical field re-arms the warning (must be seen again).</summary>
     private void ClearPendingConfirmation() => pendingConfirmation = false;
@@ -189,6 +304,12 @@
     private async Task SaveAsync()
     {
         if (form is null) return;
+
+        // Times are validated here (not by attributes) because the rule spans two fields
+        // and allows next-day ends. Re-run defensively; this must not reset pendingConfirmation,
+        // otherwise the second "Αποθήκευση" click could never confirm.
+        ParseAndValidateTimes();
+        if (timeError is not null) return;
 
         if (form.Id == 0)
         {
@@ -254,5 +375,6 @@
         message = null;
         duplicateCodeMessage = null;
         pendingConfirmation = false;
+        timeError = null;
     }
 }

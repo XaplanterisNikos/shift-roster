@@ -390,3 +390,15 @@ table.indiv.totals td {
 	font-weight: 600;
 	margin-bottom: -1px;
 }
+
+/* Small informational line under a form field (e.g. shift duration / Day-Night suggestion). */
+.emp-form .hint {
+	color: #555;
+	font-size: .85rem;
+}
+
+/* .linklike is styled for the dark sidebar; inside the light form it needs a dark colour. */
+.emp-form .hint .linklike {
+	color: #1f4e79;
+	margin-left: 6px;
+}
