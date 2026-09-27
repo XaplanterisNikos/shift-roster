@@ -1,4 +1,5 @@
-﻿using Vardiologio.Domain.Enums;
+﻿using System.ComponentModel.DataAnnotations;
+using Vardiologio.Domain.Enums;
 
 namespace Vardiologio.Application.ShiftCodes;
 
@@ -19,8 +20,16 @@ public class ShiftCodeDetail
 	public int Id { get; set; }
 
 	/// <summary>Set only on create; ignored by UpdateAsync (the field is not editable).</summary>
+	// Required: an empty/whitespace code would otherwise reach .Trim() as null and crash SaveAsync.
+	[Required(ErrorMessage = "Ο κωδικός είναι υποχρεωτικός.")]
+	// Mirrors HasMaxLength(10) in AppDbContext — SQLite does not enforce it, so the form must.
+	[StringLength(10, ErrorMessage = "Ο κωδικός μπορεί να έχει έως 10 χαρακτήρες.")]
 	public string Code { get; set; } = null!;
 
+	// Required: Create/UpdateAsync call Description.Trim(), and the DB column is NOT NULL.
+	[Required(ErrorMessage = "Η περιγραφή είναι υποχρεωτική.")]
+	// Mirrors HasMaxLength(100) in AppDbContext — SQLite does not enforce it, so the form must.
+	[StringLength(100, ErrorMessage = "Η περιγραφή μπορεί να έχει έως 100 χαρακτήρες.")]
 	public string Description { get; set; } = null!;
 	public TimeOnly? StartTime { get; set; }
 	public TimeOnly? EndTime { get; set; }
