@@ -36,8 +36,11 @@ public class EmployeeDetail
 	public bool IsActive { get; set; } = true;
 }
 
-/// <summary>Generic (Id, Name) option for dropdowns.</summary>
-public record LookupOption(int Id, string Name);
+/// <summary>
+/// Generic (Id, Name) option for dropdowns. IsActive lets the form hide retired values
+/// from new picks while still showing the value an existing employee already has.
+/// </summary>
+public record LookupOption(int Id, string Name, bool IsActive = true);
 
 /// <summary>All lookup lists needed to populate the employee form dropdowns.</summary>
 public record EmployeeLookups(
