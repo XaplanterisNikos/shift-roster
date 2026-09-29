@@ -26,7 +26,11 @@
                 <button class="linklike" @onclick="Logout">Αποσύνδεση</button>
             </div>
         </nav>
-        <main class="content">@Body</main>
+        <main class="content">
+            @* Context help for the current page (top-right "?"); texts in Shared/HelpContent.razor. *@
+            <HelpButton />
+            @Body
+        </main>
     </div>
 }
 

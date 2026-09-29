@@ -1,0 +1,57 @@
+@inject NavigationManager Nav
+@implements IDisposable
+
+@* Round "?" button, fixed at the top-right of every page of the main layout.
+   It resolves the help topic from the current route, so pages need no changes;
+   the texts themselves live in HelpContent.razor. The panel closes with "×",
+   a click outside it, or when the user navigates to another page. *@
+<button type="button" class="help-btn" title="Βοήθεια" aria-label="Βοήθεια" @onclick="Open">?</button>
+
+@if (open)
+{
+    <div class="help-overlay" @onclick="Close"></div>
+    <aside class="help-panel" role="dialog" aria-label="Βοήθεια">
+        <div class="help-head">
+            <h2>@HelpContent.TitleFor(topic)</h2>
+            <button type="button" class="help-close" title="Κλείσιμο" aria-label="Κλείσιμο" @onclick="Close">×</button>
+        </div>
+        <div class="help-body">
+            <HelpContent Topic="@topic" />
+        </div>
+    </aside>
+}
+
+@code {
+    private bool open;
+    private string topic = "";
+
+    protected override void OnInitialized()
+    {
+        topic = CurrentTopic();
+        // No parameters change on navigation, so listen for it to switch topic and close the panel.
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private void Open() => open = true;
+
+    private void Close() => open = false;
+
+    /// <summary>Route relative to the base, without query/fragment, e.g. "" or "shift-codes".</summary>
+    private string CurrentTopic()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri);
+        var cut = path.IndexOfAny(new[] { '?', '#' });
+        return (cut >= 0 ? path[..cut] : path).Trim('/').ToLowerInvariant();
+    }
+
+    // Navigation may be raised off the render cycle -> marshal back with InvokeAsync.
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        topic = CurrentTopic();
+        open = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    // Unsubscribe to avoid a memory leak (pairs with the subscribe in OnInitialized).
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}
