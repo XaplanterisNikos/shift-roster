@@ -1,0 +1,36 @@
+@page "/hours-parameters"
+
+@* Hours settings as tabs: holidays (per year) and monthly limits.
+   @key="active" recreates the tab's editor on every switch, so each tab starts clean. *@
+<h1>Παράμετροι Ωρών</h1>
+
+<div class="tabs">
+    @foreach (var tab in Tabs)
+    {
+        <button type="button"
+                class="tab @(tab.Key == active ? "active" : "")"
+                @onclick="() => active = tab.Key">
+            @tab.Title
+        </button>
+    }
+</div>
+
+@if (active == "holidays")
+{
+    <HolidaysEditor @key="active" />
+}
+else
+{
+    <HourLimitsEditor @key="active" />
+}
+
+@code {
+    /// <summary>Tab order and titles.</summary>
+    private static readonly (string Key, string Title)[] Tabs =
+    {
+        ("holidays", "Αργίες"),
+        ("limits", "Όρια ωρών")
+    };
+
+    private string active = "holidays";
+}

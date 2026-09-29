@@ -35,8 +35,14 @@ public class AppDbContext : DbContext
 	/// <summary>Work-position lookup (ΘΕΣΗ ΕΡΓΑΣΙΑΣ), e.g. Οδηγός / Πύλη / Γραφεία.</summary>
 	public DbSet<WorkPosition> WorkPositions => Set<WorkPosition>();
 
-	/// <summary>Extra ("supplementary") hours per shift code — 1:1 with ShiftCode.</summary>
-	public DbSet<ShiftExtraHours> ShiftExtraHours => Set<ShiftExtraHours>();
+	/// <summary>Hours per pay category that each shift code yields on each kind of day.</summary>
+	public DbSet<ShiftCodeHours> ShiftCodeHours => Set<ShiftCodeHours>();
+
+	/// <summary>Public holidays (αργίες), maintained per year by the user.</summary>
+	public DbSet<Holiday> Holidays => Set<Holiday>();
+
+	/// <summary>Monthly paid-hours limits (single-row settings table).</summary>
+	public DbSet<HourLimits> HourLimits => Set<HourLimits>();
 
 	/// <summary>Configures every entity's rules via the Fluent API (used by migrations and at runtime).</summary>
 	protected override void OnModelCreating(ModelBuilder b)
@@ -111,21 +117,43 @@ public class AppDbContext : DbContext
 			 .OnDelete(DeleteBehavior.Restrict);
 		});
 
-		b.Entity<ShiftExtraHours>(e =>
+		// --- Hours rules (pay categories, holidays, monthly limits) ---
+		b.Entity<ShiftCodeHours>(e =>
 		{
-			// Shared primary key => the PK is also the FK to ShiftCode (true 1:1).
-			e.HasKey(x => x.ShiftCodeId);
+			// One row per code + kind of day + category, so the composite key is the natural key.
+			e.HasKey(x => new { x.ShiftCodeId, x.DayType, x.Category });
+
+			// Enums as readable text in SQLite (e.g. "Weekday", "ToComplete"), like Segment.
+			e.Property(x => x.DayType).HasConversion<string>().HasMaxLength(20);
+			e.Property(x => x.Category).HasConversion<string>().HasMaxLength(20);
 
 			// decimal(5,2) is plenty for an hours value (up to 999.99).
 			e.Property(x => x.Hours).HasColumnType("decimal(5,2)");
 
-			// Configure the 1:1 from the dependent side only, so no navigation
-			// property is added on ShiftCode. Cascade: removing a shift code
-			// removes its extra-hours row too.
+			// Configured from the dependent side only (no collection added on ShiftCode).
+			// Cascade: the rows belong to the code (codes are soft-deleted in practice anyway).
 			e.HasOne(x => x.ShiftCode)
-			 .WithOne()
-			 .HasForeignKey<ShiftExtraHours>(x => x.ShiftCodeId)
+			 .WithMany()
+			 .HasForeignKey(x => x.ShiftCodeId)
 			 .OnDelete(DeleteBehavior.Cascade);
+		});
+
+		b.Entity<Holiday>(e =>
+		{
+			// One holiday per date (same-date holidays are merged into one name).
+			e.HasIndex(x => x.Date).IsUnique();
+			e.Property(x => x.Name).IsRequired().HasMaxLength(100);
+		});
+
+		b.Entity<HourLimits>(e =>
+		{
+			// All limits are hour values, same precision as the other hour columns.
+			e.Property(x => x.ToCompleteMonthly).HasColumnType("decimal(5,2)");
+			e.Property(x => x.SimpleMonthly).HasColumnType("decimal(5,2)");
+			e.Property(x => x.NightMonthly).HasColumnType("decimal(5,2)");
+			e.Property(x => x.SundayMonthly).HasColumnType("decimal(5,2)");
+			e.Property(x => x.HolidayPerHoliday).HasColumnType("decimal(5,2)");
+			e.Property(x => x.ToCompletePlusHolidayMonthly).HasColumnType("decimal(5,2)");
 		});
 
 		// --- New lookups ---

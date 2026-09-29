@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Vardiologio.Application.Hours;
 using Vardiologio.Application.Reports;
+using Vardiologio.Domain.Enums;
 using Vardiologio.Infrastructure.Persistence;
 
 namespace Vardiologio.Infrastructure.Reports;
@@ -40,9 +42,17 @@ public class IndividualReportService : IIndividualReportService
 			.ToListAsync();
 		var byDate = entries.ToDictionary(x => x.Date);
 
-		// Extra hours lookup (shift code id -> hours).
-		var extraByCodeId = await db.ShiftExtraHours
-			.ToDictionaryAsync(x => x.ShiftCodeId, x => x.Hours);
+		// "Εργασία προς Συμπλήρωση" = the ToComplete hours of the split, per (code, kind of day).
+		var toCompleteByCodeAndDay = await db.ShiftCodeHours
+			.Where(h => h.Category == HourCategory.ToComplete)
+			.ToDictionaryAsync(h => (h.ShiftCodeId, h.DayType), h => h.Hours);
+
+		// Holidays decide the kind of day (a holiday wins over Saturday/Sunday).
+		var holidays = (await db.Holidays
+			.Where(h => h.Date >= first && h.Date <= last)
+			.Select(h => h.Date)
+			.ToListAsync())
+			.ToHashSet();
 
 		var model = new IndividualReportModel
 		{
@@ -59,8 +69,9 @@ public class IndividualReportService : IIndividualReportService
 
 			if (byDate.TryGetValue(date, out var e))
 			{
-				// Extra (supplementary) hours for this shift code, if any.
-				decimal? extra = extraByCodeId.TryGetValue(e.ShiftCodeId, out var h) ? h : null;
+				// ToComplete hours of this code on this kind of day, if any.
+				var dayType = DayTypeRules.Resolve(date, holidays);
+				decimal? extra = toCompleteByCodeAndDay.TryGetValue((e.ShiftCodeId, dayType), out var h) ? h : null;
 
 				if (e.StartTime.HasValue)
 				{
@@ -69,10 +80,11 @@ public class IndividualReportService : IIndividualReportService
 					row.ShiftEnd = e.EndTime?.ToString("HH:mm");
 					row.Presence = "√";
 
-					// Route extra hours to weekday vs Sunday bucket by the day of week.
+					// Route to the form's columns: ΕΒΔΟΜΑΔΙΑΙΑ (Mon–Sat) vs ΚΥΡΙΑΚΩΝ ΕΞΑΙΡΕΣΙΜΩΝ
+					// (Sundays and holidays, e.g. code 2 on Good Friday).
 					if (extra.HasValue)
 					{
-						if (date.DayOfWeek == DayOfWeek.Sunday) row.SupplementSunday = extra;
+						if (dayType is DayType.Sunday or DayType.Holiday) row.SupplementSunday = extra;
 						else row.SupplementWeekday = extra;
 					}
 				}

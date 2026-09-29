@@ -1,4 +1,6 @@
 ﻿@page "/shift-codes"
+@using System.Globalization
+@using Vardiologio.Application.Hours
 @using Vardiologio.Application.ShiftCodes
 @using Vardiologio.Domain.Enums
 @using Microsoft.AspNetCore.Components.Forms
@@ -10,7 +12,10 @@
    the code is already referenced by existing roster entries.
    Times are typed as 24h "HH:mm" text (not <input type="time">, which follows the Windows
    locale and may show AM/PM). Day/Night is suggested from the hours (ShiftTimeRules) and
-   can be overridden by hand. *@
+   can be overridden by hand.
+   Working codes also get the kinds of day they are allowed on and their hour split
+   (day × pay category grid); both count as "critical" for the history warning, since they
+   change how existing entries are counted in the reports. *@
 <h1>Παράμετροι Βαρδιών</h1>
 
 <div class="filters">
@@ -45,7 +50,7 @@
     <!-- RIGHT: create/edit form -->
     @if (form is not null)
     {
-        <EditForm class="emp-form" Model="form" OnValidSubmit="SaveAsync">
+        <EditForm class="emp-form wide" Model="form" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
 
             <h3>@(form.Id == 0 ? "Νέος κωδικός" : "Επεξεργασία")</h3>
@@ -110,9 +115,54 @@
                 </div>
             }
 
-            <label>Extra ώρες
-                <input type="number" step="0.5" @bind="form.ExtraHours" />
-            </label>
+            @if (form.StartTime is TimeOnly gs && form.EndTime is TimeOnly ge && timeError is null)
+            {
+                @* Allowed days (row checkboxes) + hour split (cells). Empty cell = 0 hours. *@
+                <div class="split-title">Επιτρεπτές μέρες και κατανομή ωρών</div>
+                <table class="hours-grid">
+                    <thead>
+                        <tr>
+                            <th>Μέρα</th>
+                            @foreach (var cat in Categories)
+                            {
+                                <th>@HoursLabels.Category(cat)</th>
+                            }
+                            <th>Σύνολο</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var day in HoursLabels.DayTypes)
+                        {
+                            var allowed = (form.AllowedDays & day) != 0;
+                            <tr class="@(allowed ? "" : "off")">
+                                <td class="day">
+                                    <input type="checkbox" checked="@allowed"
+                                           @onchange="e => ToggleDay(day, e.Value is true)" />
+                                    @HoursLabels.Day(day)
+                                </td>
+                                @foreach (var cat in Categories)
+                                {
+                                    <td>
+                                        <input type="number" step="0.5" min="0" disabled="@(!allowed)"
+                                               value="@CellText(day, cat)"
+                                               @onchange="e => SetCell(day, cat, e.Value as string)" />
+                                    </td>
+                                }
+                                <td class="total">@RowTotal(day).ToString("0.##", CultureInfo.InvariantCulture)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <div class="hint">
+                    Κενό κελί = 0 ώρες. Διάρκεια βάρδιας @ShiftTimeRules.FormatHours(ShiftTimeRules.Duration(gs, ge)).
+                    Σε μη επιτρεπτή μέρα η καταχώρηση δίνει μόνο προειδοποίηση.
+                </div>
+            }
+
+            @if (splitError is not null)
+            {
+                <div class="error">@splitError</div>
+            }
 
             @if (duplicateCodeMessage is not null)
             {
@@ -123,7 +173,8 @@
             {
                 <div class="warning">
                     Αυτός ο κωδικός χρησιμοποιείται ήδη σε καταχωρήσεις βάρδιας.
-                    Η αλλαγή ώρας/segment θα επηρεάσει την ερμηνεία τους αναδρομικά.
+                    Η αλλαγή ώρας, segment, επιτρεπτών ημερών ή κατανομής ωρών θα επηρεάσει
+                    την ερμηνεία τους και τις αναφορές αναδρομικά.
                     Πατήστε ξανά "Αποθήκευση" για επιβεβαίωση.
                 </div>
             }
@@ -164,7 +215,15 @@
     private TimeOnly? originalStart;
     private TimeOnly? originalEnd;
     private ShiftSegment? originalSegment;
+    private string originalSplit = "";
     private bool pendingConfirmation;
+
+    // Hour split being edited: (kind of day, category) -> hours. Missing key = 0 / empty cell.
+    private Dictionary<(DayType Day, HourCategory Category), decimal> cells = new();
+    private string? splitError;
+
+    /// <summary>Grid columns, in HourCategory order.</summary>
+    private static readonly HourCategory[] Categories = Enum.GetValues<HourCategory>();
 
     // 24h text of the time inputs; parsed into form.StartTime/EndTime by OnTimesChanged.
     private string startText = "";
@@ -200,6 +259,7 @@
             originalEnd = form.EndTime;
             originalSegment = form.Segment;
             LoadTimeState();
+            LoadSplitState();
         }
     }
 
@@ -215,6 +275,7 @@
         originalEnd = null;
         originalSegment = null;
         LoadTimeState();
+        LoadSplitState();
     }
 
     /// <summary>
@@ -295,6 +356,90 @@
         _ => segment.ToString()
     };
 
+    /// <summary>Fills the grid from the loaded form and snapshots it for change detection.</summary>
+    private void LoadSplitState()
+    {
+        splitError = null;
+        cells = form?.Hours.ToDictionary(h => (h.DayType, h.Category), h => h.Hours) ?? new();
+        originalSplit = SplitSignature();
+    }
+
+    /// <summary>
+    /// Stable text of allowed days + cells, used to detect a split change
+    /// (for the "used in roster" warning) without comparing collections by hand.
+    /// </summary>
+    private string SplitSignature() =>
+        $"{form?.AllowedDays}|" + string.Join(";", cells
+            .OrderBy(c => c.Key.Day).ThenBy(c => c.Key.Category)
+            .Select(c => $"{c.Key.Day}:{c.Key.Category}={c.Value.ToString(CultureInfo.InvariantCulture)}"));
+
+    /// <summary>Cell text for the number input ("" for an empty cell; invariant "6.5").</summary>
+    private string CellText(DayType day, HourCategory cat) =>
+        cells.TryGetValue((day, cat), out var v) ? v.ToString("0.##", CultureInfo.InvariantCulture) : "";
+
+    /// <summary>Sum of one day's cells (shown next to the row, compared to the shift length).</summary>
+    private decimal RowTotal(DayType day) => cells.Where(c => c.Key.Day == day).Sum(c => c.Value);
+
+    /// <summary>
+    /// Checks/unchecks a kind of day. Unchecking also clears that row's cells, so no hours
+    /// are left on a day the code is not allowed on.
+    /// </summary>
+    private void ToggleDay(DayType day, bool allowed)
+    {
+        if (form is null) return;
+        ClearPendingConfirmation();
+        splitError = null;
+
+        form.AllowedDays = allowed ? form.AllowedDays | day : form.AllowedDays & ~day;
+        if (!allowed)
+            foreach (var key in cells.Keys.Where(k => k.Day == day).ToList())
+                cells.Remove(key);
+    }
+
+    /// <summary>
+    /// Stores one cell. Number inputs always send an invariant "6.5"; empty or 0 clears the cell.
+    /// Unparsable text only shows an error (the previous value is kept).
+    /// </summary>
+    private void SetCell(DayType day, HourCategory cat, string? text)
+    {
+        ClearPendingConfirmation();
+        splitError = null;
+
+        if (string.IsNullOrWhiteSpace(text)) { cells.Remove((day, cat)); return; }
+
+        if (!decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var hours))
+        {
+            splitError = "Μη έγκυρος αριθμός ωρών.";
+            return;
+        }
+
+        if (hours == 0) cells.Remove((day, cat));
+        else cells[(day, cat)] = hours;   // negatives are kept so validation can report them
+    }
+
+    /// <summary>
+    /// Copies the grid into the form (a code without times keeps no allowed days and no split)
+    /// and validates it. Returns false (with splitError set) when the split is invalid.
+    /// </summary>
+    private bool ApplyAndValidateSplit()
+    {
+        if (form is null) return false;
+
+        if (form.StartTime is null || form.EndTime is null)
+        {
+            // Status code: allowed days and split do not apply.
+            form.AllowedDays = DayType.None;
+            cells.Clear();
+        }
+
+        form.Hours = cells
+            .Select(c => new ShiftCodeHoursItem { DayType = c.Key.Day, Category = c.Key.Category, Hours = c.Value })
+            .ToList();
+
+        splitError = ShiftCodeHoursRules.Validate(form.StartTime, form.EndTime, form.AllowedDays, form.Hours);
+        return splitError is null;
+    }
+
     /// <summary>Any edit to a critical field re-arms the warning (must be seen again).</summary>
     private void ClearPendingConfirmation() => pendingConfirmation = false;
 
@@ -310,6 +455,9 @@
         // otherwise the second "Αποθήκευση" click could never confirm.
         ParseAndValidateTimes();
         if (timeError is not null) return;
+
+        // Allowed days + hour split (also clears them for a status code).
+        if (!ApplyAndValidateSplit()) return;
 
         if (form.Id == 0)
         {
@@ -329,7 +477,8 @@
             var criticalFieldsChanged =
                 form.StartTime != originalStart ||
                 form.EndTime != originalEnd ||
-                form.Segment != originalSegment;
+                form.Segment != originalSegment ||
+                SplitSignature() != originalSplit;
 
             if (criticalFieldsChanged && !pendingConfirmation)
             {
@@ -348,6 +497,9 @@
             originalEnd = form.EndTime;
             originalSegment = form.Segment;
         }
+
+        // Re-snapshot the split too (after create as well, so the next edit compares correctly).
+        originalSplit = SplitSignature();
 
         message = "Αποθηκεύτηκε.";
         await ReloadListAsync();
@@ -376,5 +528,6 @@
         duplicateCodeMessage = null;
         pendingConfirmation = false;
         timeError = null;
+        splitError = null;
     }
 }

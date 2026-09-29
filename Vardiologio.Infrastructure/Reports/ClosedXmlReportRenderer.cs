@@ -3,8 +3,11 @@ using Vardiologio.Application.Reports;
 
 namespace Vardiologio.Infrastructure.Reports;
 
-/// <summary>Renders the Σ.Ω. monthly roster to an .xlsx file using ClosedXML.</summary>
-public class ClosedXmlReportRenderer : IExcelReportRenderer
+/// <summary>
+/// Renders the Σ.Ω. monthly roster to an .xlsx file using ClosedXML.
+/// Partial: the hours report lives in ClosedXmlReportRenderer.Hours.cs and reuses the helpers here.
+/// </summary>
+public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 {
 	private static readonly string[] MonthsGen =
 		{ "ΙΑΝΟΥΑΡΙΟΥ","ΦΕΒΡΟΥΑΡΙΟΥ","ΜΑΡΤΙΟΥ","ΑΠΡΙΛΙΟΥ","ΜΑΪΟΥ","ΙΟΥΝΙΟΥ",

@@ -23,14 +23,19 @@ public class ShiftEntryService : IShiftEntryService
 	}
 
 	/// <inheritdoc/>
-	public async Task<IReadOnlyList<ShiftCodeOption>> GetShiftCodesAsync()
+	public async Task<IReadOnlyList<ShiftCodeOption>> GetShiftCodesAsync(IReadOnlyCollection<int>? alsoInclude = null)
 	{
 		await using var db = await _factory.CreateDbContextAsync();
-		// Only active codes are offered for new picks (ShiftCode has no global filter).
+
+		// Active codes are offered for new picks (ShiftCode has no global filter); inactive
+		// ones only when already used in the month ("active + current", as in the Employees form).
+		var include = alsoInclude ?? Array.Empty<int>();
 		return await db.ShiftCodes
-			.Where(c => c.IsActive)
+			.Where(c => c.IsActive || include.Contains(c.Id))
 			.OrderBy(c => c.Id)
-			.Select(c => new ShiftCodeOption(c.Id, c.Code + " — " + c.Description))
+			.Select(c => new ShiftCodeOption(
+				c.Id,
+				c.Code + " — " + c.Description + (c.IsActive ? "" : " (ανενεργός)")))
 			.ToListAsync();
 	}
 
@@ -96,5 +101,29 @@ public class ShiftEntryService : IShiftEntryService
 			}
 		}
 		await db.SaveChangesAsync();
+	}
+
+	/// <inheritdoc/>
+	public async Task<MonthCheck> CheckMonthAsync(MonthEntry entry)
+	{
+		var first = new DateOnly(entry.Year, entry.Month, 1);
+		var last = new DateOnly(entry.Year, entry.Month, DateTime.DaysInMonth(entry.Year, entry.Month));
+
+		await using var db = await _factory.CreateDbContextAsync();
+
+		// Read-only rule data (small tables); AsNoTracking since nothing is saved here.
+		var codes = await db.ShiftCodes.AsNoTracking().ToDictionaryAsync(c => c.Id);
+		var hours = await db.ShiftCodeHours.AsNoTracking().ToListAsync();
+		var holidays = (await db.Holidays
+			.Where(h => h.Date >= first && h.Date <= last)
+			.Select(h => h.Date)
+			.ToListAsync())
+			.ToHashSet();
+
+		// The seeder always creates the single limits row; a missing row is a setup error.
+		var limits = await db.HourLimits.AsNoTracking().OrderBy(l => l.Id).FirstOrDefaultAsync()
+			?? throw new InvalidOperationException("HourLimits row not found.");
+
+		return MonthEntryRules.Check(entry, codes, hours, holidays, limits);
 	}
 }

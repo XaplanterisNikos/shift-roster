@@ -20,7 +20,9 @@ public static class DatabaseSeeder
 		SeedEmploymentTypes(db);   
 		SeedWorkPositions(db);
 		SeedShiftCodes(db);
-		SeedExtraHours(db);
+		SeedShiftCodeRules(db); // after codes: fixes/adds codes once, then their hour split
+		SeedHolidays(db);
+		SeedHourLimits(db);
 		SeedEmployees(db);      // last: resolves each employee's SpecialityId by name
 	}
 
@@ -50,7 +52,7 @@ public static class DatabaseSeeder
 		db.SaveChanges();
 	}
 
-	/// <summary>Seeds shift/status codes (times + Day/Night segment). Idempotent.</summary>
+	/// <summary>Seeds shift/status codes (times, Day/Night segment, allowed days). Idempotent.</summary>
 	private static void SeedShiftCodes(AppDbContext db)
 	{
 		if (db.ShiftCodes.Any()) return;
@@ -60,8 +62,87 @@ public static class DatabaseSeeder
 			Description = s.Description,
 			StartTime = s.Start,
 			EndTime = s.End,
-			Segment = s.Segment  
+			Segment = s.Segment,
+			AllowedDays = s.AllowedDays
 		}));
+		db.SaveChanges();
+	}
+
+	/// <summary>
+	/// One-time bootstrap of the hours rules, keyed on the ShiftCodeHours table being empty
+	/// (i.e. it runs once, right after the migration that created it, and never again, so
+	/// later edits made in the app are not overwritten).
+	/// On a database created before these rules it first brings the working codes in line
+	/// with the confirmed table: corrects times/description/segment/allowed days (e.g. code 13
+	/// 22:00–04:30 -> 22:00–06:00) and adds the missing codes (14, 15). On a fresh database the
+	/// codes were just seeded from the same table, so that part changes nothing.
+	/// Then seeds the hour split, resolving each ShiftCode by its Code.
+	/// </summary>
+	private static void SeedShiftCodeRules(AppDbContext db)
+	{
+		if (db.ShiftCodeHours.Any()) return;   // already bootstrapped -> skip
+
+		// Sync the working codes (status codes are left untouched).
+		var codesByCode = db.ShiftCodes.ToDictionary(c => c.Code);
+		foreach (var seed in SeedData.ShiftCodes.Where(x => x.Start.HasValue))
+		{
+			if (!codesByCode.TryGetValue(seed.Code, out var code))
+			{
+				// Missing in an older database (14, 15): add it.
+				code = new ShiftCode { Code = seed.Code };
+				db.ShiftCodes.Add(code);
+			}
+
+			code.Description = seed.Description;
+			code.StartTime = seed.Start;
+			code.EndTime = seed.End;
+			code.Segment = seed.Segment;
+			code.AllowedDays = seed.AllowedDays;
+		}
+		db.SaveChanges();   // new codes get their Ids here
+
+		// Map "Code" -> Id, now including any codes added above.
+		var idByCode = db.ShiftCodes.ToDictionary(c => c.Code, c => c.Id);
+
+		foreach (var (code, day, category, hours) in SeedData.ShiftCodeHours)
+		{
+			if (!idByCode.TryGetValue(code, out var shiftCodeId))
+				throw new InvalidOperationException($"Unknown shift code in hours seed: '{code}'");
+
+			db.ShiftCodeHours.Add(new ShiftCodeHours
+			{
+				ShiftCodeId = shiftCodeId,
+				DayType = day,
+				Category = category,
+				Hours = hours
+			});
+		}
+		db.SaveChanges();
+	}
+
+	/// <summary>Seeds the 2026 public holidays. Idempotent.</summary>
+	private static void SeedHolidays(AppDbContext db)
+	{
+		if (db.Holidays.Any()) return;
+		db.Holidays.AddRange(SeedData.Holidays.Select(h => new Holiday { Date = h.Date, Name = h.Name }));
+		db.SaveChanges();
+	}
+
+	/// <summary>Seeds the single row of monthly limits. Idempotent.</summary>
+	private static void SeedHourLimits(AppDbContext db)
+	{
+		if (db.HourLimits.Any()) return;
+
+		var l = SeedData.HourLimits;
+		db.HourLimits.Add(new HourLimits
+		{
+			ToCompleteMonthly = l.ToComplete,
+			SimpleMonthly = l.Simple,
+			NightMonthly = l.Night,
+			SundayMonthly = l.Sunday,
+			HolidayPerHoliday = l.PerHoliday,
+			ToCompletePlusHolidayMonthly = l.ToCompletePlusHoliday
+		});
 		db.SaveChanges();
 	}
 
@@ -101,31 +182,6 @@ public static class DatabaseSeeder
 				LastName = row.LastName,
 				FirstName = row.FirstName,
 				SpecialityId = specId
-			});
-		}
-		db.SaveChanges();
-	}
-
-	/// <summary>
-	/// Seeds the 1:1 extra-hours rows, resolving each ShiftCode by its Code.
-	/// Idempotent: skips entirely if the table already has data.
-	/// </summary>
-	private static void SeedExtraHours(AppDbContext db)
-	{
-		if (db.ShiftExtraHours.Any()) return;   // already seeded -> skip
-
-		// Map "Code" -> Id for the shift codes already in the database.
-		var idByCode = db.ShiftCodes.ToDictionary(c => c.Code, c => c.Id);
-
-		foreach (var (code, hours) in SeedData.ExtraHours)
-		{
-			if (!idByCode.TryGetValue(code, out var shiftCodeId))
-				throw new InvalidOperationException($"Unknown shift code in extra-hours seed: '{code}'");
-
-			db.ShiftExtraHours.Add(new ShiftExtraHours
-			{
-				ShiftCodeId = shiftCodeId,
-				Hours = hours
 			});
 		}
 		db.SaveChanges();

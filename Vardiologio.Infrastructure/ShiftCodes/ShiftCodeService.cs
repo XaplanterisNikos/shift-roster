@@ -20,7 +20,6 @@ public class ShiftCodeService : IShiftCodeService
 		var query = db.ShiftCodes.AsQueryable();
 		if (!includeInactive) query = query.Where(c => c.IsActive);
 
-		// Left join to ShiftExtraHours since most status codes have no extra-hours row.
 		return await query
 			.OrderBy(c => c.Id)
 			.Select(c => new ShiftCodeListItem(
@@ -30,10 +29,6 @@ public class ShiftCodeService : IShiftCodeService
 				c.StartTime,
 				c.EndTime,
 				c.Segment,
-				db.ShiftExtraHours
-					.Where(x => x.ShiftCodeId == c.Id)
-					.Select(x => (decimal?)x.Hours)
-					.FirstOrDefault(),
 				c.IsActive))
 			.ToListAsync();
 	}
@@ -44,7 +39,7 @@ public class ShiftCodeService : IShiftCodeService
 		await using var db = await _factory.CreateDbContextAsync();
 
 		// No IsActive condition: an inactive code can still be opened (e.g. to view/restore).
-		return await db.ShiftCodes
+		var detail = await db.ShiftCodes
 			.Where(c => c.Id == id)
 			.Select(c => new ShiftCodeDetail
 			{
@@ -54,13 +49,20 @@ public class ShiftCodeService : IShiftCodeService
 				StartTime = c.StartTime,
 				EndTime = c.EndTime,
 				Segment = c.Segment,
-				ExtraHours = db.ShiftExtraHours
-					.Where(x => x.ShiftCodeId == c.Id)
-					.Select(x => (decimal?)x.Hours)
-					.FirstOrDefault(),
+				AllowedDays = c.AllowedDays,
 				IsActive = c.IsActive
 			})
 			.FirstOrDefaultAsync();
+
+		if (detail is null) return null;
+
+		// The split in a second query: a handful of rows, keeps the projection above simple.
+		detail.Hours = await db.ShiftCodeHours
+			.Where(h => h.ShiftCodeId == id)
+			.Select(h => new ShiftCodeHoursItem { DayType = h.DayType, Category = h.Category, Hours = h.Hours })
+			.ToListAsync();
+
+		return detail;
 	}
 
 	/// <inheritdoc/>
@@ -91,24 +93,17 @@ public class ShiftCodeService : IShiftCodeService
 			StartTime = d.StartTime,
 			EndTime = d.EndTime,
 			Segment = d.Segment,
+			AllowedDays = d.AllowedDays,
 			IsActive = true                     // new codes start active
 		};
 		db.ShiftCodes.Add(entity);
 
-		// SaveChanges once here first so entity.Id is generated before we use it as the
-		// ShiftExtraHours FK/PK below.
+		// Split rows attach through the navigation, so EF fills ShiftCodeId after the insert
+		// and one SaveChanges is enough.
+		foreach (var h in d.Hours)
+			db.ShiftCodeHours.Add(new ShiftCodeHours { ShiftCode = entity, DayType = h.DayType, Category = h.Category, Hours = h.Hours });
+
 		await db.SaveChangesAsync();
-
-		if (d.ExtraHours is decimal hours)
-		{
-			db.ShiftExtraHours.Add(new ShiftExtraHours
-			{
-				ShiftCodeId = entity.Id,
-				Hours = hours
-			});
-			await db.SaveChangesAsync();
-		}
-
 		return entity.Id;
 	}
 
@@ -127,23 +122,26 @@ public class ShiftCodeService : IShiftCodeService
 		entity.StartTime = d.StartTime;
 		entity.EndTime = d.EndTime;
 		entity.Segment = d.Segment;
+		entity.AllowedDays = d.AllowedDays;
 		// Note: IsActive is changed only via SetActiveAsync, not here.
 
-		// ExtraHours is a separate 1:1 table with no ShiftDay reference, so it is safe to
-		// upsert/remove it here regardless of the ShiftDay-history warning logic above —
-		// nothing else in the app depends on its value changing.
-		var extraHoursRow = await db.ShiftExtraHours.FirstOrDefaultAsync(x => x.ShiftCodeId == d.Id);
-		if (d.ExtraHours is decimal hours)
+		// Sync the split with the form's cells in place (key = code + day + category):
+		// update cells that still exist, remove cells that are gone, add new ones.
+		// One SaveChanges, so the code and its split are saved together (one transaction).
+		var oldRows = await db.ShiftCodeHours
+			.Where(h => h.ShiftCodeId == d.Id)
+			.ToDictionaryAsync(h => (h.DayType, h.Category));
+
+		foreach (var h in d.Hours)
 		{
-			if (extraHoursRow is null)
-				db.ShiftExtraHours.Add(new ShiftExtraHours { ShiftCodeId = d.Id, Hours = hours });
+			if (oldRows.Remove((h.DayType, h.Category), out var row))
+				row.Hours = h.Hours;   // existing cell: new value
 			else
-				extraHoursRow.Hours = hours;
+				db.ShiftCodeHours.Add(new ShiftCodeHours { ShiftCodeId = d.Id, DayType = h.DayType, Category = h.Category, Hours = h.Hours });
 		}
-		else if (extraHoursRow is not null)
-		{
-			db.ShiftExtraHours.Remove(extraHoursRow);
-		}
+
+		// What is left in oldRows is no longer in the form.
+		db.ShiftCodeHours.RemoveRange(oldRows.Values);
 
 		await db.SaveChangesAsync();
 	}

@@ -11,10 +11,25 @@ public record ShiftCodeListItem(
 	TimeOnly? StartTime,
 	TimeOnly? EndTime,
 	ShiftSegment? Segment,
-	decimal? ExtraHours,
 	bool IsActive);
 
-/// <summary>Full editable state of one shift code, including its 1:1 extra-hours value.</summary>
+/// <summary>
+/// One cell of a code's hour split: on this kind of day the code yields these hours in this
+/// pay category. Mutable because the settings form binds to it.
+/// </summary>
+public class ShiftCodeHoursItem
+{
+	/// <summary>Kind of day (exactly one flag).</summary>
+	public DayType DayType { get; set; }
+
+	/// <summary>Pay category the hours count in.</summary>
+	public HourCategory Category { get; set; }
+
+	/// <summary>Number of hours (&gt; 0; zero cells are simply not stored).</summary>
+	public decimal Hours { get; set; }
+}
+
+/// <summary>Full editable state of one shift code, including its allowed days and hour split.</summary>
 public class ShiftCodeDetail
 {
 	public int Id { get; set; }
@@ -35,13 +50,16 @@ public class ShiftCodeDetail
 	public TimeOnly? EndTime { get; set; }
 	public ShiftSegment? Segment { get; set; }
 
-	/// <summary>Null means "no extra-hours row for this code" (most status codes).</summary>
-	public decimal? ExtraHours { get; set; }
+	/// <summary>Kinds of day the code may be entered on; <see cref="DayType.None"/> for status codes.</summary>
+	public DayType AllowedDays { get; set; }
+
+	/// <summary>The hour split (only non-zero cells). Empty for status codes.</summary>
+	public List<ShiftCodeHoursItem> Hours { get; set; } = new();
 
 	public bool IsActive { get; set; }
 }
 
-/// <summary>CRUD (with soft-delete) for shift/status codes and their optional extra-hours value.</summary>
+/// <summary>CRUD (with soft-delete) for shift/status codes, their allowed days and hour split.</summary>
 public interface IShiftCodeService
 {
 	/// <summary>All codes for the settings screen. includeInactive=false hides soft-deleted ones.</summary>
@@ -55,21 +73,22 @@ public interface IShiftCodeService
 
 	/// <summary>
 	/// True if at least one ShiftDay references this code. Call this before UpdateAsync when
-	/// StartTime, EndTime, or Segment changed, to decide whether to warn the user that the
-	/// change will retroactively affect existing roster entries.
+	/// the times, Segment, allowed days or hour split changed, to decide whether to warn the
+	/// user that the change will retroactively affect existing roster entries and reports.
 	/// </summary>
 	Task<bool> HasShiftDayReferencesAsync(int id);
 
-	/// <summary>Creates a new code (plus its extra-hours row, if provided); returns the new Id.</summary>
+	/// <summary>Creates a new code (with its allowed days and hour split); returns the new Id.</summary>
 	Task<int> CreateAsync(ShiftCodeDetail detail);
 
 	/// <summary>
-	/// Updates Description, StartTime, EndTime, Segment and ExtraHours. Code is never changed here.
+	/// Updates Description, times, Segment, allowed days and the hour split (the code's split rows
+	/// are replaced by <see cref="ShiftCodeDetail.Hours"/>). Code is never changed here.
 	/// Caller is responsible for having warned the user via HasShiftDayReferencesAsync beforehand,
 	/// if applicable — this method does not re-check or block on it.
 	/// </summary>
 	Task UpdateAsync(ShiftCodeDetail detail);
 
-	/// <summary>Soft-delete (isActive=false) or restore (true). Never touches ExtraHours.</summary>
+	/// <summary>Soft-delete (isActive=false) or restore (true). Never touches the hour split.</summary>
 	Task SetActiveAsync(int id, bool isActive);
 }

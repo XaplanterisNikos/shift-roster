@@ -1,0 +1,211 @@
+@using System.Globalization
+@using Vardiologio.Application.Hours
+@using Microsoft.AspNetCore.Components.Forms
+@inject IHolidayService HolidayService
+
+@* Master-detail CRUD for the holidays of one year (same shape as LookupEditor).
+   "Πρόταση αργιών" adds the suggested holidays of the year that are missing (never
+   overwrites). Delete is a hard delete, confirmed by a second click. *@
+<div class="filters">
+    <label>Έτος
+        <select @bind="year" @bind:after="ReloadListAsync">
+            @foreach (var y in Years)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+    </label>
+
+    <button @onclick="NewItem">＋ Νέα</button>
+    <button @onclick="AddSuggestedAsync">Πρόταση αργιών @year</button>
+    @if (topMessage is not null) { <span class="ok">@topMessage</span> }
+</div>
+
+<div class="master-detail">
+    <!-- LEFT: holidays of the year -->
+    <ul class="emp-list">
+        @foreach (var x in list)
+        {
+            <li class="@(x.Id == selectedId ? "sel" : "")" @onclick="() => Select(x)">
+                @Label(x)
+            </li>
+        }
+        @if (list.Count == 0)
+        {
+            <li class="muted">— καμία —</li>
+        }
+    </ul>
+
+    <!-- RIGHT: create/edit form -->
+    @if (form is not null)
+    {
+        <EditForm class="emp-form" Model="form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+
+            <h3>@(form.Id == 0 ? "Νέα αργία" : "Επεξεργασία")</h3>
+
+            <label>Ημερομηνία
+                <InputDate @bind-Value="form.Date" @bind-Value:after="ClearError" />
+            </label>
+
+            <label>Όνομα
+                <InputText @bind-Value="form.Name" @bind-Value:after="ClearError" />
+                <ValidationMessage For="@(() => form.Name)" />
+            </label>
+
+            @if (errorMessage is not null)
+            {
+                <div class="error">@errorMessage</div>
+            }
+
+            @if (pendingDelete)
+            {
+                <div class="warning">Πατήστε ξανά "Διαγραφή" για οριστική διαγραφή της αργίας.</div>
+            }
+
+            <div class="actions">
+                <button type="submit">Αποθήκευση</button>
+                <button type="button" @onclick="CancelEdit">Ακύρωση</button>
+
+                @if (form.Id != 0)
+                {
+                    <button type="button" class="danger" @onclick="DeleteAsync">Διαγραφή</button>
+                }
+
+                @if (message is not null) { <span class="ok">@message</span> }
+            </div>
+        </EditForm>
+    }
+</div>
+
+@code {
+    private static readonly CultureInfo El = CultureInfo.GetCultureInfo("el-GR");
+
+    /// <summary>Years offered: last year to three years ahead (within the calendar's range).</summary>
+    private static readonly int[] Years = Enumerable.Range(DateTime.Today.Year - 1, 5)
+        .Where(y => y >= HolidayCalendar.MinYear && y <= HolidayCalendar.MaxYear)
+        .ToArray();
+
+    private int year = DateTime.Today.Year;
+    private List<HolidayItem> list = new();
+    private int selectedId;
+    private HolidayItem? form;
+    private string? message;
+    private string? topMessage;
+    private string? errorMessage;
+    private bool pendingDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadListAsync();
+    }
+
+    /// <summary>Reloads the list for the selected year and closes the form.</summary>
+    private async Task ReloadListAsync()
+    {
+        list = (await HolidayService.GetByYearAsync(year)).ToList();
+    }
+
+    /// <summary>List label, e.g. "10/04 Παρ — Μεγάλη Παρασκευή".</summary>
+    private static string Label(HolidayItem x) =>
+        $"{x.Date.ToString("dd/MM ddd", El)} — {x.Name}";
+
+    /// <summary>Loads a row into the form as a COPY (unsaved edits never touch the list).</summary>
+    private void Select(HolidayItem x)
+    {
+        ResetMessages();
+        selectedId = x.Id;
+        form = new HolidayItem { Id = x.Id, Date = x.Date, Name = x.Name };
+    }
+
+    /// <summary>Prepares a blank form, dated 1 January of the selected year.</summary>
+    private void NewItem()
+    {
+        ResetMessages();
+        selectedId = 0;
+        form = new HolidayItem { Date = new DateOnly(year, 1, 1) };
+    }
+
+    private void ClearError()
+    {
+        errorMessage = null;
+        pendingDelete = false;
+    }
+
+    private void ResetMessages()
+    {
+        message = null;
+        topMessage = null;
+        errorMessage = null;
+        pendingDelete = false;
+    }
+
+    /// <summary>Creates or updates after the unique-date check (no exceptions).</summary>
+    private async Task SaveAsync()
+    {
+        if (form is null) return;
+        ResetMessages();
+
+        if (await HolidayService.DateExistsAsync(form.Date, form.Id))
+        {
+            errorMessage = $"Υπάρχει ήδη αργία στις {form.Date.ToString("dd/MM/yyyy", El)}.";
+            return;
+        }
+
+        if (form.Id == 0)
+        {
+            form.Id = await HolidayService.CreateAsync(form);
+            selectedId = form.Id;
+        }
+        else
+        {
+            await HolidayService.UpdateAsync(form);
+        }
+
+        // A date moved to another year leaves this year's list; show that year instead.
+        if (form.Date.Year != year && Years.Contains(form.Date.Year)) year = form.Date.Year;
+
+        message = "Αποθηκεύτηκε.";
+        await ReloadListAsync();
+    }
+
+    /// <summary>Hard delete, on the second click.</summary>
+    private async Task DeleteAsync()
+    {
+        if (form is null || form.Id == 0) return;
+
+        if (!pendingDelete)
+        {
+            message = null;
+            errorMessage = null;
+            pendingDelete = true;
+            return;
+        }
+
+        await HolidayService.DeleteAsync(form.Id);
+        form = null;
+        selectedId = 0;
+        ResetMessages();
+        topMessage = "Διαγράφηκε.";
+        await ReloadListAsync();
+    }
+
+    /// <summary>Adds the year's missing suggested holidays and reports how many.</summary>
+    private async Task AddSuggestedAsync()
+    {
+        ResetMessages();
+        var added = await HolidayService.AddSuggestedAsync(year);
+        topMessage = added == 0
+            ? "Δεν λείπει καμία προτεινόμενη αργία."
+            : $"Προστέθηκαν {added}. Έλεγξέ τες (π.χ. αν μετακινήθηκε η Πρωτομαγιά).";
+        await ReloadListAsync();
+    }
+
+    /// <summary>Closes the form without saving.</summary>
+    private void CancelEdit()
+    {
+        form = null;
+        selectedId = 0;
+        ResetMessages();
+    }
+}

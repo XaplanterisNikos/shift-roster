@@ -1,4 +1,4 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 @using Vardiologio.Application.Auth
 @inject IUserSession Session
 @inject NavigationManager Nav
@@ -15,9 +15,11 @@
                 <NavLink class="nav-item" href="" Match="NavLinkMatch.All">Εισαγωγή προγραμμάτων</NavLink>
                 <NavLink class="nav-item" href="export">Εξαγωγή Αναφοράς Συνολική Μηνιαία</NavLink>
                 <NavLink class="nav-item" href="individual">Εξαγωγή Αναφοράς Ατομική Μηνιαία</NavLink>   
+                <NavLink class="nav-item" href="hours-report">Εξαγωγή Αναφοράς Ωρών Μηνιαία</NavLink>
                 <div class="settings-box">
             <NavLink class="nav-item" href="shift-codes">Παράμετροι Βαρδιών</NavLink>
             <NavLink class="nav-item" href="employee-parameters">Παράμετροι Εργαζομένων</NavLink>
+            <NavLink class="nav-item" href="hours-parameters">Παράμετροι Ωρών</NavLink>
         </div>
             <div class="user-box">
                 <div class="user-name">@Session.Current!.DisplayName</div>

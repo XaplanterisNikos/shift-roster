@@ -41,10 +41,10 @@ public class IndividualDayRow
 	/// <summary>Status code (e.g. "Κ", "ΑΡΓΙΑ") when the day is a non-working status; otherwise null.</summary>
 	public string? StatusCode { get; set; }
 
-	/// <summary>ΣΥΜΠΛΗΡ. ΕΡΓΑΣΙΑ — weekday extra hours (Mon-Sat).</summary>
+	/// <summary>ΣΥΜΠΛΗΡ. ΕΡΓΑΣΙΑ — Προς συμπλήρωση hours on a weekday or Saturday.</summary>
 	public decimal? SupplementWeekday { get; set; }
 
-	/// <summary>ΣΥΜΠΛΗΡ. ΕΡΓΑΣΙΑ — Sunday extra hours.</summary>
+	/// <summary>ΣΥΜΠΛΗΡ. ΕΡΓΑΣΙΑ — Προς συμπλήρωση hours on a Sunday or holiday (ΚΥΡΙΑΚΩΝ ΕΞΑΙΡΕΣΙΜΩΝ).</summary>
 	public decimal? SupplementSunday { get; set; }
 
 	/// <summary>ΠΑΡΟΥΣΙΕΣ — "√" for a worked shift, the status code otherwise, empty when nothing entered.</summary>

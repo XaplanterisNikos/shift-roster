@@ -1,10 +1,15 @@
 ﻿@page "/"
+@using Vardiologio.Application.Hours
 @using Vardiologio.Application.ShiftEntry
+@using Vardiologio.Domain.Enums
 @inject IShiftEntryService ShiftService
 
 <h1>Εισαγωγή προγραμμάτων βάρδιας</h1>
 @* Daily shift-entry screen (route "/"): pick year/month/employee, load the month,
-   fill a code per day across two fortnights, then save (upsert). *@
+   fill a code per day across two fortnights, then save (upsert).
+   Every change re-checks the (unsaved) month live: per-day warnings (code not allowed on
+   that kind of day, code 12 on the 1st) and the month's hours against the limits.
+   Warnings never block saving. *@
 <div class="filters">
     <label>
         Έτος
@@ -55,18 +60,23 @@
             <tbody>
                 @foreach (var day in entry.Days.Where(d => d.Date.Day <= 15))
                 {
-                    <tr class="@(day.Date.DayOfWeek == DayOfWeek.Sunday ? "sun" : "")">
+                    <tr class="@RowClass(day)">
                         <td>@day.Date.Day</td>
                         <td>@Wd[((int)day.Date.DayOfWeek + 6) % 7]</td>
                         <td>
-                    @* Bind directly to the DayEntry in the list; "—" (empty) means no code = null. *@
-                            <select @bind="day.ShiftCodeId">
+                    @* Bind directly to the DayEntry in the list; "—" (empty) means no code = null.
+                       Every change re-runs the month check (warnings + hours). *@
+                            <select @bind="day.ShiftCodeId" @bind:after="RecheckAsync">
                                 <option value="">—</option>
                                 @foreach (var c in shiftCodes)
                                 {
                                     <option value="@c.Id">@c.Label</option>
                                 }
                             </select>
+                            @if (Warning(day) is string w)
+                            {
+                                <div class="day-warn">⚠ @w</div>
+                            }
                         </td>
                     </tr>
                 }
@@ -88,17 +98,21 @@
             <tbody>
                 @foreach (var day in entry.Days.Where(d => d.Date.Day > 15))
                 {
-                    <tr class="@(day.Date.DayOfWeek == DayOfWeek.Sunday ? "sun" : "")">
+                    <tr class="@RowClass(day)">
                         <td>@day.Date.Day</td>
                         <td>@Wd[((int)day.Date.DayOfWeek + 6) % 7]</td>
                         <td>
-                            <select @bind="day.ShiftCodeId">
+                            <select @bind="day.ShiftCodeId" @bind:after="RecheckAsync">
                                 <option value="">—</option>
                                 @foreach (var c in shiftCodes)
                                 {
                                     <option value="@c.Id">@c.Label</option>
                                 }
                             </select>
+                            @if (Warning(day) is string w)
+                            {
+                                <div class="day-warn">⚠ @w</div>
+                            }
                         </td>
                     </tr>
                 }
@@ -106,6 +120,42 @@
         </table>
     </section>
 </div>
+
+    @if (check is not null)
+    {
+        @* Month's hours per pay category (unsaved values included). Over-limit rows are highlighted. *@
+        <section class="month-hours">
+            <h2>Ώρες μήνα</h2>
+            <table class="grid">
+                <thead>
+                    <tr>
+                        <th>Κατηγορία</th>
+                        <th>Δηλωμένες</th>
+                        <th>Όριο</th>
+                        <th>Πληρώνονται</th>
+                        <th>Περισσεύουν</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var h in check.Hours)
+                    {
+                        <tr class="@(h.Excess > 0 ? "over" : "")">
+                            <td>@HoursLabels.Category(h.Category)</td>
+                            <td>@Num(h.Declared)</td>
+                            <td>@Num(h.Limit)</td>
+                            <td>@Num(h.Paid)</td>
+                            <td>@(h.Excess > 0 ? Num(h.Excess) : "")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="hint">
+                Προς συμπλήρωση + Αργίας πληρώνονται @Num(CombinedPaid) (κοινό όριο @Num(check.CombinedLimit);
+                όταν ξεπερνιέται, κόβεται πρώτα το «Προς συμπλήρωση»).
+                Οι προειδοποιήσεις δεν εμποδίζουν την αποθήκευση.
+            </div>
+        </section>
+    }
 
     <div class="actions">
         <button @onclick="SaveAsync">Αποθήκευση</button>
@@ -123,11 +173,12 @@
     private int month = DateTime.Today.Month;
     private int employeeId;
     private MonthEntry? entry;
+    private MonthCheck? check;
     private string? saved;
 
     protected override async Task OnInitializedAsync()
     {
-        // Load dropdown data once when the page opens.
+        // Load dropdown data once when the page opens (active codes; refined per month on load).
         employees = await ShiftService.GetEmployeesAsync();
         shiftCodes = await ShiftService.GetShiftCodesAsync();
     }
@@ -136,14 +187,46 @@
     {
         saved = null;
         entry = await ShiftService.LoadMonthAsync(employeeId, year, month);// build the month grid
+
+        // Active codes + any retired code already used this month, so those days don't show "—".
+        var usedIds = entry.Days.Where(d => d.ShiftCodeId.HasValue).Select(d => d.ShiftCodeId!.Value).Distinct().ToList();
+        shiftCodes = await ShiftService.GetShiftCodesAsync(usedIds);
+
+        await RecheckAsync();
+    }
+
+    /// <summary>Re-runs the month check on the current (unsaved) grid.</summary>
+    private async Task RecheckAsync()
+    {
+        saved = null;
+        if (entry is null) { check = null; return; }
+        check = await ShiftService.CheckMonthAsync(entry);
     }
 
     private async Task SaveAsync()
     {
         if (entry is null) return;
         await ShiftService.SaveMonthAsync(entry); // per-day upsert
-        saved = "Αποθηκεύτηκε.";
+        saved = check?.HasWarnings == true ? "Αποθηκεύτηκε (με προειδοποιήσεις)." : "Αποθηκεύτηκε.";
     }
+
+    /// <summary>Warning text for a day, or null.</summary>
+    private string? Warning(DayEntry day) =>
+        check is not null && check.DayWarnings.TryGetValue(day.Date, out var w) ? w : null;
+
+    /// <summary>Row classes: Sunday shading and/or warning highlight.</summary>
+    private string RowClass(DayEntry day) =>
+        string.Join(" ",
+            day.Date.DayOfWeek == DayOfWeek.Sunday ? "sun" : "",
+            Warning(day) is null ? "" : "warn").Trim();
+
+    /// <summary>Paid Προς συμπλήρωση + Αργίας (compared with the combined limit).</summary>
+    private decimal CombinedPaid => check?.Hours
+        .Where(h => h.Category is HourCategory.ToComplete or HourCategory.Holiday)
+        .Sum(h => h.Paid) ?? 0;
+
+    /// <summary>Hours as "6,5" / "120" (current culture, no trailing zeros).</summary>
+    private static string Num(decimal value) => value.ToString("0.##");
 
     private static readonly string[] Months =
         { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",

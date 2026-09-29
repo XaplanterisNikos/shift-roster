@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Vardiologio.Infrastructure.Persistence;
 
@@ -10,9 +11,11 @@ using Vardiologio.Infrastructure.Persistence;
 namespace Vardiologio.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260929211421_AddHoursRules")]
+    partial class AddHoursRules
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
@@ -226,6 +229,19 @@ namespace Vardiologio.Infrastructure.Persistence.Migrations
                     b.ToTable("ShiftDays");
                 });
 
+            modelBuilder.Entity("Vardiologio.Domain.Entities.ShiftExtraHours", b =>
+                {
+                    b.Property<int>("ShiftCodeId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("Hours")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.HasKey("ShiftCodeId");
+
+                    b.ToTable("ShiftExtraHours");
+                });
+
             modelBuilder.Entity("Vardiologio.Domain.Entities.Speciality", b =>
                 {
                     b.Property<int>("Id")
@@ -325,6 +341,17 @@ namespace Vardiologio.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Employee");
+
+                    b.Navigation("ShiftCode");
+                });
+
+            modelBuilder.Entity("Vardiologio.Domain.Entities.ShiftExtraHours", b =>
+                {
+                    b.HasOne("Vardiologio.Domain.Entities.ShiftCode", "ShiftCode")
+                        .WithOne()
+                        .HasForeignKey("Vardiologio.Domain.Entities.ShiftExtraHours", "ShiftCodeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("ShiftCode");
                 });

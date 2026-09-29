@@ -402,3 +402,110 @@ table.indiv.totals td {
 	color: #1f4e79;
 	margin-left: 6px;
 }
+
+/* Shift-code form: wider, to fit the day × category hours grid. */
+.emp-form.wide {
+	max-width: 640px;
+}
+
+.emp-form .split-title {
+	font-size: .9rem;
+	margin-top: 4px;
+}
+
+/* Day × pay-category grid of a shift code (Παράμετροι Βαρδιών). */
+.hours-grid {
+	border-collapse: collapse;
+	font-size: .8rem;
+}
+
+.hours-grid th, .hours-grid td {
+	border: 1px solid #ccc;
+	padding: 3px 4px;
+	text-align: center;
+}
+
+.hours-grid th {
+	background: #f0f3f7;
+	font-weight: 600;
+}
+
+.hours-grid td.day {
+	text-align: left;
+	white-space: nowrap;
+}
+
+.hours-grid td.total {
+	font-weight: 600;
+}
+
+/* Cells: compact number inputs (overrides .emp-form input padding). */
+.emp-form .hours-grid input[type=number] {
+	width: 56px;
+	padding: 3px;
+}
+
+/* A kind of day the code is not allowed on: greyed out. */
+.hours-grid tr.off td {
+	color: #999;
+	background: #fafafa;
+}
+
+/* Shift entry: a day with a warning (code not allowed that day, 12 on the 1st, ...). */
+table.grid tr.warn td {
+	background: #fff4e0;
+}
+
+.day-warn {
+	color: #9a5b00;
+	font-size: .8rem;
+	margin-top: 2px;
+	max-width: 320px;
+}
+
+/* Shift entry: month's hours per category; over-limit rows highlighted. */
+.month-hours {
+	margin-top: 16px;
+	max-width: 640px;
+}
+
+.month-hours h2 {
+	font-size: 1.1rem;
+	margin: 0 0 6px;
+}
+
+.month-hours tr.over td {
+	background: #fde2e1;
+	font-weight: 600;
+}
+
+.month-hours .hint {
+	color: #555;
+	font-size: .85rem;
+	margin-top: 6px;
+}
+
+/* Monthly hours report (screen version). */
+table.hours-report {
+	font-size: .8rem;
+}
+
+table.hours-report td.lft {
+	text-align: left;
+	white-space: nowrap;
+}
+
+table.hours-report td.over {
+	background: #fde2e1;
+	font-weight: 600;
+}
+
+table.hours-report tr.totals td {
+	background: #e2efda;
+	font-weight: 600;
+}
+
+p.hint {
+	color: #555;
+	font-size: .85rem;
+}

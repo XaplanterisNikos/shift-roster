@@ -1,0 +1,73 @@
+@using Vardiologio.Application.Hours
+@using Microsoft.AspNetCore.Components.Forms
+@inject IHourLimitsService LimitsService
+
+@* Monthly paid-hours limits (single settings row). Hours above a limit are declared
+   but not paid; the calculation is in MonthlyHoursCalculator. *@
+@if (form is not null)
+{
+    <EditForm class="emp-form" Model="form" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+
+        <h3>Μηνιαία όρια ανά εργαζόμενο</h3>
+
+        <label>Προς συμπλήρωση (ώρες/μήνα)
+            <InputNumber @bind-Value="form.ToCompleteMonthly" @bind-Value:after="ClearMessage" />
+            <ValidationMessage For="@(() => form.ToCompleteMonthly)" />
+        </label>
+
+        <label>Απλή (ώρες/μήνα)
+            <InputNumber @bind-Value="form.SimpleMonthly" @bind-Value:after="ClearMessage" />
+            <ValidationMessage For="@(() => form.SimpleMonthly)" />
+        </label>
+
+        <label>Νυχτερινή (ώρες/μήνα)
+            <InputNumber @bind-Value="form.NightMonthly" @bind-Value:after="ClearMessage" />
+            <ValidationMessage For="@(() => form.NightMonthly)" />
+        </label>
+
+        <label>Κυριακής (ώρες/μήνα)
+            <InputNumber @bind-Value="form.SundayMonthly" @bind-Value:after="ClearMessage" />
+            <ValidationMessage For="@(() => form.SundayMonthly)" />
+        </label>
+
+        <label>Αργίας (ώρες ανά αργία του μήνα)
+            <InputNumber @bind-Value="form.HolidayPerHoliday" @bind-Value:after="ClearMessage" />
+            <ValidationMessage For="@(() => form.HolidayPerHoliday)" />
+        </label>
+
+        <label>Προς συμπλήρωση + Αργίας μαζί (ώρες/μήνα)
+            <InputNumber @bind-Value="form.ToCompletePlusHolidayMonthly" @bind-Value:after="ClearMessage" />
+            <ValidationMessage For="@(() => form.ToCompletePlusHolidayMonthly)" />
+        </label>
+
+        <div class="hint">
+            Όταν ξεπερνιέται το κοινό όριο, κόβονται πρώτα ώρες από το «Προς συμπλήρωση».
+        </div>
+
+        <div class="actions">
+            <button type="submit">Αποθήκευση</button>
+            @if (message is not null) { <span class="ok">@message</span> }
+        </div>
+    </EditForm>
+}
+
+@code {
+    private HourLimitsDetail? form;
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        form = await LimitsService.GetAsync();
+    }
+
+    private void ClearMessage() => message = null;
+
+    /// <summary>Saves the limits (ranges are checked by the DTO's attributes).</summary>
+    private async Task SaveAsync()
+    {
+        if (form is null) return;
+        await LimitsService.UpdateAsync(form);
+        message = "Αποθηκεύτηκε.";
+    }
+}

@@ -3,12 +3,14 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Windows;
 using Vardiologio.Application.Auth;
 using Vardiologio.Application.Employees;
+using Vardiologio.Application.Hours;
 using Vardiologio.Application.Reports;
 using Vardiologio.Application.Parameters;
 using Vardiologio.Application.ShiftCodes;
 using Vardiologio.Application.ShiftEntry;
 using Vardiologio.Infrastructure.Auth;
 using Vardiologio.Infrastructure.Employees;
+using Vardiologio.Infrastructure.Hours;
 using Vardiologio.Infrastructure.Persistence;
 using Vardiologio.Infrastructure.Reports;
 using Vardiologio.Infrastructure.Parameters;
@@ -55,9 +57,12 @@ public partial class App : System.Windows.Application
 			services.AddScoped<IShiftEntryService, ShiftEntryService>();
 			services.AddScoped<IReportService, ReportService>();
 			services.AddScoped<IIndividualReportService, IndividualReportService>();
+			services.AddScoped<IHoursReportService, HoursReportService>();
 			services.AddScoped<IEmployeeService, EmployeeService>();
 			services.AddScoped<IShiftCodeService, ShiftCodeService>();
 			services.AddScoped<ILookupService, LookupService>();
+			services.AddScoped<IHolidayService, HolidayService>();
+			services.AddScoped<IHourLimitsService, HourLimitsService>();
 
 			// Report renderers
 			services.AddSingleton<IExcelReportRenderer, ClosedXmlReportRenderer>();

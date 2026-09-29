@@ -1,0 +1,180 @@
+@page "/hours-report"
+@using System.Diagnostics
+@using System.IO
+@using Vardiologio.Application.Hours
+@using Vardiologio.Application.Reports
+@using Vardiologio.Domain.Enums
+@inject IHoursReportService HoursReportService
+@inject IExcelReportRenderer Excel
+@inject IPdfReportRenderer Pdf
+
+@* Monthly hours report: every active employee's declared / paid / excess hours per pay
+   category, with the monthly limits applied (same calculation as the entry screen).
+   Show on screen, save+open as Excel or PDF, or preview the PDF inline (as in Export.razor). *@
+<h1>Εξαγωγή Αναφοράς Ωρών Μηνιαία</h1>
+
+<div class="filters">
+    <label>
+        Έτος
+        <select @bind="year">
+            @for (int y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+    </label>
+    <label>
+        Μήνας
+        <select @bind="month">
+            @for (int mo = 1; mo <= 12; mo++)
+            {
+                <option value="@mo">@Months[mo - 1]</option>
+            }
+        </select>
+    </label>
+    <button @onclick="ShowAsync" disabled="@busy">Εμφάνιση</button>
+    <button @onclick="PreviewPdf" disabled="@busy">Προεπισκόπηση PDF</button>
+    <button @onclick="ExportExcel" disabled="@busy">Εξαγωγή Excel</button>
+    <button @onclick="ExportPdf" disabled="@busy">Εξαγωγή PDF</button>
+</div>
+
+@if (message is not null)
+{
+    <p class="ok">@message</p>
+}
+@if (error is not null)
+{
+    <p style="color:#c00">@error</p>
+}
+
+@if (model is not null)
+{
+    @* On-screen version of the report; over-limit cells highlighted as in the files. *@
+    <div class="indiv-scroll">
+        <table class="grid hours-report">
+            <thead>
+                <tr>
+                    <th rowspan="2">Α/Α</th>
+                    <th rowspan="2">Ονοματεπώνυμο</th>
+                    <th rowspan="2">Ειδικότητα</th>
+                    @foreach (var cat in Categories)
+                    {
+                        <th colspan="3">@HoursLabels.Category(cat) (όριο @Num(model.Limits[cat]))</th>
+                    }
+                </tr>
+                <tr>
+                    @for (int i = 0; i < Categories.Length; i++)
+                    {
+                        <th>Δηλ.</th>
+                        <th>Πληρ.</th>
+                        <th>Περ.</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in model.Rows)
+                {
+                    <tr class="@(r.HasExcess ? "has-over" : "")">
+                        <td>@r.Index</td>
+                        <td class="lft">@r.LastName @r.FirstName</td>
+                        <td class="lft">@r.Speciality</td>
+                        @foreach (var h in r.Hours)
+                        {
+                            <td>@Blank(h.Declared)</td>
+                            <td>@Blank(h.Paid)</td>
+                            <td class="@(h.Excess > 0 ? "over" : "")">@Blank(h.Excess)</td>
+                        }
+                    </tr>
+                }
+                <tr class="totals">
+                    <td colspan="3" class="lft">Σύνολα</td>
+                    @foreach (var cat in Categories)
+                    {
+                        <td>@Blank(model.Total(cat, h => h.Declared))</td>
+                        <td>@Blank(model.Total(cat, h => h.Paid))</td>
+                        <td>@Blank(model.Total(cat, h => h.Excess))</td>
+                    }
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p class="hint">
+        Αργίες μήνα: @model.HolidaysInMonth. Προς συμπλήρωση + Αργίας: κοινό όριο @Num(model.CombinedLimit),
+        κόβεται πρώτα το «Προς συμπλήρωση».
+    </p>
+}
+
+@if (pdfDataUri is not null)
+{
+    @* Inline PDF preview via a base64 data-URI (WebView2 has a built-in PDF viewer). *@
+    <object data="@pdfDataUri" type="application/pdf" style="width:100%;height:75vh;border:1px solid #ccc;margin-top:12px">
+        <p>
+            Δεν εμφανίζεται η προεπισκόπηση.
+            <a href="@pdfDataUri" target="_blank">Άνοιγμα PDF</a>
+        </p>
+    </object>
+}
+
+@code {
+    private static readonly HourCategory[] Categories = Enum.GetValues<HourCategory>();
+
+    private int year = DateTime.Today.Year;
+    private int month = DateTime.Today.Month;
+    private bool busy;
+    private string? message, error, pdfDataUri;
+    private HoursReportModel? model;
+
+    /// <summary>Builds the report and shows it on screen.</summary>
+    private async Task ShowAsync()
+    {
+        busy = true; message = null; error = null; pdfDataUri = null;
+        try { model = await HoursReportService.BuildAsync(year, month); }
+        catch (Exception ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+
+    private async Task ExportExcel() => await SaveAndOpen(m => Excel.Render(m), "xlsx");
+    private async Task ExportPdf() => await SaveAndOpen(m => Pdf.Render(m), "pdf");
+
+    // Build the model, render to bytes, save to Documents\Vardiologio, then open with the default app.
+    private async Task SaveAndOpen(Func<HoursReportModel, byte[]> render, string ext)
+    {
+        busy = true; message = null; error = null;
+        try
+        {
+            model = await HoursReportService.BuildAsync(year, month);
+            var bytes = render(model);
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Vardiologio");
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, $"ΩΡΕΣ_{year}_{month:00}.{ext}");
+            await File.WriteAllBytesAsync(path, bytes);
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            message = $"Δημιουργήθηκε: {path}";
+        }
+        catch (Exception ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+
+    // Build the PDF in memory and show it inline (no file written).
+    private async Task PreviewPdf()
+    {
+        busy = true; message = null; error = null; pdfDataUri = null;
+        try
+        {
+            model = await HoursReportService.BuildAsync(year, month);
+            pdfDataUri = "data:application/pdf;base64," + Convert.ToBase64String(Pdf.Render(model));
+        }
+        catch (Exception ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+
+    /// <summary>Hours as "6,5" / "120" (current culture).</summary>
+    private static string Num(decimal hours) => hours.ToString("0.##");
+
+    /// <summary>Like Num but empty for zero, to keep the table readable.</summary>
+    private static string Blank(decimal hours) => hours == 0 ? "" : Num(hours);
+
+    private static readonly string[] Months =
+        { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",
+          "Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος" };
+}

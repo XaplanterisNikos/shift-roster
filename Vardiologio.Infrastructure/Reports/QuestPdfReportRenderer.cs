@@ -5,8 +5,11 @@ using Vardiologio.Application.Reports;
 
 namespace Vardiologio.Infrastructure.Reports;
 
-/// <summary>Renders the Σ.Ω. monthly roster to PDF using QuestPDF.</summary>
-public class QuestPdfReportRenderer : IPdfReportRenderer
+/// <summary>
+/// Renders the Σ.Ω. monthly roster to PDF using QuestPDF.
+/// Partial: the hours report lives in QuestPdfReportRenderer.Hours.cs and reuses the helpers here.
+/// </summary>
+public partial class QuestPdfReportRenderer : IPdfReportRenderer
 {
 	private static readonly string[] MonthsGen =
 		{ "ΙΑΝΟΥΑΡΙΟΥ","ΦΕΒΡΟΥΑΡΙΟΥ","ΜΑΡΤΙΟΥ","ΑΠΡΙΛΙΟΥ","ΜΑΪΟΥ","ΙΟΥΝΙΟΥ",

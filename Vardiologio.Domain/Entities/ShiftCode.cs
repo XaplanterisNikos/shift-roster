@@ -4,7 +4,7 @@ using Vardiologio.Domain.Enums;
 namespace Vardiologio.Domain.Entities;
 
 /// <summary>
-/// A shift or status code used in the daily roster. Working-shift codes (1–13)
+/// A shift or status code used in the daily roster. Working-shift codes (1–15)
 /// include a time range and a <see cref="Segment"/>; status codes do not.
 /// </summary>
 public class ShiftCode
@@ -31,6 +31,13 @@ public class ShiftCode
 	/// <c>null</c> for status codes. Used by the analytical report.
 	/// </summary>
 	public ShiftSegment? Segment { get; set; }
+
+	/// <summary>
+	/// Kinds of day this code may be entered on (e.g. code 12 only on Saturday).
+	/// Entering it on another kind of day only produces a warning; it is never blocked.
+	/// <see cref="DayType.None"/> for status codes, which are allowed on any day.
+	/// </summary>
+	public DayType AllowedDays { get; set; }
 
 	/// <summary>
 	/// Whether this code is currently offered in the app's settings screen.
