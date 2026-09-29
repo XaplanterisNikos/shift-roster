@@ -21,6 +21,10 @@
             <NavLink class="nav-item" href="employee-parameters">Παράμετροι Εργαζομένων</NavLink>
             <NavLink class="nav-item" href="hours-parameters">Παράμετροι Ωρών</NavLink>
         </div>
+            @* Administrator-only tools; the entry opens its own sign-in dialog (Shared/DbExportButton.razor). *@
+            <div class="admin-box">
+                <DbExportButton />
+            </div>
             <div class="user-box">
                 <div class="user-name">@Session.Current!.DisplayName</div>
                 <button class="linklike" @onclick="Logout">Αποσύνδεση</button>

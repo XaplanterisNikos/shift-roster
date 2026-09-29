@@ -1,0 +1,90 @@
+@* Sidebar entry "Εξαγωγή βάσης" and its administrator sign-in dialog.
+   Placeholder stage: the dialog exists so users can see the feature is coming,
+   but every attempt is refused. The typed password is never checked, stored or
+   logged; it is cleared after each attempt and when the dialog closes.
+   Next stage: verify against an admin PBKDF2 hash (same scheme as UserStore)
+   and, on success, run the actual database export. *@
+<button type="button" class="nav-item nav-button" @onclick="Open">Εξαγωγή βάσης</button>
+
+@if (open)
+{
+    @* Dimmed background; a click on it cancels the dialog. *@
+    <div class="admin-overlay" @onclick="Close"></div>
+    <div class="admin-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title">
+        <h2 id="admin-dialog-title">Εξαγωγή βάσης</h2>
+        <p class="admin-note">Η λειτουργία είναι διαθέσιμη μόνο στον διαχειριστή.</p>
+        <label>
+            Χρήστης
+            @* Fixed administrator account name; not editable. *@
+            <input type="text" value="@AdminUserName" readonly tabindex="-1" />
+        </label>
+        <label>
+            Κωδικός
+            @* oninput => value is current when Enter is pressed; autocomplete off => no saved passwords offered. *@
+            <input type="password" @ref="passwordInput" @bind="password" @bind:event="oninput"
+                   @onkeydown="OnKey" autocomplete="off" />
+        </label>
+        @if (denied)
+        {
+            <p class="err">Δεν έχετε πρόσβαση εισόδου.</p>
+        }
+        <div class="admin-actions">
+            <button type="button" class="secondary" @onclick="Close">Ακύρωση</button>
+            <button type="button" @onclick="Submit">Είσοδος</button>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>Administrator account name shown in the dialog.</summary>
+    private const string AdminUserName = "admin";
+
+    private bool open;          // dialog visible
+    private bool denied;        // show the "no access" message
+    private bool focusPending;  // move focus to the password box after the next render
+    private string password = "";
+    private ElementReference passwordInput;
+
+    /// <summary>Opens the dialog in a clean state.</summary>
+    private void Open()
+    {
+        password = "";
+        denied = false;
+        open = true;
+        focusPending = true;
+    }
+
+    /// <summary>Closes the dialog and discards anything typed.</summary>
+    private void Close()
+    {
+        open = false;
+        denied = false;
+        password = "";
+    }
+
+    /// <summary>Enter submits, Escape cancels.</summary>
+    private void OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") Submit();
+        else if (e.Key == "Escape") Close();
+    }
+
+    /// <summary>
+    /// Placeholder: every attempt is refused. The password is cleared immediately
+    /// and focus returns to the box so the user can try again or cancel.
+    /// </summary>
+    private void Submit()
+    {
+        denied = true;
+        password = "";
+        focusPending = true;
+    }
+
+    /// <summary>Focuses the password box once it exists in the DOM.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!open || !focusPending) return;
+        focusPending = false;
+        await passwordInput.FocusAsync();
+    }
+}

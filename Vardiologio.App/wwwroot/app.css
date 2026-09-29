@@ -598,3 +598,104 @@ p.hint {
 .help-body li {
 	margin-bottom: 5px;
 }
+
+/* Administrator section at the bottom of the sidebar (same separator as .settings-box). */
+.admin-box {
+	margin-top: 24px;
+	padding-top: 12px;
+	border-top: 1px solid #33557f;
+}
+
+/* A <button> that looks like the sidebar's NavLink items. */
+.sidebar .nav-button {
+	width: 100%;
+	background: none;
+	border: none;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.sidebar .nav-button:hover {
+	background: #33557f;
+	color: #fff;
+}
+
+/* Administrator sign-in dialog: dimmed background + centred card. */
+.admin-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 950;
+	background: rgba(0, 0, 0, .35);
+}
+
+.admin-dialog {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 1000;
+	width: min(340px, 90vw);
+	background: #fff;
+	color: #222;
+	padding: 24px 28px;
+	border-radius: 10px;
+	box-shadow: 0 6px 24px rgba(0, 0, 0, .25);
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.admin-dialog h2 {
+	margin: 0;
+	font-size: 1.1rem;
+	color: #1f3a5f;
+}
+
+.admin-dialog .admin-note {
+	margin: 0;
+	font-size: .85rem;
+	color: #555;
+}
+
+.admin-dialog label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: .9rem;
+}
+
+.admin-dialog input {
+	padding: 8px;
+}
+
+.admin-dialog input[readonly] {
+	background: #f1f3f6;
+	color: #555;
+}
+
+.admin-dialog .err {
+	color: #c00;
+	margin: 0;
+	font-size: .9rem;
+}
+
+.admin-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.admin-actions button {
+	padding: 8px 16px;
+	border: none;
+	border-radius: 6px;
+	background: #1f3a5f;
+	color: #fff;
+	cursor: pointer;
+}
+
+.admin-actions button.secondary {
+	background: #e3e8ef;
+	color: #1f3a5f;
+}
