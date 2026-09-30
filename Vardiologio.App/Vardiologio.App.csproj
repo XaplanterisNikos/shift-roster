@@ -17,6 +17,9 @@
   </ItemGroup>
 
   <PropertyGroup>
+    <!-- Release number: the ONLY place to change it. Shown on the login screen and read by the
+         installer (installer\Vardiologio.iss) from the built exe. Bump it for every release. -->
+    <Version>0.7.0</Version>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <Nullable>enable</Nullable>

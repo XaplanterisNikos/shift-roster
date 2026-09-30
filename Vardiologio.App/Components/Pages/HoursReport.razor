@@ -1,12 +1,16 @@
 @page "/hours-report"
 @using System.Diagnostics
 @using System.IO
+@using Vardiologio.Application.Files
 @using Vardiologio.Application.Hours
+@using Vardiologio.Application.Logging
 @using Vardiologio.Application.Reports
 @using Vardiologio.Domain.Enums
 @inject IHoursReportService HoursReportService
 @inject IExcelReportRenderer Excel
 @inject IPdfReportRenderer Pdf
+@inject IReportFileStore FileStore
+@inject IErrorLog ErrorLog
 
 @* Monthly hours report: every active employee's declared / paid / excess hours per pay
    category, with the monthly limits applied (same calculation as the entry screen).
@@ -129,7 +133,7 @@
     {
         busy = true; message = null; error = null; pdfDataUri = null;
         try { model = await HoursReportService.BuildAsync(year, month); }
-        catch (Exception ex) { error = ex.Message; }
+        catch (Exception ex) { Fail("Show", ex); }
         finally { busy = false; }
     }
 
@@ -144,14 +148,11 @@
         {
             model = await HoursReportService.BuildAsync(year, month);
             var bytes = render(model);
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Vardiologio");
-            Directory.CreateDirectory(dir);
-            var path = Path.Combine(dir, $"ΩΡΕΣ_{year}_{month:00}.{ext}");
-            await File.WriteAllBytesAsync(path, bytes);
+            var path = await FileStore.SaveAsync(ReportFolder.MonthlyHours, year, month, $"Monthly_Hours_{year}_{month:00}.{ext}", bytes);
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
             message = $"Δημιουργήθηκε: {path}";
         }
-        catch (Exception ex) { error = ex.Message; }
+        catch (Exception ex) { Fail("Excel/PDF export", ex); }
         finally { busy = false; }
     }
 
@@ -164,7 +165,7 @@
             model = await HoursReportService.BuildAsync(year, month);
             pdfDataUri = "data:application/pdf;base64," + Convert.ToBase64String(Pdf.Render(model));
         }
-        catch (Exception ex) { error = ex.Message; }
+        catch (Exception ex) { Fail("PDF preview", ex); }
         finally { busy = false; }
     }
 
@@ -177,4 +178,11 @@
     private static readonly string[] Months =
         { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",
           "Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος" };
+
+    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows its message on the page.</summary>
+    private void Fail(string action, Exception ex)
+    {
+        ErrorLog.Error($"Hours report / {action}", ex);
+        error = ex.Message;
+    }
 }

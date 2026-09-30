@@ -1,0 +1,165 @@
+@page "/attendance-report"
+@using System.Diagnostics
+@using System.IO
+@using Vardiologio.Application.Files
+@using Vardiologio.Application.Logging
+@using Vardiologio.Application.Reports
+@inject IAttendanceReportService AttendanceReportService
+@inject IExcelReportRenderer Excel
+@inject IPdfReportRenderer Pdf
+@inject IReportFileStore FileStore
+@inject IErrorLog ErrorLog
+
+@* Monthly staff attendance report ("ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΠΡΟΣΩΠΙΚΟΥ"), in two reports:
+   the staff and the directorate. The preview is the PDF itself (exactly what gets printed);
+   every export writes one file per report (Excel or PDF). *@
+<h1>Εξαγωγή Αναφοράς Παρουσιών Προσωπικού</h1>
+
+<div class="filters">
+    <label>
+        Έτος
+        <select @bind="year">
+            @for (int y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+    </label>
+    <label>
+        Μήνας
+        <select @bind="month">
+            @for (int mo = 1; mo <= 12; mo++)
+            {
+                <option value="@mo">@Months[mo - 1]</option>
+            }
+        </select>
+    </label>
+    <button @onclick="PreviewAsync" disabled="@busy">Προεπισκόπηση</button>
+    <button @onclick="ExportExcelAsync" disabled="@busy">Εξαγωγή Excel</button>
+    <button @onclick="ExportPdfAsync" disabled="@busy">Εξαγωγή PDF</button>
+</div>
+
+@if (message is not null)
+{
+    <p class="ok">@message</p>
+}
+@if (error is not null)
+{
+    <p style="color:#c00">@error</p>
+}
+@if (noDirector)
+{
+    <p class="hint">
+        Δεν βρέθηκε ο Διευθυντής (ενεργός εργαζόμενος με θέση «@PresenceRules.DirectorPosition»
+        ή με επώνυμο «@PresenceRules.DirectorLastName»)· η αναφορά της Διεύθυνσης βγαίνει κενή.
+    </p>
+}
+
+@if (previews is not null)
+{
+    @* One tab per report; each shows its own PDF inline (WebView2 has a built-in PDF viewer). *@
+    <div class="tabs">
+        @foreach (var sheet in Sheets)
+        {
+            <button type="button"
+                    class="tab @(sheet == activeSheet ? "active" : "")"
+                    @onclick="() => activeSheet = sheet">
+                @TabTitle(sheet)
+            </button>
+        }
+    </div>
+
+    <object data="@previews[activeSheet]" type="application/pdf" style="width:100%;height:75vh;border:1px solid #ccc">
+        <p>
+            Δεν εμφανίζεται η προεπισκόπηση.
+            <a href="@previews[activeSheet]" target="_blank">Άνοιγμα PDF</a>
+        </p>
+    </object>
+}
+
+@code {
+    /// <summary>The two reports, in tab / sheet order.</summary>
+    private static readonly AttendanceSheet[] Sheets = { AttendanceSheet.Staff, AttendanceSheet.Directorate };
+
+    private int year = DateTime.Today.Year;
+    private int month = DateTime.Today.Month;
+    private bool busy, noDirector;
+    private string? message, error;
+    private AttendanceSheet activeSheet = AttendanceSheet.Staff;
+
+    /// <summary>PDF data-URI per report, after "Προεπισκόπηση".</summary>
+    private Dictionary<AttendanceSheet, string>? previews;
+
+    /// <summary>Builds both reports for the selected month (staff first, then directorate).</summary>
+    private async Task<List<AttendanceReportModel>> BuildAllAsync()
+    {
+        var models = new List<AttendanceReportModel>();
+        foreach (var sheet in Sheets)
+            models.Add(await AttendanceReportService.BuildAsync(year, month, sheet));
+
+        // Warn when the director was not found at all (the directorate report is then empty).
+        noDirector = models.Single(m => m.Sheet == AttendanceSheet.Directorate).Rows.Count == 0;
+        return models;
+    }
+
+    /// <summary>Renders both reports to PDF in memory and shows them inline (no file written).</summary>
+    private async Task PreviewAsync()
+    {
+        busy = true; message = null; error = null; previews = null;
+        try
+        {
+            var models = await BuildAllAsync();
+            previews = models.ToDictionary(
+                m => m.Sheet,
+                m => "data:application/pdf;base64," + Convert.ToBase64String(Pdf.Render(m)));
+        }
+        catch (Exception ex) { Fail("Preview", ex); }
+        finally { busy = false; }
+    }
+
+    private Task ExportExcelAsync() => ExportAsync(m => Excel.Render(m), "xlsx");
+    private Task ExportPdfAsync() => ExportAsync(m => Pdf.Render(m), "pdf");
+
+    /// <summary>
+    /// Writes one file per report (staff and directorate go to different signatories),
+    /// then opens them with the default application.
+    /// </summary>
+    private async Task ExportAsync(Func<AttendanceReportModel, byte[]> render, string ext)
+    {
+        busy = true; message = null; error = null;
+        try
+        {
+            var models = await BuildAllAsync();
+            var paths = new List<string>();
+            foreach (var m in models)
+                paths.Add(await FileStore.SaveAsync(ReportFolder.StaffAttendance, year, month, FileName(m.Sheet, ext), render(m)));
+            paths.ForEach(Open);
+            message = "Δημιουργήθηκαν: " + string.Join(", ", paths);
+        }
+        catch (Exception ex) { Fail("Excel/PDF export", ex); }
+        finally { busy = false; }
+    }
+
+    /// <summary>Attendance_Staff_yyyy_MM or Attendance_Directorate_yyyy_MM (Latin characters only).</summary>
+    private string FileName(AttendanceSheet sheet, string ext) => sheet == AttendanceSheet.Directorate
+        ? $"Attendance_Directorate_{year}_{month:00}.{ext}"
+        : $"Attendance_Staff_{year}_{month:00}.{ext}";
+
+    /// <summary>Opens a file with its default application.</summary>
+    private static void Open(string path) => Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+
+    /// <summary>Tab title of a report.</summary>
+    private static string TabTitle(AttendanceSheet sheet) =>
+        sheet == AttendanceSheet.Directorate ? "Διεύθυνση" : "Υπάλληλοι";
+
+    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows its message on the page.</summary>
+    private void Fail(string action, Exception ex)
+    {
+        ErrorLog.Error($"Attendance report / {action}", ex);
+        error = ex.Message;
+    }
+
+    private static readonly string[] Months =
+        { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",
+          "Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος" };
+}

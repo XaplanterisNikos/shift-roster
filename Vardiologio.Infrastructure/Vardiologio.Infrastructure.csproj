@@ -15,6 +15,11 @@
     <PackageReference Include="QuestPDF" Version="2026.9.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Emblem printed on the attendance report (read by AttendanceSheetTexts.Emblem). -->
+    <EmbeddedResource Include="Reports\Assets\emblem.png" LogicalName="Vardiologio.Reports.Emblem.png" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

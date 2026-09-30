@@ -3,14 +3,18 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Windows;
 using Vardiologio.Application.Auth;
 using Vardiologio.Application.Employees;
+using Vardiologio.Application.Files;
 using Vardiologio.Application.Hours;
+using Vardiologio.Application.Logging;
 using Vardiologio.Application.Reports;
 using Vardiologio.Application.Parameters;
 using Vardiologio.Application.ShiftCodes;
 using Vardiologio.Application.ShiftEntry;
 using Vardiologio.Infrastructure.Auth;
 using Vardiologio.Infrastructure.Employees;
+using Vardiologio.Infrastructure.Files;
 using Vardiologio.Infrastructure.Hours;
+using Vardiologio.Infrastructure.Logging;
 using Vardiologio.Infrastructure.Persistence;
 using Vardiologio.Infrastructure.Reports;
 using Vardiologio.Infrastructure.Parameters;
@@ -35,9 +39,11 @@ public partial class App : System.Windows.Application
 	/// </summary>
 	protected override void OnStartup(StartupEventArgs e)
 	{
-		// Catch and log any unhandled exception (UI thread + any thread) so it is never lost.
-		DispatcherUnhandledException += (_, args) => { LogFatal(args.Exception); args.Handled = true; };
-		AppDomain.CurrentDomain.UnhandledException += (_, args) => LogFatal(args.ExceptionObject as Exception);
+		// Catch and log any unhandled exception (UI thread, any thread, forgotten tasks) so it is
+		// never lost. Logged to Documents\Vardiologio\Logs (errors only).
+		DispatcherUnhandledException += (_, args) => { LogFatal("Unhandled error (UI thread)", args.Exception); args.Handled = true; };
+		AppDomain.CurrentDomain.UnhandledException += (_, args) => LogFatal("Unhandled error (background thread)", args.ExceptionObject as Exception);
+		TaskScheduler.UnobservedTaskException += (_, args) => { ErrorLogFile.Write("Unobserved task error", args.Exception); args.SetObserved(); };
 
 		try
 		{
@@ -58,6 +64,9 @@ public partial class App : System.Windows.Application
 			services.AddScoped<IReportService, ReportService>();
 			services.AddScoped<IIndividualReportService, IndividualReportService>();
 			services.AddScoped<IHoursReportService, HoursReportService>();
+			services.AddScoped<IAttendanceReportService, AttendanceReportService>();
+			services.AddScoped<IOvertimeCertificateService, OvertimeCertificateService>();
+			services.AddScoped<IShiftTableService, ShiftTableService>();
 			services.AddScoped<IEmployeeService, EmployeeService>();
 			services.AddScoped<IShiftCodeService, ShiftCodeService>();
 			services.AddScoped<ILookupService, LookupService>();
@@ -67,6 +76,10 @@ public partial class App : System.Windows.Application
 			// Report renderers
 			services.AddSingleton<IExcelReportRenderer, ClosedXmlReportRenderer>();
 			services.AddSingleton<IPdfReportRenderer, QuestPdfReportRenderer>();   // PDF report output
+
+			// Files and error log (Documents\Vardiologio: Reports\..., Logs\...)
+			services.AddSingleton<IReportFileStore, ReportFileStore>();
+			services.AddSingleton<IErrorLog, FileErrorLog>();
 
 			// Auth
 			services.AddSingleton<IAuthService, AuthService>();
@@ -78,21 +91,24 @@ public partial class App : System.Windows.Application
 		}
 		catch (Exception ex)
 		{
-			LogFatal(ex);
+			LogFatal("Startup", ex);
 			Shutdown();
 		}
 	}
 
-	/// <summary>Writes the exception to %LOCALAPPDATA%\Vardiologio\startup-error.log and shows a dialog.</summary>
-	private static void LogFatal(Exception? ex)
+	/// <summary>
+	/// Writes the exception to the daily error log (Documents\Vardiologio\Logs) and tells the user
+	/// where to find it. Never throws.
+	/// </summary>
+	/// <param name="source">Where it happened (startup, UI thread, background thread).</param>
+	/// <param name="ex">The exception, or null when the runtime gave none.</param>
+	private static void LogFatal(string source, Exception? ex)
 	{
+		var logPath = ErrorLogFile.Write(source, ex);
 		try
 		{
-			var dir = System.IO.Path.Combine(
-				Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vardiologio");
-			System.IO.Directory.CreateDirectory(dir);
-			System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "startup-error.log"), $"{DateTime.Now:u}\n\n{ex}");
-			MessageBox.Show(ex?.Message ?? "Unknown error", "Σφάλμα — δες startup-error.log");
+			MessageBox.Show(ex?.Message ?? "Unknown error",
+				logPath is null ? "Σφάλμα" : $"Σφάλμα — δες {logPath}");
 		}
 		catch { /* last resort */ }
 	}

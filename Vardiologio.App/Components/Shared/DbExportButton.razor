@@ -1,17 +1,17 @@
-@* Sidebar entry "Εξαγωγή βάσης" and its administrator sign-in dialog.
+@* Sidebar entry "Εισαγωγή / Εξαγωγή βάσης" and its administrator sign-in dialog.
    Placeholder stage: the dialog exists so users can see the feature is coming,
    but every attempt is refused. The typed password is never checked, stored or
    logged; it is cleared after each attempt and when the dialog closes.
    Next stage: verify against an admin PBKDF2 hash (same scheme as UserStore)
    and, on success, run the actual database export. *@
-<button type="button" class="nav-item nav-button" @onclick="Open">Εξαγωγή βάσης</button>
+<button type="button" class="nav-item nav-button" @onclick="Open">Εισαγωγή / Εξαγωγή βάσης</button>
 
 @if (open)
 {
     @* Dimmed background; a click on it cancels the dialog. *@
     <div class="admin-overlay" @onclick="Close"></div>
     <div class="admin-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title">
-        <h2 id="admin-dialog-title">Εξαγωγή βάσης</h2>
+        <h2 id="admin-dialog-title">Εισαγωγή / Εξαγωγή βάσης</h2>
         <p class="admin-note">Η λειτουργία είναι διαθέσιμη μόνο στον διαχειριστή.</p>
         <label>
             Χρήστης

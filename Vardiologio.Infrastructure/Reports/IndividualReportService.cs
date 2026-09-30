@@ -78,7 +78,7 @@ public class IndividualReportService : IIndividualReportService
 					// Working shift: show its time window and mark presence.
 					row.ShiftStart = e.StartTime.Value.ToString("HH:mm");
 					row.ShiftEnd = e.EndTime?.ToString("HH:mm");
-					row.Presence = "√";
+					row.Presence = PresenceRules.Mark(e.Code, isWorkShift: true);
 
 					// Route to the form's columns: ΕΒΔΟΜΑΔΙΑΙΑ (Mon–Sat) vs ΚΥΡΙΑΚΩΝ ΕΞΑΙΡΕΣΙΜΩΝ
 					// (Sundays and holidays, e.g. code 2 on Good Friday).
@@ -92,7 +92,7 @@ public class IndividualReportService : IIndividualReportService
 				{
 					// Status day (leave/rest/etc.): show the code in place of times and presence.
 					row.StatusCode = e.Code;
-					row.Presence = e.Code;
+					row.Presence = PresenceRules.Mark(e.Code, isWorkShift: false);
 				}
 			}
 			// else: no entry -> blank row (date + index + name only).

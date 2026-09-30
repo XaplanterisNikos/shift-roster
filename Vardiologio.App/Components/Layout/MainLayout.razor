@@ -10,22 +10,41 @@
     <div class="page">
         <nav class="sidebar">
             <div class="brand">Βαρδιολόγιο</div>
+
+            @* Every section has the same shape: a small title, then its entries (see .box-title in app.css). *@
+            <div class="menu-box">
+                <div class="box-title">Λειτουργίες</div>
                 <NavLink class="nav-item" href="employees">Εργαζόμενοι</NavLink>
                 @* Match.All so this is active only at "/", not on every route. *@
-                <NavLink class="nav-item" href="" Match="NavLinkMatch.All">Εισαγωγή προγραμμάτων</NavLink>
-                <NavLink class="nav-item" href="export">Εξαγωγή Αναφοράς Συνολική Μηνιαία</NavLink>
-                <NavLink class="nav-item" href="individual">Εξαγωγή Αναφοράς Ατομική Μηνιαία</NavLink>   
-                <NavLink class="nav-item" href="hours-report">Εξαγωγή Αναφοράς Ωρών Μηνιαία</NavLink>
-                <div class="settings-box">
-            <NavLink class="nav-item" href="shift-codes">Παράμετροι Βαρδιών</NavLink>
-            <NavLink class="nav-item" href="employee-parameters">Παράμετροι Εργαζομένων</NavLink>
-            <NavLink class="nav-item" href="hours-parameters">Παράμετροι Ωρών</NavLink>
-        </div>
+                <NavLink class="nav-item" href="" Match="NavLinkMatch.All">Προγράμματα</NavLink>
+            </div>
+
+            @* Reports and forms together; the two official forms (emblem + signatures) have a slightly darker tone. *@
+            <div class="reports-box">
+                <div class="box-title">Αναφορές - Έντυπα</div>
+                <NavLink class="nav-item" href="export">Συνολική Μηνιαία</NavLink>
+                <NavLink class="nav-item" href="individual">Ατομική Μηνιαία</NavLink>
+                <NavLink class="nav-item" href="hours-report">Ωρών Μηνιαία</NavLink>
+                <NavLink class="nav-item official" href="shift-table">Πίνακας Βαρδιών Εργασίας</NavLink>
+                <NavLink class="nav-item official" href="attendance-report">Παρουσιών Προσωπικού</NavLink>
+                <NavLink class="nav-item official" href="overtime-certificate">Ατομικής Βεβαίωσης</NavLink>
+            </div>
+
+            <div class="settings-box">
+                <div class="box-title">Παράμετροι</div>
+                <NavLink class="nav-item" href="shift-codes">Βαρδιών</NavLink>
+                <NavLink class="nav-item" href="employee-parameters">Εργαζομένων</NavLink>
+                <NavLink class="nav-item" href="hours-parameters">Ωρών</NavLink>
+            </div>
+
             @* Administrator-only tools; the entry opens its own sign-in dialog (Shared/DbExportButton.razor). *@
             <div class="admin-box">
+                <div class="box-title">Διαχείριση</div>
                 <DbExportButton />
             </div>
+
             <div class="user-box">
+                <div class="box-title">Login</div>
                 <div class="user-name">@Session.Current!.DisplayName</div>
                 <button class="linklike" @onclick="Logout">Αποσύνδεση</button>
             </div>

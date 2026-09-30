@@ -30,7 +30,21 @@
     }
 </div>
 
+@* Credits, bottom-right of the login screen. The LinkedIn address is outside the app's origin,
+   so BlazorWebView opens it in the default browser instead of inside the app window. *@
+<footer class="login-credits">
+    <div class="app-name">Βαρδιολόγιο Shift-Roster <span class="app-version">v@(AppVersion)</span></div>
+    <div>Ξαπλαντέρης Νίκος</div>
+    <a href="https://www.linkedin.com/in/nick-xaplanteris/">https://www.linkedin.com/in/nick-xaplanteris/</a>
+</footer>
+
 @code {
+    /// <summary>
+    /// Release number, e.g. "0.7.0" — from &lt;Version&gt; in Vardiologio.App.csproj (major.minor.patch).
+    /// </summary>
+    private static readonly string AppVersion =
+        typeof(Login).Assembly.GetName().Version?.ToString(3) ?? "";
+
     private IReadOnlyList<LoginOption> options = Array.Empty<LoginOption>();
     private string username = "";
     private string password = "";

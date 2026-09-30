@@ -1,0 +1,131 @@
+@page "/overtime-certificate"
+@using System.Diagnostics
+@using System.IO
+@using Vardiologio.Application.Files
+@using Vardiologio.Application.Logging
+@using Vardiologio.Application.Reports
+@using Vardiologio.Application.ShiftEntry
+@inject IOvertimeCertificateService CertificateService
+@inject IShiftEntryService ShiftService
+@inject IExcelReportRenderer Excel
+@inject IPdfReportRenderer Pdf
+@inject IReportFileStore FileStore
+@inject IErrorLog ErrorLog
+
+@* Individual overtime certificate ("ΠΙΣΤΟΠΟΙΗΣΗ ΥΠΕΡΩΡΙΑΚΗΣ ΚΑΙ ΛΟΙΠΗΣ ΕΡΓΑΣΙΑΣ") of one employee
+   for one month. The preview is the PDF itself (exactly what gets printed); Excel / PDF write
+   one file for the selected employee. *@
+<h1>Εξαγωγή Βεβαίωσης Ατομικής</h1>
+
+<div class="filters">
+    <label>
+        Έτος
+        <select @bind="year">
+            @for (int y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+    </label>
+    <label>
+        Μήνας
+        <select @bind="month">
+            @for (int mo = 1; mo <= 12; mo++)
+            {
+                <option value="@mo">@Months[mo - 1]</option>
+            }
+        </select>
+    </label>
+    <label>
+        Εργαζόμενος
+        <select @bind="employeeId">
+            <option value="0">— επίλεξε —</option>
+            @foreach (var e in employees)
+            {
+                <option value="@e.Id">@e.Display</option>
+            }
+        </select>
+    </label>
+    <button @onclick="PreviewAsync" disabled="@(busy || employeeId == 0)">Προεπισκόπηση</button>
+    <button @onclick="ExportExcelAsync" disabled="@(busy || employeeId == 0)">Εξαγωγή Excel</button>
+    <button @onclick="ExportPdfAsync" disabled="@(busy || employeeId == 0)">Εξαγωγή PDF</button>
+</div>
+
+@if (message is not null)
+{
+    <p class="ok">@message</p>
+}
+@if (error is not null)
+{
+    <p style="color:#c00">@error</p>
+}
+
+@if (pdfDataUri is not null)
+{
+    @* Inline PDF preview via a base64 data-URI (WebView2 has a built-in PDF viewer). *@
+    <object data="@pdfDataUri" type="application/pdf" style="width:100%;height:75vh;border:1px solid #ccc">
+        <p>
+            Δεν εμφανίζεται η προεπισκόπηση.
+            <a href="@pdfDataUri" target="_blank">Άνοιγμα PDF</a>
+        </p>
+    </object>
+}
+
+@code {
+    private IReadOnlyList<EmployeeListItem> employees = Array.Empty<EmployeeListItem>();
+    private int year = DateTime.Today.Year;
+    private int month = DateTime.Today.Month;
+    private int employeeId;
+    private bool busy;
+    private string? message, error, pdfDataUri;
+
+    /// <summary>Loads the active employees for the picker.</summary>
+    protected override async Task OnInitializedAsync()
+        => employees = await ShiftService.GetEmployeesAsync();
+
+    /// <summary>Renders the certificate to PDF in memory and shows it inline (no file written).</summary>
+    private async Task PreviewAsync()
+    {
+        busy = true; message = null; error = null; pdfDataUri = null;
+        try
+        {
+            var model = await CertificateService.BuildAsync(employeeId, year, month);
+            pdfDataUri = "data:application/pdf;base64," + Convert.ToBase64String(Pdf.Render(model));
+        }
+        catch (Exception ex) { Fail("Preview", ex); }
+        finally { busy = false; }
+    }
+
+    private Task ExportExcelAsync() => ExportAsync(m => Excel.Render(m), "xlsx");
+    private Task ExportPdfAsync() => ExportAsync(m => Pdf.Render(m), "pdf");
+
+    /// <summary>
+    /// Builds the certificate, writes Certificate_SURNAME_yyyy_MM (Latin characters) under
+    /// Reports\Overtime-Certificate\&lt;month&gt; and opens it with the default application.
+    /// </summary>
+    private async Task ExportAsync(Func<OvertimeCertificateModel, byte[]> render, string ext)
+    {
+        busy = true; message = null; error = null;
+        try
+        {
+            var model = await CertificateService.BuildAsync(employeeId, year, month);
+            var fileName = $"Certificate_{GreekText.ToLatin(model.LastName)}_{year}_{month:00}.{ext}";
+            var path = await FileStore.SaveAsync(ReportFolder.OvertimeCertificate, year, month, fileName, render(model));
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            message = $"Δημιουργήθηκε: {path}";
+        }
+        catch (Exception ex) { Fail("Excel/PDF export", ex); }
+        finally { busy = false; }
+    }
+
+    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows its message on the page.</summary>
+    private void Fail(string action, Exception ex)
+    {
+        ErrorLog.Error($"Overtime certificate / {action}", ex);
+        error = ex.Message;
+    }
+
+    private static readonly string[] Months =
+        { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",
+          "Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος" };
+}

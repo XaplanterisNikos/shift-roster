@@ -4,9 +4,17 @@
 ; install, upgrade or uninstall: user data survives every reinstall.
 
 #define MyAppName "Βαρδιολόγιο"
-#define MyAppVersion "0.6.0"                     ; bump on every build you hand out
 #define MyAppExeName "Vardiologio.App.exe"
 #define PublishDir "..\publish\Vardiologio"      ; output of dotnet publish (step 1)
+
+; Version is read from the published exe, i.e. from <Version> in Vardiologio.App.csproj —
+; change it only there. (Run dotnet publish before compiling this script; needs Inno Setup 6.1+.)
+#define VerMajor
+#define VerMinor
+#define VerRev
+#define VerBuild
+#expr GetVersionComponents(AddBackslash(SourcePath) + PublishDir + "\" + MyAppExeName, VerMajor, VerMinor, VerRev, VerBuild)
+#define MyAppVersion Str(VerMajor) + "." + Str(VerMinor) + "." + Str(VerRev)
 
 [Setup]
 ; Unique id of the product. Generate once (Tools > Generate GUID) and NEVER change it,

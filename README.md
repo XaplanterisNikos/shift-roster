@@ -23,6 +23,19 @@ staff and producing the official attendance/shift reports.
 - **Monthly roster report ** — one row per employee, one column per day,
   with per-program counts; exported to **Excel** and **PDF** (A3 landscape) or
   previewed inline.
+- **Staff attendance report** (Πίνακας παρουσιών προσωπικού) — one mark per
+  employee per day (√ / status code), printed per fortnight on A4 landscape with
+  the emblem, letterhead and signatures on every page; a separate report for the
+  head of the directorate (work position ΔΙΕΥΘΥΝΤΗΣ, or by surname as a fallback).
+  Excel and PDF (one file per report) and inline preview.
+- **Official shift table** (Πίνακας βαρδιών εργασίας) — the "Σ.Ω." form on one A3
+  landscape page: codes per day (weekends / holidays shaded), counts per work code, paid
+  "προς συμπλήρωση" / holiday hours, legend from the shift-code parameters, signatures.
+  Excel (fit to one A3 page) and PDF (scaled to fit), inline preview.
+- **Individual overtime certificate** (Βεβαίωση ατομική — «Πιστοποίηση υπερωριακής
+  και λοιπής εργασίας») — one employee, one month, one A4 landscape page with the
+  emblem, letterhead, declaration and signature; the paid hours per pay category
+  (same numbers as the hours report). Excel, PDF and inline preview.
 - **Individual analytical sheet** — per-employee monthly preview (attendance,
   shift times, supplementary hours, fortnight totals).
 - **Login** — fixed users with password hashing.
@@ -78,6 +91,15 @@ not a source of truth that gets re-applied over user edits on upgrade.
 Login credentials are hard-coded in `UserStore.cs` with PBKDF2 password hashes.
 The committed values are **demo passwords** (`user1/1111`, `user2/2222`) and must
 be changed before any real use. Real passwords are never stored in plain text.
+
+## Files on disk
+
+- **Database:** `%LOCALAPPDATA%\Vardiologio\vardiologio.db` (hidden, survives reinstalls).
+- **Documents\Vardiologio** (Latin names only):
+  - `Logs\yyyy-MM-dd.log` — errors only (startup, unhandled, failed exports).
+  - `Reports\<Monthly-Total | Monthly-Hours | Staff-Attendance | Overtime-Certificate | Shift-Table>\yyyy-MM Month\` — exported reports.
+- **Version:** `<Version>` in `Vardiologio.App.csproj` is the only place to change it; the login
+  screen shows it and the installer reads it from the built exe.
 
 ## Status
 

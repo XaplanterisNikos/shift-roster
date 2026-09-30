@@ -1,10 +1,14 @@
 ﻿@page "/export"
 @using System.Diagnostics
 @using System.IO
+@using Vardiologio.Application.Files
+@using Vardiologio.Application.Logging
 @using Vardiologio.Application.Reports
 @inject IReportService ReportService
 @inject IExcelReportRenderer Excel
 @inject IPdfReportRenderer Pdf
+@inject IReportFileStore FileStore
+@inject IErrorLog ErrorLog
 
 @* Export the monthly Σ.Ω. report: save+open as Excel or PDF, or preview the PDF inline. *@
 <h1>Εξαγωγή αναφοράς (Σ.Ω.)</h1>
@@ -63,7 +67,7 @@
     private async Task ExportExcel() => await SaveAndOpen(m => Excel.Render(m), "xlsx");
     private async Task ExportPdf() => await SaveAndOpen(m => Pdf.Render(m), "pdf");
 
-    // Shared helper: build the model, render to bytes, save to Documents\Vardiologio, then open with the default app.
+    // Shared helper: build the model, render to bytes, save under Reports\Monthly-Total\<month>, then open with the default app.
     private async Task SaveAndOpen(Func<ReportModel, byte[]> render, string ext)
     {
         busy = true; message = null; error = null;
@@ -71,14 +75,11 @@
         {
             var model = await ReportService.BuildMonthlyRosterAsync(year, month);
             var bytes = render(model);
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Vardiologio");
-            Directory.CreateDirectory(dir);
-            var path = Path.Combine(dir, $"ΣΩ_{year}_{month:00}.{ext}");
-            await File.WriteAllBytesAsync(path, bytes);
+            var path = await FileStore.SaveAsync(ReportFolder.MonthlyTotal, year, month, $"Monthly_Total_{year}_{month:00}.{ext}", bytes);
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
             message = $"Δημιουργήθηκε: {path}";
         }
-        catch (Exception ex) { error = ex.Message; }
+        catch (Exception ex) { Fail("Excel/PDF export", ex); }
         finally { busy = false; }
     }
 
@@ -92,8 +93,15 @@
             var bytes = Pdf.Render(model);
             pdfDataUri = "data:application/pdf;base64," + Convert.ToBase64String(bytes);
         }
-        catch (Exception ex) { error = ex.Message; }
+        catch (Exception ex) { Fail("PDF preview", ex); }
         finally { busy = false; }
+    }
+
+    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows its message on the page.</summary>
+    private void Fail(string action, Exception ex)
+    {
+        ErrorLog.Error($"Monthly total report / {action}", ex);
+        error = ex.Message;
     }
 
     private static readonly string[] Months =
