@@ -80,6 +80,7 @@ public static class AppTheme
 		{
 			DefaultBorderRadius = "12px",
 			DrawerWidthLeft = "264px",
+			DrawerWidthRight = "400px",   // help drawer (Layout/MainLayout.razor)
 			AppbarHeight = "64px"
 		}
 	};

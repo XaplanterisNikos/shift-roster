@@ -68,6 +68,14 @@ staff and producing the official attendance/shift reports.
   form), "προς συμπλήρωση" per fortnight and the paid hours of the overtime certificate — each
   block says where its numbers come from. On-screen preview, Excel and PDF (one A4 landscape
   page) from one shared layout, so the three always agree.
+- **Context help** — the "?" button of the top bar opens a side drawer with the instructions of
+  the current page. The drawer sits next to the page, so the instructions can be read while
+  working, and follows the user from page to page until it is closed.
+- **Message to the developer** — the pen button of the top bar opens a form in the same drawer:
+  kind (error / addition), the menu it concerns, the sender's name and the text. It opens the
+  user's own mail program with recipient, subject ("kind - menu") and text filled in; nothing is
+  sent by the application itself. For an error, the form shows the folder of the log files so
+  that they can be attached by hand.
 - **Login** — fixed users with password hashing.
 
 ## Technology
@@ -101,9 +109,22 @@ on the `ui/mudblazor` branch.
 - **Theme** — `Vardiologio.App/Theme/AppTheme.cs` holds the colours, typography and layout sizes.
   `MudThemeProvider` applies it once in `Components/Routes.razor`; the app's stylesheet
   (`wwwroot/app.css`) reads the same values through MudBlazor's CSS variables.
-- **Shell** — `Components/Layout/MainLayout.razor`: top bar (brand, help, user) and a side menu
-  grouped by section.
-- **About card** — the app icon of the top bar opens a card with the application version and the
+- **Shell** — `Components/Layout/MainLayout.razor`: top bar (brand, help, message, user), a side
+  menu grouped by section and a side drawer on the right.
+- **Section colour** — the app icon of the top bar takes the colour of the section the current
+  page belongs to: operations blue (the brand colour), reports and forms green, parameters grey,
+  database management red (while its dialog is open). The mapping is `SectionClass` in
+  `MainLayout.razor`; the colours are the `.brand-mark-*` rules of `app.css`.
+- **Side drawer** — one persistent right drawer with two contents, so only one is open at a time:
+  the help texts of the current page (`Shared/HelpContent.razor`, one block per route) and the
+  message form (`Shared/FeedbackForm.razor`). The form stays rendered while hidden, so a
+  half-written message is kept. Width: `DrawerWidthRight` in `AppTheme.cs`.
+- **Message form** — builds a `mailto:` address, which BlazorWebView hands to Windows. A
+  `mailto:` address cannot carry attachments, and some mail programs open the new message
+  without the subject or the text; the "copy message" button puts recipient, subject and text
+  on the clipboard as a way around it. The menu list of the form is kept by hand in step with
+  the side menu.
+- **About card** — the app icon (top bar and login card) opens a card with the application version and the
   creator's e-mail, LinkedIn and GitHub (`Shared/AboutButton.razor`, `Shared/AboutCard.razor`).
   Version and creator details live in `Vardiologio.App/AppInfo.cs`; the window title shows
   "Shift-Roster v<version>".
@@ -115,7 +136,7 @@ on the `ui/mudblazor` branch.
 
 | Area | State |
 |---|---|
-| Theme, shell, login, administrator dialog | MudBlazor |
+| Theme, shell, login, administrator dialog, help drawer, message form | MudBlazor |
 | Daily shift entry (Προγράμματα) | MudBlazor — hour tiles per pay category, day rows with a Day / Night / Status tag, holidays and weekends marked, sticky save bar |
 | Report text parameters (Παράμετροι → Αναφορών) | MudBlazor — one tab per form, a header card and a footer card, save bar with undo of the last save |
 | Employees, the other parameter pages and the report pages | plain HTML (to be migrated) |
@@ -172,7 +193,8 @@ be changed before any real use. Real passwords are never stored in plain text.
 
 Working: database + seeding, login, employee CRUD, daily shift entry, monthly
 Σ.Ω. report (Excel/PDF/preview), individual sheet (preview/Excel/PDF),
-shift-code & extra-hours parameter management (CRUD + soft-delete).
+shift-code & extra-hours parameter management (CRUD + soft-delete), context help and
+message to the developer.
 
 Not finished yet:
 

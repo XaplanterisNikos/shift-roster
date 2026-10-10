@@ -42,32 +42,34 @@
     private static readonly DialogOptions DialogOptions =
         new() { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseOnEscapeKey = true };
 
+    /// <summary>Raised with true when the dialog opens and false when it closes (MainLayout colours the app icon).</summary>
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+
     private bool open;          // dialog visible
     private bool denied;        // show the "no access" message
     private string password = "";
     private MudTextField<string>? passwordField;
 
     /// <summary>Opens the dialog in a clean state (the password box takes focus by itself: AutoFocus).</summary>
-    private void Open()
+    private Task Open()
     {
         password = "";
         denied = false;
         open = true;
+        return OpenChanged.InvokeAsync(true);
     }
 
     /// <summary>Closes the dialog and discards anything typed.</summary>
-    private void Close()
+    private Task Close()
     {
         open = false;
         denied = false;
         password = "";
+        return OpenChanged.InvokeAsync(false);
     }
 
     /// <summary>Raised by the dialog when it closes itself (Escape, click on the background).</summary>
-    private void OnVisibleChanged(bool visible)
-    {
-        if (!visible) Close();
-    }
+    private Task OnVisibleChanged(bool visible) => visible ? Task.CompletedTask : Close();
 
     /// <summary>Enter submits (Escape is handled by the dialog itself).</summary>
     private async Task OnKey(KeyboardEventArgs e)

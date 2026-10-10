@@ -12,12 +12,22 @@
     <MudLayout>
         @* Top bar: brand on the left; help, user and sign-out on the right. *@
         <MudAppBar Elevation="0" Class="app-bar">
-            @* App icon; a click opens the "about" card (Shared/AboutButton.razor). *@
-            <AboutButton />
+            @* App icon; a click opens the "about" card (Shared/AboutButton.razor).
+               Its colour follows the section of the current page (see SectionClass below). *@
+            <AboutButton Class="@SectionClass" />
             <MudText Typo="Typo.h6" Class="brand-name">Βαρδιολόγιο</MudText>
             <MudSpacer />
-            @* Context help for the current page ("?"); texts in Shared/HelpContent.razor. *@
-            <HelpButton />
+            @* Context help ("?") and message to the developer (pen): each opens / closes its own
+               content in the side drawer at the end of this layout; opening one replaces the other. *@
+            <MudIconButton Icon="@Icons.Material.Rounded.QuestionMark" Variant="Variant.Outlined"
+                           Class="@BarButtonClass(SidePanel.Help)"
+                           title="Βοήθεια" aria-label="Βοήθεια" aria-pressed="@Pressed(SidePanel.Help)"
+                           OnClick="() => Toggle(SidePanel.Help)" />
+            <MudIconButton Icon="@Icons.Material.Rounded.Edit" Variant="Variant.Outlined"
+                           Class="@BarButtonClass(SidePanel.Feedback)"
+                           title="Μήνυμα στον προγραμματιστή" aria-label="Μήνυμα στον προγραμματιστή"
+                           aria-pressed="@Pressed(SidePanel.Feedback)"
+                           OnClick="() => Toggle(SidePanel.Feedback)" />
             <div class="user-box">
                 <MudText Typo="Typo.subtitle2">@Session.Current!.DisplayName</MudText>
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
@@ -68,7 +78,7 @@
                     <MudIcon Icon="@Icons.Material.Rounded.Storage" Size="Size.Small" />
                     <span>Διαχείριση</span>
                 </div>
-                <DbExportButton />
+                <DbExportButton OpenChanged="OnDbDialogChanged" />
             </MudNavMenu>
         </MudDrawer>
 
@@ -79,12 +89,62 @@
                 @Body
             </div>
         </MudMainContent>
+
+        @* Side drawer, right: one drawer with two contents, help or the message form, so only one
+           can be open. Persistent: it sits next to the page (no dimmed background), so the user can
+           read while working; it closes only with "×" or the button that opened it. On navigation
+           it stays open and follows the new page. Width: DrawerWidthRight in Theme/AppTheme.cs. *@
+        <MudDrawer Open="@(panel != SidePanel.None)" OpenChanged="OnDrawerOpenChanged" Anchor="Anchor.End"
+                   Variant="DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always" Elevation="0"
+                   Class="help-drawer">
+            <div class="help-head">
+                <MudIcon Icon="@(panel == SidePanel.Feedback ? Icons.Material.Rounded.Edit : Icons.Material.Rounded.HelpOutline)"
+                         Size="Size.Small" />
+                <MudText Typo="Typo.h6" Class="help-title">
+                    @(panel == SidePanel.Feedback ? "Μήνυμα στον προγραμματιστή" : HelpContent.TitleFor(route))
+                </MudText>
+                <MudIconButton Icon="@Icons.Material.Rounded.Close" Size="Size.Small"
+                               title="Κλείσιμο" aria-label="Κλείσιμο" OnClick="ClosePanel" />
+            </div>
+            @* Help texts of the current page (route -> Shared/HelpContent.razor). *@
+            @if (panel == SidePanel.Help)
+            {
+                <div class="help-body">
+                    <HelpContent Topic="@route" />
+                </div>
+            }
+            @* The form stays rendered (only hidden) while the drawer shows help or is closed, so a
+               half-written message is not lost. *@
+            <div class="help-body" hidden="@(panel != SidePanel.Feedback)">
+                <FeedbackForm Route="@route" />
+            </div>
+        </MudDrawer>
     </MudLayout>
 }
 
 @code {
+    private string route = "";   // current page, e.g. "" or "shift-codes"; picks help texts and icon colour
+    private SidePanel panel;     // what the side drawer shows; None = drawer closed
+    private bool dbDialogOpen;   // database dialog visible (it has no page of its own)
+
+    /// <summary>
+    /// Colour modifier of the app icon, by section of the side menu: operations keep the brand
+    /// blue (no modifier), reports are green, parameters grey, database management red.
+    /// The classes are defined next to ".brand-mark" in wwwroot/app.css.
+    /// </summary>
+    private string SectionClass => dbDialogOpen ? "brand-mark-admin" : route switch
+    {
+        "export" or "individual" or "hours-report" or "shift-table" or "attendance-report"
+            or "overtime-certificate" or "contract-certificate" => "brand-mark-reports",
+        "shift-codes" or "employee-parameters" or "hours-parameters" or "report-parameters" => "brand-mark-params",
+        _ => ""
+    };
+
     protected override void OnInitialized()
     {
+        route = CurrentRoute();
+        // No parameters change on navigation, so listen for it to switch help texts and icon colour.
+        Nav.LocationChanged += OnLocationChanged;
         // React to sign-in/out to refresh the shell.
         Session.Changed += OnChanged;
         // Auth guard: no session -> go to the login page.
@@ -92,7 +152,47 @@
     }
     // Session event may arrive off the UI thread -> marshal back with InvokeAsync.
     private void OnChanged() => InvokeAsync(StateHasChanged);
-    private void Logout() { Session.SignOut(); Nav.NavigateTo("/login"); }
-    // Unsubscribe to avoid a memory leak (pairs with the subscribe in OnInitialized).
-    public void Dispose() => Session.Changed -= OnChanged;
+    // The next user starts with the help drawer closed.
+    private void Logout() { panel = SidePanel.None; Session.SignOut(); Nav.NavigateTo("/login"); }
+
+    /// <summary>Content of the side drawer.</summary>
+    private enum SidePanel { None, Help, Feedback }
+
+    /// <summary>Top-bar button of a content: a second click closes the drawer, otherwise it shows that content.</summary>
+    private void Toggle(SidePanel target) => panel = panel == target ? SidePanel.None : target;
+
+    private void ClosePanel() => panel = SidePanel.None;
+
+    /// <summary>Raised by the drawer if it closes itself.</summary>
+    private void OnDrawerOpenChanged(bool open) { if (!open) panel = SidePanel.None; }
+
+    /// <summary>CSS classes of a top-bar button; highlighted while its content is shown.</summary>
+    private string BarButtonClass(SidePanel target) => panel == target ? "bar-btn bar-btn-on" : "bar-btn";
+
+    private string Pressed(SidePanel target) => panel == target ? "true" : "false";
+
+    /// <summary>Raised by the database entry when its dialog opens or closes.</summary>
+    private void OnDbDialogChanged(bool open) => dbDialogOpen = open;
+
+    /// <summary>Route relative to the base, without query/fragment, e.g. "" or "shift-codes".</summary>
+    private string CurrentRoute()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri);
+        var cut = path.IndexOfAny(new[] { '?', '#' });
+        return (cut >= 0 ? path[..cut] : path).Trim('/').ToLowerInvariant();
+    }
+
+    // Navigation may be raised off the render cycle -> marshal back with InvokeAsync.
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        route = CurrentRoute();
+        InvokeAsync(StateHasChanged);
+    }
+
+    // Unsubscribe to avoid a memory leak (pairs with the subscribes in OnInitialized).
+    public void Dispose()
+    {
+        Session.Changed -= OnChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+    }
 }

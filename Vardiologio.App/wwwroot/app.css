@@ -49,8 +49,10 @@
 	height: 40px;
 	flex: none;
 	border-radius: 12px;
-	background: var(--mud-palette-primary);
-	color: var(--mud-palette-primary-text);
+	/* --mark-bg: the section colour; the modifiers below change it. */
+	--mark-bg: var(--mud-palette-primary);
+	background: var(--mark-bg);
+	color: #fff;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -64,18 +66,32 @@
 	margin-right: 0;
 }
 
-/* The app icon of the top bar is a button (Shared/AboutButton.razor): opens the "about" card. */
+/* Section colours of the app icon (set by MainLayout from the current page):
+   operations = brand blue (default), reports = green, parameters = grey, database = red. */
+.brand-mark.brand-mark-reports {
+	--mark-bg: var(--mud-palette-success);
+}
+
+.brand-mark.brand-mark-params {
+	--mark-bg: var(--mud-palette-text-secondary);
+}
+
+.brand-mark.brand-mark-admin {
+	--mark-bg: var(--mud-palette-error);
+}
+
+/* The app icon is a button (Shared/AboutButton.razor): opens the "about" card. */
 .brand-mark.brand-mark-btn {
 	border: 0;
 	padding: 0;
 	cursor: pointer;
-	transition: transform .12s ease, box-shadow .12s ease;
+	transition: transform .12s ease, box-shadow .12s ease, background-color .25s ease;
 }
 
 .brand-mark.brand-mark-btn:hover,
 .brand-mark.brand-mark-btn:focus-visible {
 	transform: translateY(-1px);
-	box-shadow: 0 6px 16px rgba(67, 56, 202, .35);
+	box-shadow: 0 6px 16px color-mix(in srgb, var(--mark-bg) 35%, transparent);
 	outline: none;
 }
 
@@ -180,6 +196,18 @@
 	border-radius: 12px;
 	border-color: var(--mud-palette-lines-default);
 	color: var(--mud-palette-text-primary);
+}
+
+/* Help button while the help drawer is open. */
+.bar-btn.bar-btn-on.mud-icon-button {
+	border-color: var(--mud-palette-primary);
+	background: var(--mud-palette-background-gray);
+	color: var(--mud-palette-primary);
+}
+
+/* Two buttons side by side (help, message). */
+.bar-btn.mud-icon-button + .bar-btn.mud-icon-button {
+	margin-left: 8px;
 }
 
 /* Signed-in user: name + sign-out inside one outlined pill. */
@@ -324,7 +352,7 @@
    own components but leaves the plain-HTML pages without headings spacing, input borders and
    visible buttons. These rules give those elements sensible defaults again.
 
-   - Scope: only inside .legacy (the page area in MainLayout) and the help panel.
+   - Scope: only inside .legacy (the page area in MainLayout) and the help drawer.
    - :not([class*="mud-"]) skips MudBlazor's own elements, so a page can be moved to MudBlazor
      components one piece at a time.
    - :where() keeps the specificity at "one element", so every class rule further down
@@ -1232,56 +1260,72 @@ p.hint {
 	font-size: .85rem;
 }
 
-/* Dimmed background; a click on it closes the panel. */
-.help-overlay {
-	position: fixed;
-	inset: 0;
-	z-index: 950;
-	background: rgba(0, 0, 0, .25);
+/* Help drawer (right side of MainLayout): a hairline instead of a shadow, like the top bar. */
+.help-drawer.mud-drawer {
+	background: var(--mud-palette-surface);
+	border-left: 1px solid var(--mud-palette-lines-default);
 }
 
-/* Side panel with the instructions. */
-.help-panel {
-	position: fixed;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	z-index: 1000;
-	width: min(460px, 90vw);
-	background: #fff;
-	box-shadow: -4px 0 16px rgba(0, 0, 0, .2);
-	display: flex;
-	flex-direction: column;
-}
-
+/* Title row stays in place; only the texts below it scroll. */
 .help-head {
+	flex: none;
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	padding: 12px 16px;
-	background: var(--mud-palette-primary);
-	color: var(--mud-palette-primary-text);
+	gap: 8px;
+	padding: 12px 10px 12px 18px;
+	border-bottom: 1px solid var(--mud-palette-lines-default);
+	color: var(--mud-palette-primary);
 }
 
-.help-head h2 {
-	margin: 0;
-	font-size: 1.05rem;
-}
-
-.help-close {
-	background: none;
-	border: none;
-	color: #fff;
-	font-size: 1.5rem;
-	line-height: 1;
-	cursor: pointer;
+.help-head .help-title {
+	flex: 1;
+	min-width: 0;
+	color: var(--mud-palette-text-primary);
 }
 
 .help-body {
-	padding: 12px 18px 20px;
+	flex: 1;
+	min-height: 0;
+	padding: 14px 18px 24px;
 	overflow-y: auto;
 	font-size: .9rem;
 	line-height: 1.45;
+}
+
+/* The hidden attribute must win over the flex rules above (form kept rendered, see MainLayout). */
+.help-body[hidden] {
+	display: none;
+}
+
+/* Message to the developer (Shared/FeedbackForm.razor): fields stacked, actions at the end. */
+.feedback-form {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.feedback-form .mud-radio-group {
+	display: flex;
+	gap: 8px;
+}
+
+.feedback-note .feedback-path {
+	display: block;
+	margin-top: 4px;
+	font-weight: 700;
+	overflow-wrap: anywhere;
+	user-select: all;
+}
+
+.feedback-hint {
+	font-size: .8rem;
+	color: var(--mud-palette-text-secondary);
+}
+
+.feedback-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
 }
 
 .help-body h3 {
