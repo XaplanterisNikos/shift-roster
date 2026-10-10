@@ -8,18 +8,37 @@
 public static class AppPaths
 {
 	/// <summary>
-	/// Full path to the SQLite file. Ensures the containing folder exists before returning.
+	/// %LOCALAPPDATA%\Vardiologio: per-user, writable, update-safe (e.g. C:\Users\&lt;user&gt;\AppData\Local).
+	/// Created if missing.
 	/// </summary>
-	public static string DbPath
+	private static string DataDir
 	{
 		get
 		{
-			// Per-user, writable, update-safe location (e.g. C:\Users\<user>\AppData\Local).
 			var dir = Path.Combine(
 				Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
 				"Vardiologio");
 			Directory.CreateDirectory(dir);
-			return Path.Combine(dir, "vardiologio.db");
+			return dir;
+		}
+	}
+
+	/// <summary>
+	/// Full path to the SQLite file. Ensures the containing folder exists before returning.
+	/// </summary>
+	public static string DbPath => Path.Combine(DataDir, "vardiologio.db");
+
+	/// <summary>
+	/// Internal folder of database copies (exports, and the safety copy taken before an import).
+	/// Not shown to the user. Created if missing.
+	/// </summary>
+	public static string BackupsDir
+	{
+		get
+		{
+			var dir = Path.Combine(DataDir, "Backups");
+			Directory.CreateDirectory(dir);
+			return dir;
 		}
 	}
 

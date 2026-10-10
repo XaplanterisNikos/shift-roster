@@ -76,7 +76,14 @@ staff and producing the official attendance/shift reports.
   user's own mail program with recipient, subject ("kind - menu") and text filled in; nothing is
   sent by the application itself. For an error, the form shows the folder of the log files so
   that they can be attached by hand.
-- **Login** — fixed users with password hashing.
+- **Database export / import** (Διαχείριση → Εισαγωγή / Εξαγωγή βάσης) — open to every user.
+  Export writes a dated copy of the database to `Documents\Vardiologio\Database`. Import lets
+  the user pick such a copy: it is accepted only if it is a database of this application with
+  the same schema; after confirmation the current data is backed up and then replaced, and the
+  user is returned to the login screen. The users of the installation are never imported.
+- **Login and users** — every installation has its own users, created from the login screen
+  (username, password, password once more) and stored in its database with salted PBKDF2
+  hashes. A single administrator account, the same in every installation, is listed after them.
 
 ## Technology
 
@@ -170,28 +177,36 @@ and inside the installer); each has a committed fallback, so a fresh clone build
 | `employees.json` | `employees.demo.json` (fake sample data) | Employee names and specialities. |
 | `report-data.json` | `report-data.demo.json` (same blocks, every line empty) | Default texts of the official forms — service details, phones, e-mails, decisions, signatories — and, optionally, `directorLastName`: the surname that marks the head of the directorate while no employee has the work position ΔΙΕΥΘΥΝΤΗΣ. |
 | `emblem.png` | none — the forms print without an emblem | The emblem above the letterhead. |
+| `admin.json` | `admin.demo.json` (public demo password `admin-demo`; copied to the output only when `admin.json` is absent) | Salt and hash of the administrator's password — never the password itself. Created with `tools/New-AdminFile.ps1`, which asks for the password on screen. |
 
 The texts are seeded per line from the data file (`Persistence/Seeding/ReportDataFile.cs`): a
 line that already exists is never overwritten, and a line added to the file in a later version
 is inserted on the next start. After that they are edited in Παράμετροι → Αναφορών. With the
 demo file every line starts empty (an empty line is not printed) and is filled in there.
 
-Login credentials are hard-coded in `UserStore.cs` with PBKDF2 password hashes.
-The committed values are **demo passwords** (`user1/1111`, `user2/2222`) and must
-be changed before any real use. Real passwords are never stored in plain text.
+Users are rows of the `Users` table of the local database: username, salt and hash
+(`Infrastructure/Auth/PasswordHasher.cs`, PBKDF2-SHA256), and an active flag — a user is
+deactivated, never deleted, and a username is never reused. A fresh database has no users; the
+first one is created from the login screen. The administrator is not a row of the table: its
+salt and hash are read from the data file above (`Infrastructure/Auth/AdminAccountFile.cs`).
+Passwords are never stored in plain text. A build from this repository uses the demo
+administrator password, which is public: create `admin.json` before any real use.
 
 ## Files on disk
 
 - **Database:** `%LOCALAPPDATA%\Vardiologio\vardiologio.db` (hidden, survives reinstalls).
+  - `Backups\vardiologio_yyyy-MM-dd_HHmmss.db` next to it — a copy for every export and before
+    every import; the newest 20 are kept.
 - **Documents\Vardiologio** (Latin names only):
   - `Logs\yyyy-MM-dd.log` — errors only (startup, unhandled, failed exports).
+  - `Database\vardiologio_yyyy-MM-dd_HHmmss.db` — exported copies of the database.
   - `Reports\<Monthly-Total | Monthly-Hours | Staff-Attendance | Overtime-Certificate | Contract-Certificate | Shift-Table | Individual-Sheet>\yyyy-MM Month\` — exported reports.
 - **Version:** `<Version>` in `Vardiologio.App.csproj` is the only place to change it; the login
   screen shows it and the installer reads it from the built exe.
 
 ## Status
 
-Working: database + seeding, login, employee CRUD, daily shift entry, monthly
+Working: database + seeding, login with per-installation users, employee CRUD, daily shift entry, monthly
 Σ.Ω. report (Excel/PDF/preview), individual sheet (preview/Excel/PDF),
 shift-code & extra-hours parameter management (CRUD + soft-delete), context help and
 message to the developer.
@@ -199,8 +214,9 @@ message to the developer.
 Not finished yet:
 
 - Report totals columns (ΗΜΕΡΗΣΙΑ / ΚΥΡΙΑΚΩΝ) — calculation rule pending.
-- First-run password setup (currently fixed users).
-- Backup / sync (USB / OneDrive) between the two workstations.
+- Administrator menu: deactivate users, reset passwords.
+- Activity log: who saved or exported what, and when.
+- Automatic sync between the two workstations (today: manual export / import of the database).
 
 ## License
 

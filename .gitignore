@@ -494,6 +494,10 @@ $RECYCLE.BIN/
 # surname). The committed report-data.demo.json (same blocks, empty lines) is the fallback.
 **/report-data.json
 
+# Real administrator account (salt + hash of the password). The committed admin.demo.json
+# (public demo password) is the fallback.
+**/admin.json
+
 # Emblem printed on the official forms; without the file the forms print without it.
 **/emblem.png
 

@@ -50,6 +50,9 @@ public class AppDbContext : DbContext
 	/// <summary>Editable colours of the reports (weekend shading, header fills…).</summary>
 	public DbSet<ReportColor> ReportColors => Set<ReportColor>();
 
+	/// <summary>People who sign in to this installation (created from the login screen).</summary>
+	public DbSet<User> Users => Set<User>();
+
 	/// <summary>Configures every entity's rules via the Fluent API (used by migrations and at runtime).</summary>
 	protected override void OnModelCreating(ModelBuilder b)
 	{
@@ -197,6 +200,22 @@ public class AppDbContext : DbContext
 
 			// A line is identified by form + block + position (the seeder relies on it).
 			e.HasIndex(x => new { x.Form, x.Block, x.Line }).IsUnique();
+		});
+
+		// --- Users of this installation ---
+		b.Entity<User>(e =>
+		{
+			// Same size as UserRules.MaxUsernameLength. The index stops exact duplicates; the
+			// case-insensitive check is done in AuthService (SQLite compares Greek case-sensitively).
+			e.Property(x => x.Username).IsRequired().HasMaxLength(40);
+			e.HasIndex(x => x.Username).IsUnique();
+
+			e.Property(x => x.PasswordSalt).IsRequired().HasMaxLength(64);
+			e.Property(x => x.PasswordHash).IsRequired().HasMaxLength(64);
+
+			// Soft-delete flag without a global query filter: other tables will refer to users
+			// by key, and a filter would hide the rows of a deactivated user's past work.
+			e.Property(x => x.IsActive).HasDefaultValue(true);
 		});
 
 		// --- Editable colours of the reports ---

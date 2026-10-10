@@ -73,12 +73,12 @@
                 <MudNavLink Href="hours-parameters">Ωρών</MudNavLink>
                 <MudNavLink Href="report-parameters">Αναφορών</MudNavLink>
 
-                @* Administrator-only tools; the entry opens its own sign-in dialog (Shared/DbExportButton.razor). *@
+                @* Copies of the whole database; the entry opens its dialog (Shared/DbTransferButton.razor). *@
                 <div class="nav-section">
                     <MudIcon Icon="@Icons.Material.Rounded.Storage" Size="Size.Small" />
                     <span>Διαχείριση</span>
                 </div>
-                <DbExportButton OpenChanged="OnDbDialogChanged" />
+                <DbTransferButton OpenChanged="OnDbDialogChanged" />
             </MudNavMenu>
         </MudDrawer>
 

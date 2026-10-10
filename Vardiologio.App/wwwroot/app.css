@@ -339,7 +339,7 @@
 	text-decoration: underline;
 }
 
-/* Administrator sign-in dialog (Shared/DbExportButton.razor): space between its fields. */
+/* Dialogs with stacked fields or blocks (new user, database transfer): space between them. */
 .admin-fields {
 	display: flex;
 	flex-direction: column;

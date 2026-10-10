@@ -5,6 +5,7 @@
 @inject IAuthService Auth
 @inject IUserSession Session
 @inject NavigationManager Nav
+@inject ISnackbar Snackbar
 
 <MudPaper Elevation="0" Class="login-card">
     <div class="login-brand">
@@ -14,7 +15,15 @@
         <MudText Typo="Typo.body2" Class="login-sub">Σύνδεση στην εφαρμογή</MudText>
     </div>
 
-    @* User picker — populated from LoginOption (no passwords exposed).
+    @* First start of an installation: nobody to pick yet. *@
+    @if (loaded && !options.Any(o => o.Username != UserRules.AdminUsername))
+    {
+        <MudAlert Severity="Severity.Info" Dense="true">
+            Δεν υπάρχει ακόμη χρήστης. Δημιουργήστε τον πρώτο με το «Δημιουργία νέου χρήστη».
+        </MudAlert>
+    }
+
+    @* User picker — the users of this installation, then the administrator (no passwords exposed).
        ToStringFunc: the closed box shows the display name, not the username it is bound to. *@
     <MudSelect T="string" Label="Χρήστης" @bind-Value="username" Variant="Variant.Outlined"
                ToStringFunc="DisplayNameOf">
@@ -35,6 +44,9 @@
     {
         <MudAlert Severity="Severity.Error" Dense="true">@error</MudAlert>
     }
+
+    @* New user of this installation (Shared/NewUserButton.razor). *@
+    <NewUserButton Created="OnUserCreated" />
 </MudPaper>
 
 @* Credits, bottom-right of the login screen. The LinkedIn address is outside the app's origin,
@@ -51,25 +63,40 @@
     private string password = "";
     private string? error;// shown to the user when login fails
 
-    protected override void OnInitialized()
+    private bool loaded;   // options read from the database (avoids a flash of the "no user" note)
+
+    protected override async Task OnInitializedAsync()
     {
         // Already signed in? skip the login screen.
         if (Session.IsAuthenticated) { Nav.NavigateTo("/"); return; }
-        options = Auth.GetLoginOptions();
+        await LoadOptionsAsync();
         username = options.FirstOrDefault()?.Username ?? "";   // default to the first user
+        loaded = true;
     }
+
+    private async Task LoadOptionsAsync() => options = await Auth.GetLoginOptionsAsync();
 
     /// <summary>Display name of a username, for the text shown in the closed user picker.</summary>
     private string DisplayNameOf(string? user) =>
         options.FirstOrDefault(o => o.Username == user)?.DisplayName ?? "";
 
-    // Let Enter submit the form.
-    private void OnKey(KeyboardEventArgs e) { if (e.Key == "Enter") DoLogin(); }
+    /// <summary>A user was just created: list it, select it and leave the password to be typed.</summary>
+    private async Task OnUserCreated(string name)
+    {
+        await LoadOptionsAsync();
+        username = name;
+        password = "";
+        error = null;
+        Snackbar.Add($"Ο χρήστης «{name}» δημιουργήθηκε. Πληκτρολογήστε τον κωδικό για είσοδο.", Severity.Success);
+    }
 
-    private void DoLogin()
+    // Let Enter submit the form.
+    private async Task OnKey(KeyboardEventArgs e) { if (e.Key == "Enter") await DoLogin(); }
+
+    private async Task DoLogin()
     {
         error = null;
-        var user = Auth.Authenticate(username, password);
+        var user = await Auth.AuthenticateAsync(username, password);
         if (user is null) { error = "Wrong Password."; return; }
         Session.SignIn(user);// fires Session.Changed -> MainLayout re-renders
         Nav.NavigateTo("/");

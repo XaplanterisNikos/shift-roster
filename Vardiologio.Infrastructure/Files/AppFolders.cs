@@ -9,6 +9,7 @@ namespace Vardiologio.Infrastructure.Files;
 /// <code>
 /// Documents\Vardiologio\
 ///   Logs\                                   daily error logs (yyyy-MM-dd.log)
+///   Database\                               exported copies of the database
 ///   Reports\&lt;report&gt;\&lt;yyyy-MM Month&gt;\   exported reports, e.g. Reports\Monthly-Hours\2026-08 August\
 /// </code>
 /// Every property / method creates the folder if it does not exist yet.
@@ -21,6 +22,9 @@ public static class AppFolders
 
 	/// <summary>Documents\Vardiologio\Logs.</summary>
 	public static string Logs => Ensure(Path.Combine(Root, "Logs"));
+
+	/// <summary>Documents\Vardiologio\Database.</summary>
+	public static string Database => Ensure(Path.Combine(Root, "Database"));
 
 	/// <summary>Documents\Vardiologio\Reports.</summary>
 	public static string Reports => Ensure(Path.Combine(Root, "Reports"));

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MudBlazor.Services;
 using System.Windows;
 using Vardiologio.Application.Auth;
+using Vardiologio.Application.DatabaseTransfer;
 using Vardiologio.Application.Employees;
 using Vardiologio.Application.Files;
 using Vardiologio.Application.Hours;
@@ -14,6 +15,7 @@ using Vardiologio.Application.Parameters;
 using Vardiologio.Application.ShiftCodes;
 using Vardiologio.Application.ShiftEntry;
 using Vardiologio.Infrastructure.Auth;
+using Vardiologio.Infrastructure.DatabaseTransfer;
 using Vardiologio.Infrastructure.Employees;
 using Vardiologio.Infrastructure.Files;
 using Vardiologio.Infrastructure.Hours;
@@ -81,6 +83,7 @@ public partial class App : System.Windows.Application
 			services.AddScoped<IHourLimitsService, HourLimitsService>();
 			services.AddScoped<IReportTextService, ReportTextService>();
 			services.AddScoped<IReportColorService, ReportColorService>();
+			services.AddScoped<IDatabaseTransferService, DatabaseTransferService>();
 
 			// Report renderers
 			services.AddSingleton<IExcelReportRenderer, ClosedXmlReportRenderer>();
