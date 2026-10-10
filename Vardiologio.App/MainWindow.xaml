@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:blazor="clr-namespace:Microsoft.AspNetCore.Components.WebView.Wpf;assembly=Microsoft.AspNetCore.Components.WebView.Wpf"
         xmlns:comp="clr-namespace:Vardiologio.App.Components"
-        Title="Βαρδιολόγιο"
+        Title="Shift-Roster"
         WindowStartupLocation="Manual"
         Loaded="Window_Loaded"
         ResizeMode="CanMinimize">

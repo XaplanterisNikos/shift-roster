@@ -4,6 +4,7 @@
 @using Vardiologio.Application.Files
 @using Vardiologio.Application.Hours
 @using Vardiologio.Application.Logging
+@using Vardiologio.Application.ReportColors
 @using Vardiologio.Application.Reports
 @using Vardiologio.Domain.Enums
 @inject IHoursReportService HoursReportService
@@ -55,7 +56,8 @@
 {
     @* On-screen version of the report; over-limit cells highlighted as in the files. *@
     <div class="indiv-scroll">
-        <table class="grid hours-report">
+        @* The report's colours (Παράμετροι → Αναφορών → Χρώματα), read by the "hours-report" rules in app.css. *@
+        <table class="grid hours-report" style="--hours-cat:@(model.Colors[ReportColorCatalog.HoursCategories]);--hours-over:@(model.Colors[ReportColorCatalog.HoursExcess])">
             <thead>
                 <tr>
                     <th rowspan="2">Α/Α</th>
@@ -129,6 +131,18 @@
     private HoursReportModel? model;
 
     /// <summary>Builds the report and shows it on screen.</summary>
+    /// <summary>
+    /// The page opens with the current month already shown. Done after the first render, so
+    /// the page appears at once and the report follows; for another month the user picks it
+    /// and presses the button.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await ShowAsync();
+        StateHasChanged();
+    }
+
     private async Task ShowAsync()
     {
         busy = true; message = null; error = null; pdfDataUri = null;

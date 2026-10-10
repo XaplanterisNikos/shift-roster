@@ -1,6 +1,7 @@
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using Vardiologio.Application.ReportColors;
 using Vardiologio.Application.Reports;
 
 namespace Vardiologio.Infrastructure.Reports;
@@ -46,12 +47,11 @@ public partial class QuestPdfReportRenderer
 		{
 			left.Item().PaddingLeft(20).Width(48).Height(46).Image(AttendanceSheetTexts.Emblem).FitArea();
 			left.Item().Height(4);
-			foreach (var (text, bold) in ShiftTableTexts.Letterhead)
+			foreach (var (plain, bold) in ShiftTableTexts.Letterhead(m.Texts))
 			{
 				// Only the bold part is bold (whole line, nothing, or just the e-mail address).
 				left.Item().Text(t =>
 				{
-					var plain = bold.Length == 0 ? text : text[..text.IndexOf(bold, StringComparison.Ordinal)];
 					if (plain.Length > 0) t.Span(plain).FontSize(8);
 					if (bold.Length > 0) t.Span(bold).FontSize(8).Bold();
 				});
@@ -60,17 +60,17 @@ public partial class QuestPdfReportRenderer
 
 		row.RelativeItem().PaddingTop(4).Column(mid =>
 		{
-			var titles = ShiftTableTexts.Titles(m.Year, m.Month);
+			var titles = ShiftTableTexts.Titles(m.Texts, m.Year, m.Month);
 			for (var i = 0; i < titles.Length; i++)
 			{
-				var span = mid.Item().PaddingBottom(i == 0 ? 8 : 3).AlignCenter().Text(titles[i].Text).FontSize(i == 0 ? 15 : 12);
+				var span = mid.Item().PaddingBottom(titles[i].Large ? 8 : 3).AlignCenter().Text(titles[i].Text).FontSize(titles[i].Large ? 15 : 12);
 				if (titles[i].Bold) span.Bold();
 			}
 		});
 
 		row.ConstantItem(260).PaddingTop(22).Column(right =>
 		{
-			foreach (var line in ShiftTableTexts.Addressee)
+			foreach (var line in ShiftTableTexts.Addressee(m.Texts))
 				right.Item().AlignCenter().Text(line).Bold().FontSize(10);
 		});
 	});
@@ -80,6 +80,7 @@ public partial class QuestPdfReportRenderer
 	{
 		var days = m.DaysInMonth;
 		var codes = m.WorkCodes.Count;
+		var shadeBg = m.Colors[ReportColorCatalog.ShiftTableWeekend];   // Παράμετροι → Αναφορών → Χρώματα
 
 		t.ColumnsDefinition(cols =>
 		{
@@ -99,7 +100,7 @@ public partial class QuestPdfReportRenderer
 			for (var d = 1; d <= days; d++)
 			{
 				var shaded = m.IsShaded(d);   // copied before the lambda
-				h.Cell().RowSpan(2).Element(x => StH(StShade(x, shaded)))
+				h.Cell().RowSpan(2).Element(x => StH(StShade(x, shaded, shadeBg)))
 					.Text(ShiftTableTexts.DayHeader(m.Year, m.Month, d)).Bold().FontSize(7.5f);
 			}
 			if (codes > 0)
@@ -120,7 +121,7 @@ public partial class QuestPdfReportRenderer
 			for (var d = 1; d <= days; d++)
 			{
 				var shaded = m.IsShaded(d);   // copied before the lambda
-				t.Cell().Element(x => StD(StShade(x, shaded))).Text(e.DayCodes[d - 1] ?? "").Bold().FontSize(8.5f);
+				t.Cell().Element(x => StD(StShade(x, shaded, shadeBg))).Text(e.DayCodes[d - 1] ?? "").Bold().FontSize(8.5f);
 			}
 			foreach (var n in e.Counts)
 				t.Cell().Element(StTot).Text(ShiftTableTexts.Count(n)).Bold().FontSize(8.5f);
@@ -149,9 +150,8 @@ public partial class QuestPdfReportRenderer
 		row.RelativeItem(rest).PaddingTop(40).Row(sig =>
 		{
 			sig.RelativeItem(1);   // gap after the legend
-			for (var s = 0; s < ShiftTableTexts.Signatures.Length; s++)
+			foreach (var (role, name) in ShiftTableTexts.Signatures(m.Texts))
 			{
-				var (role, name) = ShiftTableTexts.Signatures[s];
 				sig.RelativeItem(4).Column(block =>
 				{
 					block.Item().AlignCenter().Text(role).Bold().FontSize(10);
@@ -175,5 +175,5 @@ public partial class QuestPdfReportRenderer
 	/// Weekend / holiday shading of a whole day cell. Applied before the border / padding /
 	/// alignment of the cell style, so it fills the cell and not just the area behind the text.
 	/// </summary>
-	private static IContainer StShade(IContainer c, bool shaded) => shaded ? c.Background(ShiftTableTexts.ShadeHex) : c;
+	private static IContainer StShade(IContainer c, bool shaded, string color) => shaded ? c.Background(color) : c;
 }

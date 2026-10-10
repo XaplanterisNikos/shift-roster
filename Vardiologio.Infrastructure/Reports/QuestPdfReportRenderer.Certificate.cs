@@ -27,7 +27,7 @@ public partial class QuestPdfReportRenderer
 					col.Item().Element(c => CertHead(c, m));
 					col.Item().PaddingTop(10).Element(c => CertIntro(c, m));
 					col.Item().PaddingTop(10).Element(c => CertTable(c, m));
-					col.Item().PaddingTop(10).Element(CertDeclaration);
+					col.Item().PaddingTop(10).Element(c => CertDeclaration(c, m));
 					col.Item().PaddingTop(12).Element(c => CertSignature(c, m));
 				});
 			});
@@ -44,38 +44,43 @@ public partial class QuestPdfReportRenderer
 		{
 			left.Item().Width(46).Height(44).Image(AttendanceSheetTexts.Emblem).FitArea();
 			left.Item().Height(3);
-			var lh = AttendanceSheetTexts.Letterhead;
-			for (var i = 0; i < lh.Length; i++)
+			var lh = AttendanceSheetTexts.Letterhead(m.Texts);
+			foreach (var (text, bold) in lh)
 			{
-				var line = left.Item().Text(lh[i]).FontSize(7.5f);
-				if (i < AttendanceSheetTexts.LetterheadBoldLines) line.Bold();
+				var line = left.Item().Text(text).FontSize(7.5f);
+				if (bold) line.Bold();
 			}
+
+			// Blank lines up to the rows of the hand-filled labels, so the two sides stay level
+			// when the letterhead is short.
+			for (var i = lh.Length; i < OvertimeCertificateTexts.HandFilledRowCount; i++)
+				left.Item().Text(" ").FontSize(7.5f);
 		});
 
 		// Centre: the two title lines, level with the bottom of the letterhead (as on the sheet).
 		row.RelativeItem().AlignBottom().Column(mid =>
 		{
-			mid.Item().AlignCenter().Text(OvertimeCertificateTexts.Title(m.Year, m.Month)).Bold().FontSize(10.5f);
-			mid.Item().AlignCenter().Text(OvertimeCertificateTexts.Subtitle).Bold().FontSize(10.5f);
+			mid.Item().AlignCenter().Text(OvertimeCertificateTexts.Title(m.Texts, m.Year, m.Month)).Bold().FontSize(10.5f);
+			mid.Item().AlignCenter().Text(OvertimeCertificateTexts.Subtitle(m.Texts)).Bold().FontSize(10.5f);
 		});
 
-		// Right: labels filled in by hand. One line per letterhead line, in the same font size,
-		// so each label sits level with its letterhead line; the other lines stay empty.
+		// Right: labels filled in by hand. One line per letterhead row, in the same font size,
+		// so each label sits level with its letterhead row; the other rows stay empty.
 		row.ConstantItem(150).PaddingTop(47).Column(right =>
 		{
-			var lh = AttendanceSheetTexts.Letterhead;
-			for (var i = 0; i < lh.Length; i++)
+			var labels = OvertimeCertificateTexts.HandFilled(m.Texts);
+			for (var i = 0; i < OvertimeCertificateTexts.HandFilledRowCount; i++)
 			{
-				var label = OvertimeCertificateTexts.HandFilled.FirstOrDefault(h => h.Line == i).Text;
+				var label = labels.FirstOrDefault(h => h.Row == i).Text;
 				right.Item().Text(label ?? " ").Bold().FontSize(7.5f);
 			}
 		});
 	});
 
-	/// <summary>Four centred introduction lines.</summary>
+	/// <summary>Centred introduction lines.</summary>
 	private static void CertIntro(IContainer c, OvertimeCertificateModel m) => c.Column(col =>
 	{
-		foreach (var line in OvertimeCertificateTexts.Intro(m.From, m.To))
+		foreach (var line in OvertimeCertificateTexts.Intro(m.Texts, m.From, m.To))
 			col.Item().AlignCenter().Text(line).FontSize(9.5f);
 	});
 
@@ -115,13 +120,13 @@ public partial class QuestPdfReportRenderer
 			t.Cell().Element(CertD).Text(v).Bold().FontSize(11);
 	});
 
-	/// <summary>"Υπεύθυνη Δήλωση", the four numbered items and the certification paragraph.</summary>
-	private static void CertDeclaration(IContainer c) => c.Column(col =>
+	/// <summary>"Υπεύθυνη Δήλωση", the numbered items and the certification paragraph.</summary>
+	private static void CertDeclaration(IContainer c, OvertimeCertificateModel m) => c.Column(col =>
 	{
-		col.Item().AlignCenter().Text(OvertimeCertificateTexts.DeclarationTitle).FontSize(10.5f);
+		col.Item().AlignCenter().Text(OvertimeCertificateTexts.DeclarationTitle(m.Texts)).FontSize(10.5f);
 		col.Item().Height(8);
 
-		var items = OvertimeCertificateTexts.Declarations;
+		var items = OvertimeCertificateTexts.Declarations(m.Texts);
 		for (var i = 0; i < items.Length; i++)
 		{
 			var number = $"{i + 1}.";   // copied out of the loop variable before the lambda
@@ -133,7 +138,7 @@ public partial class QuestPdfReportRenderer
 			});
 		}
 
-		col.Item().PaddingTop(2).Text(OvertimeCertificateTexts.Certification).Bold();
+		col.Item().PaddingTop(2).Text(OvertimeCertificateTexts.Certification(m.Texts)).Bold();
 	});
 
 	/// <summary>"Ο/Η Βεβαιών Υπάλληλος", space to sign, name.</summary>

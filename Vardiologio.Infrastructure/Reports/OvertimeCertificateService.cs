@@ -3,6 +3,7 @@ using Vardiologio.Application.Hours;
 using Vardiologio.Application.Reports;
 using Vardiologio.Domain.Enums;
 using Vardiologio.Infrastructure.Persistence;
+using Vardiologio.Infrastructure.ReportTexts;
 
 namespace Vardiologio.Infrastructure.Reports;
 
@@ -61,7 +62,8 @@ public class OvertimeCertificateService : IOvertimeCertificateService
 			SundayDayOvertime = Paid(HourCategory.Sunday),
 			SundayNightOvertime = 0,   // no pay category feeds this column yet
 			WeekdayNightToComplete = Paid(HourCategory.ToComplete),
-			SundayHolidayToComplete = Paid(HourCategory.Holiday)
+			SundayHolidayToComplete = Paid(HourCategory.Holiday),
+			Texts = await ReportTextService.LoadSetAsync(db, ReportForm.OvertimeCertificate)
 		};
 	}
 }

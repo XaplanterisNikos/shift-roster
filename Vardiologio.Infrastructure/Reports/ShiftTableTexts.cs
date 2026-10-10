@@ -1,11 +1,14 @@
 using System.Globalization;
 using Vardiologio.Application.Reports;
+using Vardiologio.Application.ReportTexts;
 
 namespace Vardiologio.Infrastructure.Reports;
 
 /// <summary>
-/// Fixed texts, colours and formatting of the official shift table, copied from the "Σ.Ω." sheet
-/// of the organisation's workbook (its letterhead differs from the other official forms).
+/// Texts, colours and formatting of the official shift table, as on the "Σ.Ω." sheet of the
+/// organisation's workbook. The letterhead, titles, addressee and signatures are the user's
+/// editable texts (<see cref="ReportTextSet"/>); this class only decides how each line is
+/// formatted, by its position. Table headers and the legend title stay fixed.
 /// </summary>
 internal static class ShiftTableTexts
 {
@@ -13,38 +16,47 @@ internal static class ShiftTableTexts
 		{ "ΙΑΝΟΥΑΡΙΟΥ","ΦΕΒΡΟΥΑΡΙΟΥ","ΜΑΡΤΙΟΥ","ΑΠΡΙΛΙΟΥ","ΜΑΪΟΥ","ΙΟΥΝΙΟΥ",
 		  "ΙΟΥΛΙΟΥ","ΑΥΓΟΥΣΤΟΥ","ΣΕΠΤΕΜΒΡΙΟΥ","ΟΚΤΩΒΡΙΟΥ","ΝΟΕΜΒΡΙΟΥ","ΔΕΚΕΜΒΡΙΟΥ" };
 
+	/// <summary>Which part of a letterhead line is printed bold.</summary>
+	private enum BoldPart { None, All, AfterColon }
+
 	/// <summary>
-	/// Letterhead under the emblem (as on the form). Bold is the part of the line printed bold:
-	/// the whole line, nothing, or — for the e-mail — just the address.
+	/// Bold part of each letterhead line, by position (as on the form): the organisation and
+	/// directorate names are bold, and on the e-mail line only the address after "E-mail: ".
 	/// </summary>
-	public static readonly (string Text, string Bold)[] Letterhead =
+	private static readonly BoldPart[] LetterheadBold =
 	{
-		("ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ", ""),
-		("ΠΕΡΙΦΕΡΕΙΑ ΑΤΤΙΚΗΣ", ""),
-		("ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ", "ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ"),
-		("ΝΟΜΟΥ ΑΤΤΙΚΗΣ", "ΝΟΜΟΥ ΑΤΤΙΚΗΣ"),
-		("ΕΔΡΑ: Άντερσεν 6 και Μωραΐτη 90, 115 25,", ""),
-		("τηλ.: 213 214 8 478-479", ""),
-		("Δ/ΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡΡΙΜΜΑΤΩΝ", "Δ/ΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡΡΙΜΜΑΤΩΝ"),
-		("Τηλ: 210 43 20 581", ""),
-		("E-mail: iona@edsna.gr", "iona@edsna.gr")
+		BoldPart.None, BoldPart.None, BoldPart.All, BoldPart.All, BoldPart.None,
+		BoldPart.None, BoldPart.All, BoldPart.None, BoldPart.AfterColon
 	};
 
-	/// <summary>Centre titles: text and whether it is bold (the first line is the largest).</summary>
-	public static (string Text, bool Bold)[] Titles(int year, int month) => new[]
-	{
-		("ΔΙΕΥΘΥΝΣΗ  ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ", true),
-		("ΠΙΝΑΚΑΣ   ΒΑΡΔΙΩΝ   ΕΡΓΑΣΙΑΣ  ΠΡΟΣΩΠΙΚΟΥ", true),
-		("ΤΜΗΜΑΤΟΣ ΚΕΝΤΡΙΚΩΝ ΣΜΑ", false),
-		($"ΜΗΝΟΣ {MonthsGen[month - 1]} {year}", true)
-	};
+	/// <summary>Letterhead lines under the emblem, each split into its plain and its bold part.</summary>
+	public static (string Plain, string Bold)[] Letterhead(ReportTextSet texts) =>
+		texts.Lines(ReportTextBlocks.Letterhead).Select(l =>
+		{
+			var part = l.Line < LetterheadBold.Length ? LetterheadBold[l.Line] : BoldPart.None;
+			if (part == BoldPart.All) return ("", l.Text);
+			if (part == BoldPart.None) return (l.Text, "");
 
-	/// <summary>Addressee on the right of the titles (bold).</summary>
-	public static readonly string[] Addressee =
-	{
-		"ΠΡΟΣ: Αν. Προϊσταμένη Τμ. Λογιστηρίου",
-		"κ. Αγιανίδου Δέσποινα"
-	};
+			// "E-mail: iona@edsna.gr" -> plain "E-mail: ", bold "iona@edsna.gr"; no colon -> all plain.
+			var colon = l.Text.IndexOf(':');
+			if (colon < 0) return (l.Text, "");
+			var start = colon + 1;
+			while (start < l.Text.Length && l.Text[start] == ' ') start++;   // keep the space with the label
+			return (l.Text[..start], l.Text[start..]);
+		}).ToArray();
+
+	/// <summary>
+	/// Centre titles followed by the month line, which is always added. The first title of the
+	/// form is the largest and the third is not bold (as on the form).
+	/// </summary>
+	public static (string Text, bool Bold, bool Large)[] Titles(ReportTextSet texts, int year, int month) =>
+		texts.Lines(ReportTextBlocks.Titles)
+			.Select(l => (l.Text, Bold: l.Line != 2, Large: l.Line == 0))
+			.Append(($"ΜΗΝΟΣ {MonthsGen[month - 1]} {year}", true, false))
+			.ToArray();
+
+	/// <summary>Addressee lines on the right of the titles (bold).</summary>
+	public static string[] Addressee(ReportTextSet texts) => texts.Texts(ReportTextBlocks.Addressee);
 
 	// Table headers.
 	public const string HeadName = "ΟΝΟΜΑΤΕΠΩΝΥΜΟ", HeadSpeciality = "ΕΙΔΙΚΟΤΗΤΑ", HeadShifts = "ΒΑΡΔΙΑ ΕΡΓΑΣΙΑΣ";
@@ -53,15 +65,9 @@ internal static class ShiftTableTexts
 	/// <summary>Title of the legend under the table.</summary>
 	public const string LegendTitle = "ΒΑΡΔΙΕΣ – ΩΡΑΡΙΟ ΕΡΓΑΣΙΑΣ";
 
-	/// <summary>Signature blocks, left to right: role above the signing space, name / title below.</summary>
-	public static readonly (string Role, string[] Name)[] Signatures =
-	{
-		("Ο συντάξας", new[] { "ΒΡΥΝΑΣ ΓΕΩΡΓΙΟΣ", "ΠΕ ΔΙΟΙΚΗΤΙΚΟΥ-ΟΙΚΟΝΟΜΙΚΟΥ" }),
-		("Ο  Αν. Προϊστάμενος Δ/νσης Σ.Μ.Α.", new[] { "ΠΑΠΑΣΤΑΜΑΤΗΣ ΑΘΑΝΑΣΙΟΣ", "ΠΕ Χημικών Μηχανικών, MSc / Α'" })
-	};
-
-	/// <summary>Weekend / holiday shading: Office "Blue-Gray, Text 2, Lighter 80%" (theme dk2, tint 0.8).</summary>
-	public const string ShadeHex = "#D6DCE4";
+	/// <summary>Signature blocks, left to right: role above the signing space, name / title lines below.</summary>
+	public static (string Role, string[] Name)[] Signatures(ReportTextSet texts) =>
+		texts.Signatures().Select(s => (string.Join(" ", s.Role), s.Name)).ToArray();
 
 	/// <summary>Day header as on the form ("1/8").</summary>
 	public static string DayHeader(int year, int month, int day) => $"{day}/{month}";

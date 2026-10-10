@@ -62,7 +62,7 @@ public partial class ClosedXmlReportRenderer
 		var formal = AttendanceSheetTexts.IsFormal(m.Sheet);
 
 		// Directorate only: addressee line above everything, bold and centred.
-		var addressee = AttendanceSheetTexts.Addressee(m.Sheet);
+		var addressee = AttendanceSheetTexts.Addressee(m.Texts);
 		if (addressee is not null)
 		{
 			Merge(ws, r, titleFrom, r, titleTo, addressee, 11, true, XLAlignmentHorizontalValues.Center, null);
@@ -79,14 +79,14 @@ public partial class ClosedXmlReportRenderer
 		r += 3;
 
 		// Letterhead (left) and centre titles + period, on the same rows.
-		var lh = AttendanceSheetTexts.Letterhead;
+		var lh = AttendanceSheetTexts.Letterhead(m.Texts);
 		for (var i = 0; i < lh.Length; i++)
 		{
-			Merge(ws, r + i, AttName, r + i, AttSpec, lh[i], 9, i < AttendanceSheetTexts.LetterheadBoldLines,
+			Merge(ws, r + i, AttName, r + i, AttSpec, lh[i].Text, 9, lh[i].Bold,
 				XLAlignmentHorizontalValues.Left, null);
 			ws.Row(r + i).Height = 12.75;
 		}
-		var titles = AttendanceSheetTexts.Titles(m.Sheet);
+		var titles = AttendanceSheetTexts.Titles(m.Texts);
 		for (var i = 0; i < titles.Length; i++)
 			Merge(ws, r + i, titleFrom, r + i, titleTo, titles[i], 11, true, XLAlignmentHorizontalValues.Center, null);
 		var periodRow = r + titles.Length + (formal ? 1 : 0);   // formal: a blank line before the period
@@ -95,7 +95,8 @@ public partial class ClosedXmlReportRenderer
 		else
 			Merge(ws, periodRow, titleFrom, periodRow, titleTo,
 				AttendanceSheetTexts.Period(from, to), 10, false, XLAlignmentHorizontalValues.Center, null);
-		r += lh.Length;
+		// Continue under whichever is longer: the letterhead or the titles with their period line.
+		r = Math.Max(r + lh.Length, periodRow + 1);
 
 		// Spacer + table caption ("ΠΙΝΑΚΑΣ 1").
 		ws.Row(r).Height = 6;
@@ -142,9 +143,9 @@ public partial class ClosedXmlReportRenderer
 		// Signatures: role lines, blank space to sign, then name / title lines.
 		ws.Row(r).Height = 8;
 		r++;
-		var signatures = AttendanceSheetTexts.Signatures(m.Sheet);
-		var roleRows = signatures.Max(s => s.Role.Length);
-		var nameRows = signatures.Max(s => s.Name.Length);
+		var signatures = AttendanceSheetTexts.Signatures(m.Texts);
+		var roleRows = signatures.Select(s => s.Role.Length).DefaultIfEmpty(0).Max();
+		var nameRows = signatures.Select(s => s.Name.Length).DefaultIfEmpty(0).Max();
 		var gapRows = formal ? 5 : 2;   // blank rows left for the handwritten signatures
 		for (var k = 0; k < signatures.Length; k++)
 		{

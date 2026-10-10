@@ -11,7 +11,7 @@
 @inject IErrorLog ErrorLog
 
 @* Export the monthly Σ.Ω. report: save+open as Excel or PDF, or preview the PDF inline. *@
-<h1>Εξαγωγή αναφοράς (Σ.Ω.)</h1>
+<h1>Συνολική μηνιαία Σ.Ω.</h1>
 
 <div class="filters">
     <label>
@@ -63,6 +63,18 @@
     private int month = DateTime.Today.Month;
     private bool busy;
     private string? message, error, pdfDataUri;
+
+    /// <summary>
+    /// The page opens with the current month already shown. Done after the first render, so
+    /// the page appears at once and the report follows; for another month the user picks it
+    /// and presses the button.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await PreviewPdf();
+        StateHasChanged();
+    }
 
     private async Task ExportExcel() => await SaveAndOpen(m => Excel.Render(m), "xlsx");
     private async Task ExportPdf() => await SaveAndOpen(m => Pdf.Render(m), "pdf");

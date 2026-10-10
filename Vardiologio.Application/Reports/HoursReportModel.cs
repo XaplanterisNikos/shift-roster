@@ -1,4 +1,5 @@
 using Vardiologio.Application.Hours;
+using Vardiologio.Application.ReportColors;
 using Vardiologio.Domain.Enums;
 
 namespace Vardiologio.Application.Reports;
@@ -26,6 +27,9 @@ public class HoursReportModel
 
 	/// <summary>One row per employee, ordered by name.</summary>
 	public List<HoursReportRow> Rows { get; set; } = new();
+
+	/// <summary>The report's colours, as set in Παράμετροι → Αναφορών → Χρώματα (defaults until a service fills it).</summary>
+	public ReportColorSet Colors { get; set; } = ReportColorSet.Default;
 
 	/// <summary>Column sum over all employees of one value of one category (for the totals row).</summary>
 	public decimal Total(HourCategory category, Func<CategoryHours, decimal> value) =>

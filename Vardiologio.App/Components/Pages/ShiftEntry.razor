@@ -38,14 +38,8 @@
                 <MudSelectItem T="int" Value="@value">@Months[value - 1]</MudSelectItem>
             }
         </MudSelect>
-        <MudSelect T="int" Label="Εργαζόμενος" @bind-Value="employeeId" Variant="Variant.Outlined" Margin="Margin.Dense"
-                   Class="filter-employee" ToStringFunc="EmployeeName">
-            <MudSelectItem T="int" Value="0">— επίλεξε —</MudSelectItem>
-            @foreach (var emp in employees)
-            {
-                <MudSelectItem T="int" Value="@emp.Id">@emp.Display</MudSelectItem>
-            }
-        </MudSelect>
+        @* Search box: type part of the surname or first name (Shared/EmployeePicker.razor). *@
+        <EmployeePicker Employees="employees" @bind-Value="employeeId" Class="filter-employee" />
         <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Class="filter-load"
                    Disabled="@(employeeId == 0)" OnClick="LoadAsync">Φόρτωση μήνα</MudButton>
     </div>
@@ -267,9 +261,8 @@ else
     /// <summary>Month name for the text shown in the closed month picker.</summary>
     private static string MonthName(int m) => m is >= 1 and <= 12 ? Months[m - 1] : "";
 
-    /// <summary>Employee label for the closed employee picker and the page subtitle.</summary>
-    private string EmployeeName(int id) =>
-        id == 0 ? "— επίλεξε —" : employees.FirstOrDefault(e => e.Id == id)?.Display ?? "";
+    /// <summary>Employee label for the page subtitle.</summary>
+    private string EmployeeName(int id) => employees.FirstOrDefault(e => e.Id == id)?.Display ?? "";
 
     private static readonly string[] Months =
         { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",

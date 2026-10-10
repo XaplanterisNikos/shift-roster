@@ -102,6 +102,18 @@
         return models;
     }
 
+    /// <summary>
+    /// The page opens with the current month already shown. Done after the first render, so
+    /// the page appears at once and the report follows; for another month the user picks it
+    /// and presses the button.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await PreviewAsync();
+        StateHasChanged();
+    }
+
     /// <summary>Renders both reports to PDF in memory and shows them inline (no file written).</summary>
     private async Task PreviewAsync()
     {

@@ -138,6 +138,75 @@ namespace Vardiologio.Infrastructure.Persistence.Migrations
                     b.ToTable("HourLimits");
                 });
 
+            modelBuilder.Entity("Vardiologio.Domain.Entities.ReportColor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Hex")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PreviousHex")
+                        .HasMaxLength(7)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("ReportColors");
+                });
+
+            modelBuilder.Entity("Vardiologio.Domain.Entities.ReportText", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Block")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Form")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Line")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PreviousText")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Section")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Form", "Block", "Line")
+                        .IsUnique();
+
+                    b.ToTable("ReportTexts");
+                });
+
             modelBuilder.Entity("Vardiologio.Domain.Entities.ShiftCode", b =>
                 {
                     b.Property<int>("Id")

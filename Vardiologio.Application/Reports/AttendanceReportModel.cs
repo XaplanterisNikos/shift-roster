@@ -1,3 +1,5 @@
+using Vardiologio.Application.ReportTexts;
+
 namespace Vardiologio.Application.Reports;
 
 /// <summary>Which of the two attendance reports a model holds.</summary>
@@ -38,6 +40,9 @@ public class AttendanceReportModel
 
 	/// <summary>One row per employee, ordered by name.</summary>
 	public List<AttendanceReportRow> Rows { get; set; } = new();
+
+	/// <summary>The form's editable texts (letterhead, titles, signatures…), as set in Παράμετροι → Αναφορές.</summary>
+	public ReportTextSet Texts { get; set; } = ReportTextSet.Empty;
 
 	/// <summary>
 	/// The printed pages in order: every page of the first fortnight, then every page of the second.

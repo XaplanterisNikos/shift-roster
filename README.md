@@ -21,9 +21,12 @@ staff and producing the official attendance/shift reports.
 - **Daily shift entry** — pick an employee and month, assign a shift/status code
   to each day (split into two fortnights). The month's hours per pay category are shown
   live against their limits, and days whose code is not allowed are flagged.
-- **Monthly roster report ** — one row per employee, one column per day,
-  with per-program counts; exported to **Excel** and **PDF** (A3 landscape) or
-  previewed inline.
+- **Monthly roster report** (Συνολική μηνιαία Σ.Ω.) — one row per employee, one column per
+  day, with per-program counts; emblem, letterhead, titles and addressee above the table, the
+  legend of shift codes and the signatures below it. Exported to **Excel** and **PDF**
+  (A4 landscape, flowing over as many pages as needed) or previewed inline.
+- **Reports open ready** — the reports that need no employee (Σ.Ω., hours, shift table,
+  attendance) show the current month as soon as their page opens.
 - **Staff attendance report** (Πίνακας παρουσιών προσωπικού) — one mark per
   employee per day (√ / status code), printed per fortnight on A4 landscape with
   the emblem, letterhead and signatures on every page; a separate report for the
@@ -37,8 +40,23 @@ staff and producing the official attendance/shift reports.
   και λοιπής εργασίας») — one employee, one month, one A4 landscape page with the
   emblem, letterhead, declaration and signature; the paid hours per pay category
   (same numbers as the hours report). Excel, PDF and inline preview.
-- **Individual analytical sheet** — per-employee monthly preview (attendance,
-  shift times, supplementary hours, fortnight totals).
+- **Report text parameters** (Παράμετροι → Αναφορών) — the fixed texts of five forms
+  (shift table, staff attendance, directorate attendance, overtime certificate, Σ.Ω.) are
+  stored in the database and edited per form, header and footer separately: service details,
+  phones, e-mail, titles, decision numbers, declaration and signatories. Lines are only
+  updated (no add / delete); an empty line is not printed, and the last save of a form can be
+  undone. The month and the period dates are always filled in automatically.
+- **Report colours** (Παράμετροι → Αναφορών → Χρώματα) — the fills the reports use (weekend
+  columns, header fills, excess hours…) are stored in the database, one row per colour, listed
+  per report with the fields each one colours. Update only, with undo of the last save and a
+  way back to the shipped colour; screen, Excel and PDF read the same value.
+- **Individual analytical sheet** (Ατομική μηνιαία) — per-employee month, one row per day:
+  contract code, shift times, overtime window (the last hours of the shift), "προς συμπλήρωση" /
+  holiday hours, the shift code, attendance, and the day / night schedule columns. The summary
+  shows declared overtime (from the roster codes, in place of the time-clock card of the paper
+  form), "προς συμπλήρωση" per fortnight and the paid hours of the overtime certificate — each
+  block says where its numbers come from. On-screen preview, Excel and PDF (one A4 landscape
+  page) from one shared layout, so the three always agree.
 - **Login** — fixed users with password hashing.
 
 ## Technology
@@ -74,6 +92,13 @@ on the `ui/mudblazor` branch.
   (`wwwroot/app.css`) reads the same values through MudBlazor's CSS variables.
 - **Shell** — `Components/Layout/MainLayout.razor`: top bar (brand, help, user) and a side menu
   grouped by section.
+- **About card** — the app icon of the top bar opens a card with the application version and the
+  creator's e-mail, LinkedIn and GitHub (`Shared/AboutButton.razor`, `Shared/AboutCard.razor`).
+  Version and creator details live in `Vardiologio.App/AppInfo.cs`; the window title shows
+  "Shift-Roster v<version>".
+- **Employee picker** — `Shared/EmployeePicker.razor`, used wherever an employee is chosen:
+  a search box (surname and / or first name, any order, case- and accent-insensitive) with the
+  matching letters highlighted. The matching rules are in `Application/ShiftEntry/EmployeeSearch.cs`.
 - **Legacy pages** — pages that still use plain HTML keep working inside the new shell through the
   "Legacy pages" block of `app.css`, which is deleted when the last page is migrated.
 
@@ -81,7 +106,8 @@ on the `ui/mudblazor` branch.
 |---|---|
 | Theme, shell, login, administrator dialog | MudBlazor |
 | Daily shift entry (Προγράμματα) | MudBlazor — hour tiles per pay category, day rows with a Day / Night / Status tag, holidays and weekends marked, sticky save bar |
-| Employees, parameter and report pages | plain HTML (to be migrated) |
+| Report text parameters (Παράμετροι → Αναφορών) | MudBlazor — one tab per form, a header card and a footer card, save bar with undo of the last save |
+| Employees, the other parameter pages and the report pages | plain HTML (to be migrated) |
 | Dark theme switch | planned, after the pages are migrated |
 
 ## Getting started
@@ -103,6 +129,11 @@ become fully editable at runtime from the Παράμετροι Βαρδιών sc
 soft-delete) — the code-level seed values are only the installation defaults,
 not a source of truth that gets re-applied over user edits on upgrade.
 
+The texts of the official forms (letterhead, titles, signatories…) are seeded per line from
+`SeedData.ReportTexts.cs`: a line that already exists is never overwritten, and a line added
+in a later version is inserted on the next start. After that they are edited in
+Παράμετροι → Αναφορών.
+
 **Employee names are personal data and are kept out of this repository:**
 
 - `employees.json` — real employee data, **git-ignored** (only on the maintainer's machine).
@@ -119,20 +150,19 @@ be changed before any real use. Real passwords are never stored in plain text.
 - **Database:** `%LOCALAPPDATA%\Vardiologio\vardiologio.db` (hidden, survives reinstalls).
 - **Documents\Vardiologio** (Latin names only):
   - `Logs\yyyy-MM-dd.log` — errors only (startup, unhandled, failed exports).
-  - `Reports\<Monthly-Total | Monthly-Hours | Staff-Attendance | Overtime-Certificate | Shift-Table>\yyyy-MM Month\` — exported reports.
+  - `Reports\<Monthly-Total | Monthly-Hours | Staff-Attendance | Overtime-Certificate | Shift-Table | Individual-Sheet>\yyyy-MM Month\` — exported reports.
 - **Version:** `<Version>` in `Vardiologio.App.csproj` is the only place to change it; the login
   screen shows it and the installer reads it from the built exe.
 
 ## Status
 
 Working: database + seeding, login, employee CRUD, daily shift entry, monthly
-Σ.Ω. report (Excel/PDF/preview), individual sheet preview (computable fields),
+Σ.Ω. report (Excel/PDF/preview), individual sheet (preview/Excel/PDF),
 shift-code & extra-hours parameter management (CRUD + soft-delete).
 
 Not finished yet:
 
 - Report totals columns (ΗΜΕΡΗΣΙΑ / ΚΥΡΙΑΚΩΝ) — calculation rule pending.
-- Individual sheet: day/night split, overtime, and Excel/PDF export.
 - First-run password setup (currently fixed users).
 - Backup / sync (USB / OneDrive) between the two workstations.
 

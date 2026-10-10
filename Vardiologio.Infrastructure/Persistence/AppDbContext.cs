@@ -44,6 +44,12 @@ public class AppDbContext : DbContext
 	/// <summary>Monthly paid-hours limits (single-row settings table).</summary>
 	public DbSet<HourLimits> HourLimits => Set<HourLimits>();
 
+	/// <summary>Editable fixed texts of the official forms (letterhead, titles, signatures…).</summary>
+	public DbSet<ReportText> ReportTexts => Set<ReportText>();
+
+	/// <summary>Editable colours of the reports (weekend shading, header fills…).</summary>
+	public DbSet<ReportColor> ReportColors => Set<ReportColor>();
+
 	/// <summary>Configures every entity's rules via the Fluent API (used by migrations and at runtime).</summary>
 	protected override void OnModelCreating(ModelBuilder b)
 	{
@@ -176,5 +182,33 @@ public class AppDbContext : DbContext
 			e.Property(x => x.IsActive).HasDefaultValue(true);
 		});
 
+		// --- Editable texts of the official forms ---
+		b.Entity<ReportText>(e =>
+		{
+			// Enums as readable text in SQLite (e.g. "ShiftTable", "Header"), like Segment.
+			e.Property(x => x.Form).HasConversion<string>().HasMaxLength(30);
+			e.Property(x => x.Section).HasConversion<string>().HasMaxLength(10);
+
+			e.Property(x => x.Block).IsRequired().HasMaxLength(40);
+
+			// Same size as ReportTextLine.MaxLength; an empty text is valid (line not printed).
+			e.Property(x => x.Text).IsRequired().HasMaxLength(1000);
+			e.Property(x => x.PreviousText).HasMaxLength(1000);
+
+			// A line is identified by form + block + position (the seeder relies on it).
+			e.HasIndex(x => new { x.Form, x.Block, x.Line }).IsUnique();
+		});
+
+		// --- Editable colours of the reports ---
+		b.Entity<ReportColor>(e =>
+		{
+			// One row per colour key (the seeder relies on it).
+			e.Property(x => x.Key).IsRequired().HasMaxLength(60);
+			e.HasIndex(x => x.Key).IsUnique();
+
+			// "#RRGGBB".
+			e.Property(x => x.Hex).IsRequired().HasMaxLength(7);
+			e.Property(x => x.PreviousHex).HasMaxLength(7);
+		});
 	}
 }

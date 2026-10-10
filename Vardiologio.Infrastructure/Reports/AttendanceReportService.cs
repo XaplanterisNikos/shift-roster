@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Vardiologio.Application.Reports;
+using Vardiologio.Domain.Enums;
 using Vardiologio.Infrastructure.Persistence;
+using Vardiologio.Infrastructure.ReportTexts;
 
 namespace Vardiologio.Infrastructure.Reports;
 
@@ -48,6 +50,10 @@ public class AttendanceReportService : IAttendanceReportService
 		var byEmployeeAndDate = entries.ToDictionary(s => (s.EmployeeId, s.Date));
 
 		var model = new AttendanceReportModel { Year = year, Month = month, Sheet = sheet };
+
+		// Each attendance report is its own form, with its own titles and signatures.
+		model.Texts = await ReportTextService.LoadSetAsync(db,
+			wantDirector ? ReportForm.AttendanceDirectorate : ReportForm.AttendanceStaff);
 
 		foreach (var e in employees)
 		{

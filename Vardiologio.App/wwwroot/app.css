@@ -6,7 +6,8 @@
    3. Login           Layout/LoginLayout.razor + Pages/Login.razor
    4. Legacy pages    plain-HTML pages not yet moved to MudBlazor components
    5. Shift entry     Pages/ShiftEntry.razor
-   6. Page rules      the existing rules of the pages not migrated yet
+   6. Report texts    Pages/ReportParameters.razor + Shared/ReportTextsEditor.razor
+   7. Page rules      the existing rules of the pages not migrated yet
 
    Colours come from the theme (Theme/AppTheme.cs) through MudBlazor's CSS variables,
    e.g. var(--mud-palette-primary), so a change there is picked up here as well.
@@ -61,6 +62,115 @@
 	height: 60px;
 	border-radius: 18px;
 	margin-right: 0;
+}
+
+/* The app icon of the top bar is a button (Shared/AboutButton.razor): opens the "about" card. */
+.brand-mark.brand-mark-btn {
+	border: 0;
+	padding: 0;
+	cursor: pointer;
+	transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.brand-mark.brand-mark-btn:hover,
+.brand-mark.brand-mark-btn:focus-visible {
+	transform: translateY(-1px);
+	box-shadow: 0 6px 16px rgba(67, 56, 202, .35);
+	outline: none;
+}
+
+/* "About" card: everything centred, the links as full-width rows. */
+.about-content {
+	padding: 8px 28px 28px;
+}
+
+.about-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+}
+
+.about-app {
+	margin-top: 14px;
+	font-weight: 800;
+}
+
+.about-version {
+	margin-top: 4px;
+	padding: 3px 12px;
+	border-radius: 999px;
+	background: var(--mud-palette-background-gray);
+	color: var(--mud-palette-text-secondary);
+	font-size: .8rem;
+	font-weight: 700;
+}
+
+.about-divider {
+	width: 100%;
+	margin: 22px 0 18px;
+}
+
+.about-label {
+	font-size: .72rem;
+	font-weight: 700;
+	letter-spacing: .08em;
+	text-transform: uppercase;
+	color: var(--mud-palette-text-secondary);
+}
+
+.about-person {
+	margin-top: 12px;
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	text-align: left;
+}
+
+.about-role {
+	color: var(--mud-palette-text-secondary);
+}
+
+.about-links {
+	width: 100%;
+	margin-top: 20px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.about-link {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 10px 14px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 12px;
+	color: var(--mud-palette-text-primary);
+	text-decoration: none;
+	text-align: left;
+	transition: border-color .12s ease, background .12s ease;
+}
+
+.about-link:hover,
+.about-link:focus-visible {
+	border-color: var(--mud-palette-primary);
+	background: var(--mud-palette-primary-hover);
+	outline: none;
+}
+
+.about-link .mud-icon-root {
+	color: var(--mud-palette-primary);
+	flex: none;
+}
+
+/* Kind of address in bold on its own line, the address under it (long ones break). */
+.about-link-text {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	font-size: .85rem;
+	overflow-wrap: anywhere;
 }
 
 /* Outlined square button of the top bar (help). */
@@ -329,7 +439,7 @@
 /* MudBlazor inputs take the full width of their parent, so each picker gets a width here. */
 .page-filters .filter-year { width: 110px; flex: none; }
 .page-filters .filter-month { width: 170px; flex: none; }
-.page-filters .filter-employee { width: 340px; flex: none; }
+.page-filters .filter-employee { width: 460px; flex: none; }
 
 /* Outlined inputs sit on the tinted page: give them the white of the cards. */
 .page-filters .mud-input-outlined {
@@ -340,6 +450,59 @@
 /* Same height as the dense outlined inputs next to it. */
 .page-filters .filter-load {
 	height: 40px;
+}
+
+/* Employee picker (Shared/EmployeePicker.razor), on every page that asks for an employee. */
+
+/* On the plain-HTML report pages the picker sits in the row of the old filters. */
+.filters .filter-employee-box {
+	width: 460px;
+	max-width: 100%;
+}
+
+.filters .filter-employee-box .mud-input-outlined {
+	background: var(--mud-palette-surface);
+}
+
+/* Same line as the plain year / month boxes and buttons of that row: the picker loses the
+   margins MudBlazor adds around an input, and the plain controls take its height (40px). */
+div.filters .filter-employee-box .mud-input-control {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+.filters:has(.filter-employee-box) select,
+.filters:has(.filter-employee-box) button {
+	height: 40px;
+	box-sizing: border-box;
+}
+
+/* One option: the name, then the speciality dimmed. */
+.employee-option {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+	white-space: nowrap;
+}
+
+.employee-option-spec {
+	color: var(--mud-palette-text-secondary);
+	font-size: .8rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* The letters that match what was typed: yellow marker, as in any search. */
+mark.search-hit {
+	background: #FFE066;
+	color: inherit;
+	border-radius: 3px;
+	padding: 0 1px;
+}
+
+.employee-picker-empty {
+	padding: 10px 16px;
+	color: var(--mud-palette-text-secondary);
 }
 
 /* Shown until a month is loaded. */
@@ -566,7 +729,130 @@
 	color: var(--mud-palette-text-secondary);
 }
 
-/* ---------- 6. Page rules of the pages not migrated yet ------------------ */
+/* ---------- 6. Report texts (Pages/ReportParameters.razor) --------------- */
+
+/* Tabs sit on the tinted page: no card behind the tab bar, a hairline under it. */
+.report-tabs .mud-tabs-tabbar {
+	background: transparent;
+	border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+/* Tab titles like the rest of the app: normal case, not MudBlazor's capitals. */
+.report-tabs .mud-tab {
+	text-transform: none;
+	font-weight: 700;
+	font-size: .9rem;
+}
+
+.report-tabs .mud-tab.mud-tab-active {
+	color: var(--mud-palette-primary);
+}
+
+.report-tab-panel {
+	padding-top: 18px;
+}
+
+/* Header card and footer card side by side; one under the other on a narrow window. */
+.report-texts {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+	gap: 18px;
+	align-items: start;
+}
+
+.report-section {
+	padding: 18px 20px 20px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 16px;
+}
+
+/* One block of lines (service details, titles, a signature…). */
+.report-block {
+	margin-top: 16px;
+}
+
+.report-block-title {
+	font-size: .8rem;
+	font-weight: 700;
+	color: var(--mud-palette-text-secondary);
+}
+
+.report-block-hint {
+	font-size: .75rem;
+	color: var(--mud-palette-text-secondary);
+}
+
+/* Lines of a block close together, like the lines of the printed form. */
+.report-line {
+	margin-top: 6px;
+}
+
+/* Multi-line boxes: a scrollbar when the text is longer than the box, and a handle at the
+   bottom-right corner to drag the box taller (MudBlazor turns both off by default). */
+.report-line textarea.mud-input-root {
+	overflow-y: auto;
+	resize: vertical;
+	line-height: 1.45;
+}
+
+/* Report colours (Shared/ReportColorsEditor.razor): one row per colour. */
+.color-row {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin-top: 14px;
+}
+
+/* The browser's colour box, shaped like a rounded swatch. */
+.color-input {
+	width: 52px;
+	height: 40px;
+	flex: none;
+	padding: 3px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 10px;
+	background: var(--mud-palette-surface);
+	cursor: pointer;
+}
+
+.color-text {
+	min-width: 0;
+}
+
+.color-fields {
+	font-weight: 600;
+}
+
+.color-hex {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-size: .8rem;
+	color: var(--mud-palette-text-secondary);
+}
+
+/* "Back to the original colour", with a small swatch of it. */
+.color-default {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	border: 0;
+	padding: 0;
+	background: none;
+	color: var(--mud-palette-primary);
+	font: inherit;
+	cursor: pointer;
+	text-decoration: underline;
+}
+
+.color-swatch {
+	width: 12px;
+	height: 12px;
+	border-radius: 3px;
+	border: 1px solid var(--mud-palette-lines-default);
+}
+
+/* ---------- 7. Page rules of the pages not migrated yet ------------------ */
 
 .filters {
 	display: flex;
@@ -623,6 +909,7 @@ button {
 	padding: 0;
 }
 
+/* Shared table look of the individual sheet and the hours report. */
 .indiv-scroll {
 	overflow-x: auto;
 	margin-top: 12px;
@@ -648,8 +935,9 @@ table.indiv td.lft {
 	text-align: left;
 }
 
+/* The individual sheet sets --sun-bg from Παράμετροι → Αναφορών → Χρώματα. */
 table.indiv tr.sun td {
-	background: #fce4d6;
+	background: var(--sun-bg, #fce4d6);
 }
 
 table.indiv.totals {
@@ -658,6 +946,67 @@ table.indiv.totals {
 
 table.indiv.totals td {
 	min-width: 70px;
+}
+
+/* Individual sheet (Pages/IndividualReport.razor): 23 columns, so the day table ("sheet")
+   gets roomy cells and scrolls sideways when the window is narrower than the table. */
+.indiv-sub {
+	margin: 14px 0 0;
+	font-weight: 700;
+}
+
+table.indiv.sheet {
+	font-size: 13px;
+	background: #fff;
+}
+
+/* Roomy padding, but every column only as wide as its content (no fixed widths). */
+table.indiv.sheet th, table.indiv.sheet td {
+	padding: 6px 10px;
+}
+
+table.indiv.sheet th {
+	font-size: 12px;
+}
+
+/* Summary of the month: one box per group of numbers, wrapping on a narrow window. */
+.indiv-summary {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+	margin-top: 18px;
+}
+
+.indiv-block-title {
+	font-weight: 700;
+	font-size: .9rem;
+}
+
+/* Where the numbers of the block come from. */
+.indiv-block-note {
+	color: #555;
+	font-size: .78rem;
+	margin: 2px 0 6px;
+	max-width: 520px;
+}
+
+/* Summary tables: headers are sentences, so they wrap inside a fixed width. */
+.indiv-block table.indiv.totals {
+	margin-top: 0;
+	font-size: 12px;
+	background: #fff;
+}
+
+.indiv-block table.indiv.totals th {
+	white-space: normal;
+	width: 118px;
+	padding: 5px 6px;
+	vertical-align: middle;
+}
+
+.indiv-block table.indiv.totals td {
+	font-size: 15px;
+	padding: 6px 8px;
 }
 
 .filters .chk {
@@ -867,13 +1216,14 @@ table.hours-report td.lft {
 	white-space: nowrap;
 }
 
+/* The two fills follow Παράμετροι → Αναφορών → Χρώματα (variables set on the table). */
 table.hours-report td.over {
-	background: #fde2e1;
+	background: var(--hours-over, #fde2e1);
 	font-weight: 600;
 }
 
 table.hours-report tr.totals td {
-	background: #e2efda;
+	background: var(--hours-cat, #e2efda);
 	font-weight: 600;
 }
 

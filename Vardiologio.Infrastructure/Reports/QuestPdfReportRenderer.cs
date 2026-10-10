@@ -1,12 +1,15 @@
 ﻿using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using Vardiologio.Application.ReportColors;
 using Vardiologio.Application.Reports;
 
 namespace Vardiologio.Infrastructure.Reports;
 
 /// <summary>
-/// Renders the Σ.Ω. monthly roster to PDF using QuestPDF.
+/// Renders the Σ.Ω. monthly roster to PDF using QuestPDF: emblem + letterhead, titles and
+/// addressee above the table, the legend of shift codes and the signatures below it. The texts
+/// are the user's (Παράμετροι → Αναφορών) and are formatted like those of the shift table.
 /// Partial: the hours report lives in QuestPdfReportRenderer.Hours.cs and reuses the helpers here.
 /// </summary>
 public partial class QuestPdfReportRenderer : IPdfReportRenderer
@@ -16,7 +19,6 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 		  "ΙΟΥΛΙΟΥ","ΑΥΓΟΥΣΤΟΥ","ΣΕΠΤΕΜΒΡΙΟΥ","ΟΚΤΩΒΡΙΟΥ","ΝΟΕΜΒΡΙΟΥ","ΔΕΚΕΜΒΡΙΟΥ" };
 	private static readonly string[] WdGr = { "Δε", "Τρ", "Τε", "Πε", "Πα", "Σα", "Κυ" };
 
-	private const string HdrBg = "#D9E1F2", SunBg = "#FCE4D6", SatBg = "#FFF2CC", TotBg = "#E2EFDA";
 
 	/// <inheritdoc/>
 	public byte[] Render(ReportModel m)
@@ -27,57 +29,121 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 		{
 			container.Page(page =>
 			{
-				page.Size(PageSizes.A3.Landscape());
+				page.Size(PageSizes.A4.Landscape());
 				page.Margin(15);
-				page.DefaultTextStyle(x => x.FontFamily("Lato").FontSize(7));
+				page.DefaultTextStyle(x => x.FontFamily("Lato").FontSize(6));
 
-				page.Header().Element(h => Head(h, m));
-				page.Content().PaddingTop(6).Element(c => Table(c, m, days));
-				page.Footer().PaddingTop(4)
-					.Text("ΥΠΟΜΝΗΜΑ:  αριθμός = κωδικός βάρδιας  |  Ρ=ΡΕΠΟ  Α=ΑΣΘΕΝΕΙΑ  ΑΡ=ΑΡΓΙΑ  Κ=ΚΑΝΟΝΙΚΗ ΑΔΕΙΑ  Δ=ΑΝΑΤΡΟΦΗΣ ΤΕΚΝΟΥ  Ε.Α=ΕΙΔΙΚΗ ΑΔΕΙΑ  Κ.Σ=ΚΑΙΡΙΚΩΝ ΣΥΝΘΗΚΩΝ  Σ=ΣΥΝΔΙΚΑΛΙΣΤΙΚΗ  Α.Τ=ΑΔΕΙΑ ΤΟΚΕΤΟΥ")
-					.FontSize(6);
+				// Normal flow over as many A4 pages as the employees need: the letterhead once at
+				// the top, the table (its header rows repeat on every page), then the legend and
+				// the signatures once after the last row, kept together.
+				page.Content().Column(col =>
+				{
+					col.Item().Element(c => Head(c, m));
+					col.Item().PaddingTop(6).Element(c => Table(c, m, days));
+					col.Item().PaddingTop(10).ShowEntire().Element(c => Bottom(c, m));
+				});
 			});
 		});
 
 		return doc.GeneratePdf();
 	}
 
-	/// <summary>Builds the fixed header block (organisation + title + month).</summary>
+	/// <summary>
+	/// Header of the sheet: emblem + letterhead (left), titles (centre), addressee (right).
+	/// Same arrangement and position-based formatting as the official shift table.
+	/// </summary>
 	private static void Head(IContainer c, ReportModel m) => c.Row(row =>
 	{
-		row.RelativeItem().Column(col =>
+		row.ConstantItem(215).Column(left =>
 		{
-			col.Item().Text("ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ").Bold().FontSize(9);
-			col.Item().Text("ΠΕΡΙΦΕΡΕΙΑ ΑΤΤΙΚΗΣ").FontSize(8);
-			col.Item().Text("ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ").Bold().FontSize(8);
-			col.Item().Text("ΕΔΡΑ: Άντερσεν 6 και Μωραΐτη 90, 11525 Αθήνα").FontSize(7);
+			left.Item().PaddingLeft(20).Width(44).Height(42).Image(AttendanceSheetTexts.Emblem).FitArea();
+			left.Item().Height(3);
+			foreach (var (plain, bold) in ShiftTableTexts.Letterhead(m.Texts))
+			{
+				// Only the bold part is bold (whole line, nothing, or just the e-mail address).
+				left.Item().Text(t =>
+				{
+					if (plain.Length > 0) t.Span(plain).FontSize(7.5f);
+					if (bold.Length > 0) t.Span(bold).FontSize(7.5f).Bold();
+				});
+			}
 		});
-		row.RelativeItem().Column(col =>
+
+		row.RelativeItem().PaddingTop(4).Column(mid =>
 		{
-			col.Item().AlignCenter().Text("ΔΙΕΥΘΥΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ").Bold().FontSize(10);
-			col.Item().AlignCenter().Text("ΠΙΝΑΚΑΣ ΒΑΡΔΙΩΝ ΕΡΓΑΣΙΑΣ ΠΡΟΣΩΠΙΚΟΥ").Bold().FontSize(11);
-			col.Item().AlignCenter().Text("ΤΜΗΜΑΤΟΣ ΚΕΝΤΡΙΚΩΝ ΣΜΑ").FontSize(9);
-			col.Item().AlignCenter().Text($"ΜΗΝΟΣ {MonthsGen[m.Month - 1]} {m.Year}").Bold().FontSize(10);
+			foreach (var title in ShiftTableTexts.Titles(m.Texts, m.Year, m.Month))
+			{
+				var span = mid.Item().PaddingBottom(title.Large ? 6 : 2).AlignCenter().Text(title.Text).FontSize(title.Large ? 13 : 10.5f);
+				if (title.Bold) span.Bold();
+			}
 		});
-		row.RelativeItem().Column(col =>
+
+		row.ConstantItem(215).PaddingTop(20).Column(right =>
 		{
-			col.Item().AlignRight().Text("ΠΡΟΣ: Αναπλ/τρια Προϊστ. Τμ. Λογιστηρίου").FontSize(7);
-			col.Item().AlignRight().Text("κ. Αγιανίδου Δέσποινα").FontSize(7);
+			foreach (var line in ShiftTableTexts.Addressee(m.Texts))
+				right.Item().AlignCenter().Text(line).Bold().FontSize(9);
+		});
+	});
+
+	/// <summary>Legend of the shift codes on the left, the signatures beside it (as on the shift table).</summary>
+	private static void Bottom(IContainer c, ReportModel m) => c.Row(row =>
+	{
+		var hdrBg = m.Colors[ReportColorCatalog.MonthlyTotalHeader];
+
+		row.ConstantItem(170).Table(t =>
+		{
+			t.ColumnsDefinition(cols => { cols.ConstantColumn(60); cols.RelativeColumn(); });
+			t.Cell().ColumnSpan(2).Element(x => Filled(x, hdrBg)).Text(ShiftTableTexts.LegendTitle).Bold();
+			foreach (var (code, description) in m.WorkCodes.Concat(m.StatusCodes))
+			{
+				t.Cell().Element(D).Text(code).Bold();
+				t.Cell().Element(D).Text(description);
+			}
+		});
+
+		row.RelativeItem().PaddingTop(30).Row(sig =>
+		{
+			sig.RelativeItem(1);   // gap after the legend
+			foreach (var (role, name) in ShiftTableTexts.Signatures(m.Texts))
+			{
+				sig.RelativeItem(4).Column(block =>
+				{
+					block.Item().AlignCenter().Text(role).Bold().FontSize(9);
+					block.Item().Height(60);   // space to sign
+					foreach (var line in name)
+						block.Item().AlignCenter().Text(line).Bold().FontSize(9);
+				});
+				sig.RelativeItem(1);   // gap between / after the blocks
+			}
 		});
 	});
 
 	/// <summary>Builds the roster table (headers + one row per employee).</summary>
 	private static void Table(IContainer c, ReportModel m, int days) => c.Table(table =>
 	{
+		// Cell styles with the report's colours (Παράμετροι → Αναφορών → Χρώματα).
+		var hdrBg = m.Colors[ReportColorCatalog.MonthlyTotalHeader];
+		var satBg = m.Colors[ReportColorCatalog.MonthlyTotalSaturday];
+		var sunBg = m.Colors[ReportColorCatalog.MonthlyTotalSunday];
+		var totBg = m.Colors[ReportColorCatalog.MonthlyTotalTotals];
+		Func<IContainer, IContainer> H = cell => Filled(cell, hdrBg);   // header cell
+		Func<IContainer, IContainer> T = cell => Filled(cell, totBg);   // totals-header cell
+		IContainer HDay(IContainer cell, DateOnly day) =>         // day header with weekend shading
+			Filled(cell, day.DayOfWeek == DayOfWeek.Sunday ? sunBg : day.DayOfWeek == DayOfWeek.Saturday ? satBg : hdrBg, 1);
+		IContainer DDay(IContainer cell, DateOnly day) =>         // day data cell with weekend shading
+			(day.DayOfWeek == DayOfWeek.Sunday ? cell.Background(sunBg) : day.DayOfWeek == DayOfWeek.Saturday ? cell.Background(satBg) : cell)
+				.Border(0.5f).Padding(1).AlignCenter().AlignMiddle();
+
+		// Relative widths, so the 40-odd columns always fill the width of the A4 page.
 		table.ColumnsDefinition(cols =>
 		{
-			cols.ConstantColumn(16);                                  // Α/Α
-			cols.ConstantColumn(95);                                  // ΟΝΟΜΑΤΕΠΩΝΥΜΟ
-			cols.ConstantColumn(72);                                  // ΕΙΔΙΚΟΤΗΤΑ
-			for (int d = 0; d < days; d++) cols.ConstantColumn(19);  // ημέρες
-			for (int k = 0; k < 7; k++) cols.ConstantColumn(19);   // μετρήσεις 1..7
-			cols.ConstantColumn(30);                                  // ΗΜΕΡΗΣΙΑ
-			cols.ConstantColumn(34);                                  // ΚΥΡΙΑΚΩΝ
+			cols.RelativeColumn(0.9f);                                 // Α/Α
+			cols.RelativeColumn(5.2f);                                 // ΟΝΟΜΑΤΕΠΩΝΥΜΟ
+			cols.RelativeColumn(3.9f);                                 // ΕΙΔΙΚΟΤΗΤΑ
+			for (int d = 0; d < days; d++) cols.RelativeColumn(1);     // ημέρες
+			for (int k = 0; k < 7; k++) cols.RelativeColumn(1);        // μετρήσεις 1..7
+			cols.RelativeColumn(1.7f);                                 // ΗΜΕΡΗΣΙΑ
+			cols.RelativeColumn(1.9f);                                 // ΚΥΡΙΑΚΩΝ
 		});
 
 		table.Header(header =>
@@ -123,12 +189,13 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 		}
 	});
 
-	// cell styles (borders/background/alignment)
-	private static IContainer H(IContainer c) => c.Border(0.5f).Background(HdrBg).Padding(2).AlignCenter().AlignMiddle();// header cell
-	private static IContainer T(IContainer c) => c.Border(0.5f).Background(TotBg).Padding(2).AlignCenter().AlignMiddle();// totals-header cell
-	private static IContainer D(IContainer c) => c.Border(0.5f).Padding(1).AlignCenter().AlignMiddle();// data cell
-	private static IContainer HDay(IContainer c, DateOnly d) =>
-		c.Border(0.5f).Background(d.DayOfWeek == DayOfWeek.Sunday ? SunBg : d.DayOfWeek == DayOfWeek.Saturday ? SatBg : HdrBg).Padding(1).AlignCenter().AlignMiddle();// day header with weekend shading
-	private static IContainer DDay(IContainer c, DateOnly d) =>
-		(d.DayOfWeek == DayOfWeek.Sunday ? c.Background(SunBg) : d.DayOfWeek == DayOfWeek.Saturday ? c.Background(SatBg) : c).Border(0.5f).Padding(1).AlignCenter().AlignMiddle();// day data cell with weekend shading
+	// Cell styles (borders / background / alignment). The fills take their colour as an
+	// argument, because the colours are the user's (Παράμετροι → Αναφορών → Χρώματα).
+
+	/// <summary>A bordered, centred cell filled with a colour (headers, totals, legend title).</summary>
+	private static IContainer Filled(IContainer c, string background, float padding = 2) =>
+		c.Border(0.5f).Background(background).Padding(padding).AlignCenter().AlignMiddle();
+
+	/// <summary>A plain data cell.</summary>
+	private static IContainer D(IContainer c) => c.Border(0.5f).Padding(1).AlignCenter().AlignMiddle();
 }

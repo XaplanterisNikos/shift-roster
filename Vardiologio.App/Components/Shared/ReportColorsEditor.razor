@@ -1,0 +1,99 @@
+@using Vardiologio.Application.ReportColors
+@inject IReportColorService ColorService
+@inject ISnackbar Snackbar
+
+@* Editor of the reports' colours: one card per report, one row per colour saying which fields
+   it colours. Colours can only be changed, never added or removed. "Επαναφορά" puts back the
+   colours before the last save. Styles: "Report colours" rules in app.css. *@
+@if (colors is not null)
+{
+    <div class="report-texts">
+        @foreach (var report in colors.GroupBy(c => ReportColorCatalog.Find(c.Key)?.Report ?? "Άλλα"))
+        {
+            <MudPaper Elevation="0" Class="report-section">
+                <MudText Typo="Typo.h6">@report.Key</MudText>
+
+                @foreach (var color in report)
+                {
+                    var entry = ReportColorCatalog.Find(color.Key);
+                    <div class="color-row">
+                        @* The browser's own colour dialog; it always returns "#rrggbb". *@
+                        <input type="color" class="color-input" value="@color.Hex.ToLowerInvariant()"
+                               @onchange="e => color.Hex = (e.Value?.ToString() ?? color.Hex).ToUpperInvariant()"
+                               title="Επιλογή χρώματος" />
+                        <div class="color-text">
+                            <div class="color-fields">@(entry?.Fields ?? color.Key)</div>
+                            <div class="color-hex">
+                                @color.Hex
+                                @if (entry is not null && !string.Equals(entry.DefaultHex, color.Hex, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    @* A changed colour can go back to the one the application ships with. *@
+                                    <button type="button" class="color-default" @onclick="() => color.Hex = entry.DefaultHex">
+                                        αρχικό χρώμα <span class="color-swatch" style="background:@entry.DefaultHex"></span>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </MudPaper>
+        }
+    </div>
+
+    <MudPaper Elevation="0" Class="save-bar">
+        <MudText Typo="Typo.body2" Class="save-note">
+            Τα χρώματα ισχύουν από την επόμενη προεπισκόπηση ή εκτύπωση, σε οθόνη, Excel και PDF.
+        </MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@(!canUndo || busy)" OnClick="UndoAsync"
+                   StartIcon="@Icons.Material.Rounded.Undo">Επαναφορά τελευταίας αλλαγής</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Disabled="busy" OnClick="SaveAsync">Αποθήκευση</MudButton>
+    </MudPaper>
+}
+
+@code {
+    private List<ReportColorItem>? colors;
+
+    /// <summary>True when there is an earlier state to go back to.</summary>
+    private bool canUndo;
+
+    /// <summary>True while a save / undo runs, so a double click cannot start a second one.</summary>
+    private bool busy;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    /// <summary>Reads the stored colours and whether there is something to undo.</summary>
+    private async Task LoadAsync()
+    {
+        colors = await ColorService.GetAsync();
+        canUndo = await ColorService.CanUndoAsync();
+    }
+
+    /// <summary>Saves every colour, then reloads.</summary>
+    private async Task SaveAsync()
+    {
+        if (colors is null) return;
+
+        busy = true;
+        try
+        {
+            await ColorService.SaveAsync(colors);
+            await LoadAsync();
+            Snackbar.Add("Αποθηκεύτηκε.", Severity.Success);
+        }
+        finally { busy = false; }
+    }
+
+    /// <summary>Puts back the colours before the last save and shows them.</summary>
+    private async Task UndoAsync()
+    {
+        busy = true;
+        try
+        {
+            await ColorService.UndoLastSaveAsync();
+            await LoadAsync();
+            Snackbar.Add("Επαναφέρθηκαν τα χρώματα πριν από την τελευταία αποθήκευση.", Severity.Info);
+        }
+        finally { busy = false; }
+    }
+}

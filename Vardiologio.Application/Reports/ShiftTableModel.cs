@@ -1,3 +1,6 @@
+using Vardiologio.Application.ReportColors;
+using Vardiologio.Application.ReportTexts;
+
 namespace Vardiologio.Application.Reports;
 
 /// <summary>
@@ -30,6 +33,12 @@ public class ShiftTableModel
 
 	/// <summary>One row per active employee, ordered by name.</summary>
 	public List<ShiftTableRow> Rows { get; set; } = new();
+
+	/// <summary>The form's editable texts (letterhead, titles, signatures…), as set in Παράμετροι → Αναφορές.</summary>
+	public ReportTextSet Texts { get; set; } = ReportTextSet.Empty;
+
+	/// <summary>The report's colours, as set in Παράμετροι → Αναφορών → Χρώματα (defaults until a service fills it).</summary>
+	public ReportColorSet Colors { get; set; } = ReportColorSet.Default;
 
 	/// <summary>True for Saturdays, Sundays and holidays — shaded on the form.</summary>
 	public bool IsShaded(int day)

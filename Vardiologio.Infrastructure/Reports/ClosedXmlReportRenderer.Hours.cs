@@ -1,5 +1,6 @@
 using ClosedXML.Excel;
 using Vardiologio.Application.Hours;
+using Vardiologio.Application.ReportColors;
 using Vardiologio.Application.Reports;
 using Vardiologio.Domain.Enums;
 
@@ -14,9 +15,10 @@ public partial class ClosedXmlReportRenderer
 	/// <inheritdoc/>
 	public byte[] Render(HoursReportModel m)
 	{
-		var hdrFill = XLColor.FromHtml("#D9E1F2");
-		var totFill = XLColor.FromHtml("#E2EFDA");
-		var overFill = XLColor.FromHtml("#FDE2E1");   // excess (unpaid) hours
+		// Colours from Παράμετροι → Αναφορών → Χρώματα.
+		var hdrFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.HoursHeader]);
+		var totFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.HoursCategories]);
+		var overFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.HoursExcess]);   // excess (unpaid) hours
 
 		var categories = Enum.GetValues<HourCategory>();
 

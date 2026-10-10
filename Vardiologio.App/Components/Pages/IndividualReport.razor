@@ -1,11 +1,20 @@
-﻿@page "/individual"
+@page "/individual"
+@using System.Diagnostics
+@using Vardiologio.Application.Files
+@using Vardiologio.Application.Logging
+@using Vardiologio.Application.ReportColors
 @using Vardiologio.Application.Reports
 @using Vardiologio.Application.ShiftEntry
 @inject IIndividualReportService Report
 @inject IShiftEntryService ShiftService
+@inject IExcelReportRenderer Excel
+@inject IPdfReportRenderer Pdf
+@inject IReportFileStore FileStore
+@inject IErrorLog ErrorLog
 
-@* Individual analytical sheet (preview). Currently shows the computable columns;
-   overtime / day-night split / ΣΤΑΣΕΙΣ are intentionally blank until their rules are defined. *@
+@* Individual analytical sheet of one employee for one month: on-screen preview, Excel and PDF.
+   Columns, cell values and the summary come from IndividualSheetLayout (Application), so the
+   three outputs always agree. Styles: "table.indiv" rules in app.css. *@
 <h1>Ατομικό φύλλο (Ανάλυση παρουσιών & ωραρίων)</h1>
 
 <div class="filters">
@@ -27,108 +36,101 @@
             }
         </select>
     </label>
-    <label>
-        Εργαζόμενος
-        <select @bind="employeeId">
-            <option value="0">— επίλεξε —</option>
-            @foreach (var e in employees)
-            {
-                <option value="@e.Id">@e.Display</option>
-            }
-        </select>
-    </label>
-    <button @onclick="LoadAsync" disabled="@(employeeId == 0)">Προεπισκόπηση</button>
+    @* Search box instead of a plain list: type part of the surname or first name (Shared/EmployeePicker.razor). *@
+    <div class="filter-employee-box">
+        <EmployeePicker Employees="employees" @bind-Value="employeeId" />
+    </div>
+    <button @onclick="PreviewAsync" disabled="@(busy || employeeId == 0)">Προεπισκόπηση</button>
+    <button @onclick="ExportExcelAsync" disabled="@(busy || employeeId == 0)">Εξαγωγή Excel</button>
+    <button @onclick="ExportPdfAsync" disabled="@(busy || employeeId == 0)">Εξαγωγή PDF</button>
 </div>
-@* Complex two-row header (rowspan/colspan) mirroring the official sheet layout. *@
+
+@if (message is not null)
+{
+    <p class="ok">@message</p>
+}
+@if (error is not null)
+{
+    <p style="color:#c00">@error</p>
+}
+
 @if (model is not null)
 {
+    <p class="indiv-sub">@IndividualSheetLayout.Subtitle(model)</p>
+    @if (model.WorkType.Length == 0)
+    {
+        @* The column is filled from the employee's contract; say why it is empty instead of leaving a silent gap. *@
+        <p class="hint">Το «Είδος εργασίας» είναι κενό επειδή ο εργαζόμενος δεν έχει σύμβαση. Ορίστε τη στο μενού «Εργαζόμενοι», στο πεδίο «Σύμβαση».</p>
+    }
+
+    @* Two-row header: a header without sub-columns spans both rows, a group spans its sub-columns. *@
     <div class="indiv-scroll">
-        <table class="indiv">
+        @* --sun-bg: the Sunday colour of Παράμετροι → Αναφορών → Χρώματα (read by "tr.sun" in app.css). *@
+        <table class="indiv sheet" style="--sun-bg:@(model.Colors[ReportColorCatalog.IndividualSunday])">
             <thead>
                 <tr>
-                    <th rowspan="2">ΗΜΕΡ.</th>
-                    <th rowspan="2">Α/Α</th>
-                    <th rowspan="2">ΟΝΟΜΑΤΕΠΩΝΥΜΟ</th>
-                    <th rowspan="2">ΕΙΔΟΣ<br />ΕΡΓΑΣΙΑΣ</th>
-                    <th colspan="2">ΩΡΑΡΙΟ ΒΑΡΔΙΑΣ</th>
-                    <th colspan="2">ΩΡΑΡΙΟ ΥΠΕΡΩΡΙΑΣ</th>
-                    <th colspan="2">ΣΥΜΠΛΗΡ. ΕΡΓΑΣΙΑ</th>
-                    <th rowspan="2">ΩΡΑΡΙΑ</th>
-                    <th rowspan="2">ΠΑΡΟΥΣΙΕΣ</th>
-                    <th rowspan="2">ΣΤΑΣΕΙΣ</th>
-                    <th colspan="3">ΗΜΕΡΗΣΙΟ (Δ–Σ)</th>
-                    <th colspan="3">ΝΥΚΤΕΡΙΝΟ (Δ–Σ)</th>
-                    <th colspan="2">ΗΜΕΡ. ΚΥΡ.</th>
-                    <th colspan="2">ΝΥΚΤ. ΚΥΡ.</th>
+                    @foreach (var header in IndividualSheetLayout.Headers)
+                    {
+                        @if (header.Subs.Length == 0)
+                        {
+                            <th rowspan="2">@header.Text</th>
+                        }
+                        else
+                        {
+                            <th colspan="@header.Span">@header.Text</th>
+                        }
+                    }
                 </tr>
                 <tr>
-                    <th>ΕΝΑΡΞΗ</th>
-                    <th>ΛΗΞΗ</th>
-                    <th>ΕΝΑΡΞΗ</th>
-                    <th>ΛΗΞΗ</th>
-                    <th>ΗΜΕΡ.</th>
-                    <th>ΚΥΡΙΑΚΗΣ</th>
-                    <th>ΩΡ.</th>
-                    <th>ΕΝ.</th>
-                    <th>ΛΗ.</th>
-                    <th>ΩΡ.</th>
-                    <th>ΕΝ.</th>
-                    <th>ΛΗ.</th>
-                    <th>ΕΝ.</th>
-                    <th>ΛΗ.</th>
-                    <th>ΕΝ.</th>
-                    <th>ΛΗ.</th>
+                    @foreach (var header in IndividualSheetLayout.Headers)
+                    {
+                        @foreach (var sub in header.Subs)
+                        {
+                            <th>@sub</th>
+                        }
+                    }
                 </tr>
             </thead>
-            @* Status day -> show the code; working day -> show shift start/end. *@
             <tbody>
                 @foreach (var r in model.Days)
                 {
+                    var cells = IndividualSheetLayout.Cells(model, r);
                     <tr class="@(r.IsSunday ? "sun" : "")">
-                        <td>@r.Date.ToString("dd/MM")</td>
-                        <td>@r.Index</td>
-                        <td class="lft">@model.EmployeeName</td>
-                        <td>@model.WorkType</td>
-                        <td>@(r.StatusCode ?? r.ShiftStart)</td>
-                        <td>@(r.StatusCode is null ? r.ShiftEnd : "")</td>
-                        <td></td>
-                        <td></td>                                   @* ΥΠΕΡΩΡΙΑ — κενό *@
-                        <td>@Fmt(r.SupplementWeekday)</td>
-                        <td>@Fmt(r.SupplementSunday)</td>
-                        <td></td>                                            @* ΩΡΑΡΙΑ — κενό *@
-                        <td>@r.Presence</td>
-                        <td></td>                                            @* ΣΤΑΣΕΙΣ — κενό *@
-                        <td></td>
-                        <td></td>
-                        <td></td>                          @* ΗΜΕΡΗΣΙΟ Δ–Σ — κενό *@
-                        <td></td>
-                        <td></td>
-                        <td></td>                          @* ΝΥΚΤΕΡΙΝΟ Δ–Σ — κενό *@
-                        <td></td>
-                        <td></td>                                   @* ΗΜΕΡ. ΚΥΡ. — κενό *@
-                        <td></td>
-                        <td></td>                                   @* ΝΥΚΤ. ΚΥΡ. — κενό *@
+                        @for (int i = 0; i < cells.Length; i++)
+                        {
+                            @* The name column is the only left-aligned one. *@
+                            <td class="@(i == IndividualSheetLayout.NameColumn ? "lft" : "")">@cells[i]</td>
+                        }
                     </tr>
                 }
             </tbody>
         </table>
     </div>
 
-    <table class="indiv totals">
-        <tr>
-            <th colspan="3">Εργασία προς Συμπλήρωση (ΕΒΔΟΜΑΔΙΑΙΑ)</th>
-            <th colspan="3">Εργασία προς Συμπλήρωση (ΚΥΡΙΑΚΩΝ–ΕΞΑΙΡΕΣΙΜΩΝ)</th>
-        </tr>
-        <tr><th>Α'</th><th>Β'</th><th>ΣΥΝΟΛΟ ΜΗΝΟΣ</th><th>Α'</th><th>Β'</th><th>ΣΥΝΟΛΟ ΜΗΝΟΣ</th></tr>
-        <tr>
-            <td>@Fmt(model.WeekdayFirstHalf)</td>
-            <td>@Fmt(model.WeekdaySecondHalf)</td>
-            <td><b>@Fmt(model.WeekdayTotal)</b></td>
-            <td>@Fmt(model.SundayFirstHalf)</td>
-            <td>@Fmt(model.SundaySecondHalf)</td>
-            <td><b>@Fmt(model.SundayTotal)</b></td>
-        </tr>
-    </table>
+    @* Summary of the month: one box per group of numbers, each saying where its numbers come from. *@
+    <div class="indiv-summary">
+        @foreach (var block in IndividualSheetLayout.Summary(model))
+        {
+            <div class="indiv-block">
+                <div class="indiv-block-title">@block.Title</div>
+                <div class="indiv-block-note">@block.Note</div>
+                <table class="indiv totals">
+                    <tr>
+                        @foreach (var cell in block.Cells)
+                        {
+                            <th>@cell.Header</th>
+                        }
+                    </tr>
+                    <tr>
+                        @foreach (var cell in block.Cells)
+                        {
+                            <td><b>@cell.Value</b></td>
+                        }
+                    </tr>
+                </table>
+            </div>
+        }
+    </div>
 }
 
 @code {
@@ -136,16 +138,55 @@
     private int year = DateTime.Today.Year;
     private int month = DateTime.Today.Month;
     private int employeeId;
+    private bool busy;
+    private string? message, error;
     private IndividualReportModel? model;
 
+    /// <summary>Loads the active employees for the picker.</summary>
     protected override async Task OnInitializedAsync()
         => employees = await ShiftService.GetEmployeesAsync();
 
-    private async Task LoadAsync()
-        => model = await Report.BuildAsync(employeeId, year, month);// build the individual sheet
+    /// <summary>Builds the sheet and shows it on the page (no file written).</summary>
+    private async Task PreviewAsync()
+    {
+        busy = true; message = null; error = null;
+        try
+        {
+            model = await Report.BuildAsync(employeeId, year, month);
+        }
+        catch (Exception ex) { Fail("Preview", ex); }
+        finally { busy = false; }
+    }
 
-    /// <summary>Formats an optional hours value; blank when null or zero.</summary>
-    private static string Fmt(decimal? v) => v is null or 0 ? "" : v.Value.ToString("0.##");
+    private Task ExportExcelAsync() => ExportAsync(m => Excel.Render(m), "xlsx");
+    private Task ExportPdfAsync() => ExportAsync(m => Pdf.Render(m), "pdf");
+
+    /// <summary>
+    /// Builds the sheet, writes Individual_SURNAME_yyyy_MM (Latin characters) under
+    /// Reports\Individual-Sheet\&lt;month&gt; and opens it with the default application.
+    /// The preview is refreshed too, so the page shows what was exported.
+    /// </summary>
+    private async Task ExportAsync(Func<IndividualReportModel, byte[]> render, string ext)
+    {
+        busy = true; message = null; error = null;
+        try
+        {
+            model = await Report.BuildAsync(employeeId, year, month);
+            var fileName = $"Individual_{GreekText.ToLatin(model.LastName)}_{year}_{month:00}.{ext}";
+            var path = await FileStore.SaveAsync(ReportFolder.IndividualSheet, year, month, fileName, render(model));
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            message = $"Δημιουργήθηκε: {path}";
+        }
+        catch (Exception ex) { Fail("Excel/PDF export", ex); }
+        finally { busy = false; }
+    }
+
+    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows its message on the page.</summary>
+    private void Fail(string action, Exception ex)
+    {
+        ErrorLog.Error($"Individual sheet / {action}", ex);
+        error = ex.Message;
+    }
 
     private static readonly string[] Months =
         { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",

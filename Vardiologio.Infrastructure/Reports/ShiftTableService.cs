@@ -3,6 +3,8 @@ using Vardiologio.Application.Hours;
 using Vardiologio.Application.Reports;
 using Vardiologio.Domain.Enums;
 using Vardiologio.Infrastructure.Persistence;
+using Vardiologio.Infrastructure.ReportColors;
+using Vardiologio.Infrastructure.ReportTexts;
 
 namespace Vardiologio.Infrastructure.Reports;
 
@@ -65,7 +67,9 @@ public class ShiftTableService : IShiftTableService
 			Month = month,
 			HolidayDays = holidays.Select(h => h.Day).OrderBy(d => d).ToList(),
 			WorkCodes = workCodes.Select(c => (c.Code, c.Description)).ToList(),
-			StatusCodes = statusCodes.Select(c => (c.Code, c.Description)).ToList()
+			StatusCodes = statusCodes.Select(c => (c.Code, c.Description)).ToList(),
+			Texts = await ReportTextService.LoadSetAsync(db, ReportForm.ShiftTable),
+			Colors = await ReportColorService.LoadSetAsync(db)
 		};
 
 		foreach (var e in employees)

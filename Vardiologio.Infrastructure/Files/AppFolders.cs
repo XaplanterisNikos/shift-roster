@@ -43,6 +43,7 @@ public static class AppFolders
 		ReportFolder.StaffAttendance => "Staff-Attendance",
 		ReportFolder.OvertimeCertificate => "Overtime-Certificate",
 		ReportFolder.ShiftTable => "Shift-Table",
+		ReportFolder.IndividualSheet => "Individual-Sheet",
 		_ => throw new ArgumentOutOfRangeException(nameof(folder), folder, null)
 	};
 

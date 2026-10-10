@@ -4,6 +4,7 @@ using Vardiologio.Application.Reports;
 using Vardiologio.Domain.Entities;
 using Vardiologio.Domain.Enums;
 using Vardiologio.Infrastructure.Persistence;
+using Vardiologio.Infrastructure.ReportColors;
 
 namespace Vardiologio.Infrastructure.Reports;
 
@@ -50,6 +51,7 @@ public class HoursReportService : IHoursReportService
 			Month = month,
 			HolidaysInMonth = holidays.Count,
 			CombinedLimit = limits.ToCompletePlusHolidayMonthly,
+			Colors = await ReportColorService.LoadSetAsync(db),
 			Limits = Enum.GetValues<HourCategory>()
 				.ToDictionary(c => c, c => MonthlyHoursCalculator.Limit(c, limits, holidays.Count))
 		};

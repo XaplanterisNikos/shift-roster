@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using Vardiologio.Application.ReportColors;
 using Vardiologio.Domain.Entities;
 
 namespace Vardiologio.Infrastructure.Persistence.Seeding;
@@ -23,6 +24,8 @@ public static class DatabaseSeeder
 		SeedShiftCodeRules(db); // after codes: fixes/adds codes once, then their hour split
 		SeedHolidays(db);
 		SeedHourLimits(db);
+		SeedReportTexts(db);
+		SeedReportColors(db);
 		SeedEmployees(db);      // last: resolves each employee's SpecialityId by name
 	}
 
@@ -143,6 +146,56 @@ public static class DatabaseSeeder
 			HolidayPerHoliday = l.PerHoliday,
 			ToCompletePlusHolidayMonthly = l.ToCompletePlusHoliday
 		});
+		db.SaveChanges();
+	}
+
+	/// <summary>
+	/// Adds the default texts of the official forms. Works per line, not per table: a line
+	/// that already exists is never touched (the user may have edited it), and a line that a
+	/// later version adds to <see cref="SeedData.ReportTexts"/> is inserted on the next start.
+	/// </summary>
+	private static void SeedReportTexts(AppDbContext db)
+	{
+		// Lines already stored, by their natural key (form + block + position).
+		var existing = db.ReportTexts
+			.Select(t => new { t.Form, t.Block, t.Line })
+			.AsEnumerable()
+			.Select(t => (t.Form, t.Block, t.Line))
+			.ToHashSet();
+
+		foreach (var block in SeedData.ReportTexts)
+		{
+			for (var line = 0; line < block.Lines.Length; line++)
+			{
+				if (existing.Contains((block.Form, block.Block, line))) continue;
+
+				db.ReportTexts.Add(new ReportText
+				{
+					Form = block.Form,
+					Section = block.Section,
+					Block = block.Block,
+					Line = line,
+					Text = block.Lines[line]
+				});
+			}
+		}
+		db.SaveChanges();
+	}
+
+	/// <summary>
+	/// Adds the default colours of the reports. Works per key: a colour that already exists is
+	/// never touched (the user may have changed it), and a colour that a later version adds to
+	/// the catalogue is inserted on the next start.
+	/// </summary>
+	private static void SeedReportColors(AppDbContext db)
+	{
+		var existing = db.ReportColors.Select(c => c.Key).ToHashSet();
+
+		foreach (var entry in ReportColorCatalog.All)
+		{
+			if (existing.Contains(entry.Key)) continue;
+			db.ReportColors.Add(new ReportColor { Key = entry.Key, Hex = entry.DefaultHex });
+		}
 		db.SaveChanges();
 	}
 

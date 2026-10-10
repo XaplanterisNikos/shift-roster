@@ -1,0 +1,42 @@
+@page "/report-parameters"
+@using Vardiologio.Application.ReportTexts
+@using Vardiologio.Domain.Enums
+
+@* Texts of the official forms (letterhead, titles, signatures…): one tab per form, plus a
+   last tab with the colours of the reports.
+   Each tab is its own editor (Shared/ReportTextsEditor.razor / ReportColorsEditor.razor) and saves on its own.
+   Page-specific styles: "Report texts" block in app.css. *@
+
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Παράμετροι αναφορών</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Τα κείμενα που τυπώνονται πάνω και κάτω από τον πίνακα κάθε εντύπου, και τα χρώματα των αναφορών.</MudText>
+    </div>
+</div>
+
+@* KeepPanelsAlive: a tab keeps what was typed in it while another tab is open. *@
+<MudTabs Elevation="0" SliderColor="Color.Primary" KeepPanelsAlive="true"
+         Class="report-tabs" TabPanelsClass="report-tab-panel">
+    @foreach (var form in Forms)
+    {
+        <MudTabPanel Text="@ReportTextBlocks.FormName(form)">
+            <ReportTextsEditor Form="form" />
+        </MudTabPanel>
+    }
+    @* Last tab: the colours of the reports (Shared/ReportColorsEditor.razor). *@
+    <MudTabPanel Text="Χρώματα">
+        <ReportColorsEditor />
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    /// <summary>The forms in tab order (same order as the side menu).</summary>
+    private static readonly ReportForm[] Forms =
+    {
+        ReportForm.ShiftTable,
+        ReportForm.AttendanceStaff,
+        ReportForm.AttendanceDirectorate,
+        ReportForm.OvertimeCertificate,
+        ReportForm.MonthlyTotal
+    };
+}

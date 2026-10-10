@@ -19,5 +19,8 @@ public enum ReportFolder
 	OvertimeCertificate,
 
 	/// <summary>Πίνακας βαρδιών εργασίας (official shift table, A3).</summary>
-	ShiftTable
+	ShiftTable,
+
+	/// <summary>Ατομική μηνιαία (individual analytical sheet of one employee).</summary>
+	IndividualSheet
 }

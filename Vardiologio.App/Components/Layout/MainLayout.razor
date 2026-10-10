@@ -12,9 +12,8 @@
     <MudLayout>
         @* Top bar: brand on the left; help, user and sign-out on the right. *@
         <MudAppBar Elevation="0" Class="app-bar">
-            <div class="brand-mark">
-                <MudIcon Icon="@Icons.Material.Rounded.CalendarMonth" />
-            </div>
+            @* App icon; a click opens the "about" card (Shared/AboutButton.razor). *@
+            <AboutButton />
             <MudText Typo="Typo.h6" Class="brand-name">Βαρδιολόγιο</MudText>
             <MudSpacer />
             @* Context help for the current page ("?"); texts in Shared/HelpContent.razor. *@
@@ -46,7 +45,7 @@
                     <MudIcon Icon="@Icons.Material.Rounded.Description" Size="Size.Small" />
                     <span>Αναφορές - Έντυπα</span>
                 </div>
-                <MudNavLink Href="export">Συνολική Μηνιαία</MudNavLink>
+                <MudNavLink Href="export">Συνολική Μηνιαία Σ.Ω.</MudNavLink>
                 <MudNavLink Href="individual">Ατομική Μηνιαία</MudNavLink>
                 <MudNavLink Href="hours-report">Ωρών Μηνιαία</MudNavLink>
                 <MudDivider Class="nav-divider" />
@@ -61,6 +60,7 @@
                 <MudNavLink Href="shift-codes">Βαρδιών</MudNavLink>
                 <MudNavLink Href="employee-parameters">Εργαζομένων</MudNavLink>
                 <MudNavLink Href="hours-parameters">Ωρών</MudNavLink>
+                <MudNavLink Href="report-parameters">Αναφορών</MudNavLink>
 
                 @* Administrator-only tools; the entry opens its own sign-in dialog (Shared/DbExportButton.razor). *@
                 <div class="nav-section">

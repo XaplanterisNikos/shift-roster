@@ -1,12 +1,15 @@
 using System.Globalization;
 using Vardiologio.Application.Reports;
+using Vardiologio.Application.ReportTexts;
 
 namespace Vardiologio.Infrastructure.Reports;
 
 /// <summary>
-/// Fixed texts of the individual overtime certificate, copied as they are from the
-/// organisation's sheet (declaration and certification wording, decision numbers).
-/// The emblem and the letterhead are shared with the attendance report (<see cref="AttendanceSheetTexts"/>).
+/// Texts of the individual overtime certificate. The titles, the introduction (with the
+/// decision numbers), the declaration and the certification are the user's editable texts
+/// (<see cref="ReportTextSet"/>); the month and the period dates are always added here.
+/// The table headers stay fixed. The emblem and the letterhead layout are shared with the
+/// attendance report (<see cref="AttendanceSheetTexts"/>).
 /// </summary>
 internal static class OvertimeCertificateTexts
 {
@@ -14,31 +17,47 @@ internal static class OvertimeCertificateTexts
 		{ "ΙΑΝΟΥΑΡΙΟΥ","ΦΕΒΡΟΥΑΡΙΟΥ","ΜΑΡΤΙΟΥ","ΑΠΡΙΛΙΟΥ","ΜΑΪΟΥ","ΙΟΥΝΙΟΥ",
 		  "ΙΟΥΛΙΟΥ","ΑΥΓΟΥΣΤΟΥ","ΣΕΠΤΕΜΒΡΙΟΥ","ΟΚΤΩΒΡΙΟΥ","ΝΟΕΜΒΡΙΟΥ","ΔΕΚΕΜΒΡΙΟΥ" };
 
+	/// <summary>Letterhead row (0-based) that each hand-filled label sits on, by the label's position.</summary>
+	private static readonly int[] HandFilledRows = { 0, 2, 4 };
+
+	/// <summary>How many letterhead rows the hand-filled labels need (the renderers keep at least this many).</summary>
+	public const int HandFilledRowCount = 5;
+
 	/// <summary>
-	/// Labels on the right of the letterhead, filled in by hand; keyed by the letterhead
-	/// line they sit on (ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ, ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ, ΕΔΡΑ).
+	/// Labels on the right of the letterhead, filled in by hand ("Αθήνα :", "Αρ. Πρωτ. :",
+	/// "Προς :"), each with the letterhead row it sits on. The rows are fixed, so the labels
+	/// do not move when a letterhead line is left empty.
 	/// </summary>
-	public static readonly (int Line, string Text)[] HandFilled =
+	public static (int Row, string Text)[] HandFilled(ReportTextSet texts) =>
+		texts.Lines(ReportTextBlocks.HandFilled)
+			.Where(l => l.Line < HandFilledRows.Length)
+			.Select(l => (HandFilledRows[l.Line], l.Text))
+			.ToArray();
+
+	/// <summary>First title line: the editable text, then the month ("… ΜΗΝΟΣ ΑΥΓΟΥΣΤΟΥ 2026").</summary>
+	public static string Title(ReportTextSet texts, int year, int month)
 	{
-		(0, "Αθήνα  :"),
-		(2, "Αρ. Πρωτ.  :"),
-		(4, "Προς :")
-	};
+		var text = texts.Line(ReportTextBlocks.Titles, 0);
+		var monthPart = $"ΜΗΝΟΣ {MonthsGen[month - 1]} {year}";
+		return text.Length == 0 ? monthPart : $"{text}  {monthPart}";
+	}
 
-	/// <summary>First title line, with the month ("… ΜΗΝΟΣ ΑΥΓΟΥΣΤΟΥ 2026").</summary>
-	public static string Title(int year, int month) => $"Δ/ΝΣΗΣ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ  ΜΗΝΟΣ {MonthsGen[month - 1]} {year}";
+	/// <summary>Second title line ("" when it was left empty).</summary>
+	public static string Subtitle(ReportTextSet texts) => texts.Line(ReportTextBlocks.Titles, 1);
 
-	/// <summary>Second title line.</summary>
-	public const string Subtitle = "ΠΙΣΤΟΠΟΙΗΣΗ ΥΠΕΡΩΡΙΑΚΗΣ ΚΑΙ ΛΟΙΠΗΣ ΕΡΓΑΣΙΑΣ";
-
-	/// <summary>Introduction under the titles (four centred lines; the decision numbers are fixed).</summary>
-	public static string[] Intro(DateOnly from, DateOnly to) => new[]
+	/// <summary>
+	/// Introduction under the titles (centred lines). The period is always added to the end of
+	/// the last line: "… κατά το χρονικό διάστημα από 01/08/2026 έως 31/08/2026".
+	/// </summary>
+	public static string[] Intro(ReportTextSet texts, DateOnly from, DateOnly to)
 	{
-		"Βεβαιώνεται ότι ο παρακάτω υπάλληλος εργάστηκε υπερωριακά κατά τις απογευματινές ώρες",
-		"και κατά τις Κυριακές, τις αντίστοιχες ώρες που αναφέρονται, για την αντιμετώπιση υπηρεσικών αναγκών της",
-		"της Δ/νσης Σταθμών Μεταφόρτωσης , σύμφωνα με την αριθμ πρωτ. 15373/12-12-25 Απόφασης Προέδρου και της υπ'",
-		$"αριθμ.8247/23-07-2026 Απόφασης Σύστασης Συνεργείου, κατά το χρονικό διάστημα από {Date(from)} έως {Date(to)}"
-	};
+		var lines = texts.Texts(ReportTextBlocks.Intro);
+		var period = $"από {Date(from)} έως {Date(to)}";
+		if (lines.Length == 0) return new[] { period };
+
+		lines[^1] = $"{lines[^1]} {period}";
+		return lines;
+	}
 
 	// Table headers: four single columns, then three groups of two sub-columns.
 	public const string HeadIndex = "A/A", HeadLastName = "Επίθετο", HeadFirstName = "Όνομα", HeadSpeciality = "κλάδος/ειδικότητα";
@@ -63,20 +82,13 @@ internal static class OvertimeCertificateTexts
 	};
 
 	/// <summary>Heading of the declaration block.</summary>
-	public const string DeclarationTitle = "Υπεύθυνη Δήλωση";
+	public static string DeclarationTitle(ReportTextSet texts) => texts.Line(ReportTextBlocks.DeclarationTitle, 0);
 
-	/// <summary>The four numbered declaration items.</summary>
-	public static readonly string[] Declarations =
-	{
-		"Ο υπάλληλος που υπογράφει την κατάσταση αυτή, δηλώνει ότι εργάστηκε υπερωριακά κατά το χρονικό διάστημα που αναγράφεται στην κατάσταση, τις ώρες που αναγράφονται και το ωρομίσθιο του κλιμακίου.",
-		"Δεν συμμετέχω σε άλλο συνεργείο υπερωριακής εργασίας στον ανωτέρω μήνα.",
-		"Οι πάσης φύσεως πρόσθετες μηνιαίες αποδοχές μου δεν είναι ανώτερες του συνόλου των μηνιαίων αποδοχών της οργανικής μου θέσης, κατά τον ανωτέρω μήνα, σύμφωνα με την παρ. 2 του αριθ. 104 του Συντάγματος.",
-		"Οι πάσης φύσεως μεικτές αποδοχές, αποζημιώσεις και πρόσθετες αμοιβές ή απολαβές μου εν γένει μηνιαίως δεν υπερβαίνουν το ποσό της παρ. 1 του αρ. 2 του Ν 3833/2010."
-	};
+	/// <summary>The numbered declaration items (numbered again from 1 when one is left empty).</summary>
+	public static string[] Declarations(ReportTextSet texts) => texts.Texts(ReportTextBlocks.Declarations);
 
 	/// <summary>Certification paragraph under the declaration.</summary>
-	public const string Certification =
-		"ΒΕΒΑΙΩΣΗ: Βεβαιώνεται ότι ο ανωτέρω αναφερόμενος υπάλληλος εργάστηκε κατά το ως άνω χρονικό διάστημα, για τι ώρες που αναφέρονται πλάι στο ονοματεπώνυμο μου και δεν έχω υπερβεί το συνολικό αριθμό ωρών που προβλέπεται από την απόφαση στην επικεφαλίδα. Επίσης βεβαιούται το γνήσιο της υπογραφής.";
+	public static string Certification(ReportTextSet texts) => texts.Line(ReportTextBlocks.Certification, 0);
 
 	/// <summary>Signature role: "Ο" for men, "Η" for women.</summary>
 	public static string SignatureRole(bool isFemale) => isFemale ? "Η Βεβαιών Υπάλληλος" : "Ο Βεβαιών Υπάλληλος";

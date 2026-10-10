@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using Vardiologio.Application.ReportColors;
 using Vardiologio.Application.Reports;
 
 namespace Vardiologio.Infrastructure.Reports;
@@ -19,7 +20,7 @@ public partial class ClosedXmlReportRenderer
 	{
 		using var wb = new XLWorkbook();
 		var ws = wb.AddWorksheet("Shift table");
-		var shade = XLColor.FromHtml(ShiftTableTexts.ShadeHex);
+		var shade = XLColor.FromHtml(m.Colors[ReportColorCatalog.ShiftTableWeekend]);   // Παράμετροι → Αναφορών → Χρώματα
 		var center = XLAlignmentHorizontalValues.Center;
 
 		// Columns: narrow margin, name, speciality, one per day, one per work code, the two hour columns.
@@ -37,13 +38,13 @@ public partial class ClosedXmlReportRenderer
 			ws.AddPicture(emblem, "Emblem").MoveTo(ws.Cell(1, cName), 30, 2).WithSize(62, 60);
 
 		const int lh0 = 4;
-		for (var i = 0; i < ShiftTableTexts.Letterhead.Length; i++)
+		var letterhead = ShiftTableTexts.Letterhead(m.Texts);
+		for (var i = 0; i < letterhead.Length; i++)
 		{
-			var (text, bold) = ShiftTableTexts.Letterhead[i];
+			var (plain, bold) = letterhead[i];
 			ws.Range(lh0 + i, cName, lh0 + i, cSpec).Merge();
 			var cell = ws.Cell(lh0 + i, cName);
 			// Rich text so that only the bold part is bold (e.g. just the e-mail address).
-			var plain = bold.Length == 0 ? text : text[..text.IndexOf(bold, StringComparison.Ordinal)];
 			var rich = cell.GetRichText();
 			if (plain.Length > 0) rich.AddText(plain).SetFontName(StTextFont).SetFontSize(11);
 			if (bold.Length > 0) rich.AddText(bold).SetFontName(StTextFont).SetFontSize(11).SetBold();
@@ -53,16 +54,19 @@ public partial class ClosedXmlReportRenderer
 
 		var tFrom = cDay0 + 6;
 		var tTo = cDay0 + days - 8;
-		var titles = ShiftTableTexts.Titles(m.Year, m.Month);
+		var titles = ShiftTableTexts.Titles(m.Texts, m.Year, m.Month);
 		int[] titleRows = { 2, 4, 5, 6 };
 		for (var i = 0; i < titles.Length; i++)
-			StMerge(ws, titleRows[i], tFrom, titleRows[i], tTo, titles[i].Text, StTitleFont, i == 0 ? 20 : 13, titles[i].Bold, center);
+			StMerge(ws, titleRows[i], tFrom, titleRows[i], tTo, titles[i].Text, StTitleFont, titles[i].Large ? 20 : 13, titles[i].Bold, center);
 		ws.Row(titleRows[0]).Height = 28;   // first title is the largest; the others fit the 18pt letterhead rows
-		for (var i = 0; i < ShiftTableTexts.Addressee.Length; i++)
-			StMerge(ws, 3 + i, cCount0 - 6, 3 + i, lastCol, ShiftTableTexts.Addressee[i], StTitleFont, 13, true, center);
+		var addressee = ShiftTableTexts.Addressee(m.Texts);
+		for (var i = 0; i < addressee.Length; i++)
+			StMerge(ws, 3 + i, cCount0 - 6, 3 + i, lastCol, addressee[i], StTitleFont, 13, true, center);
 
 		// ---- Table header (two rows) ----
-		var h1 = lh0 + ShiftTableTexts.Letterhead.Length + 1;
+		// Under the letterhead; at least three rows down, so a short letterhead cannot pull the
+		// table up onto the title rows.
+		var h1 = lh0 + Math.Max(letterhead.Length, 3) + 1;
 		var h2 = h1 + 1;
 		StMerge(ws, h1, cName, h2, cName, ShiftTableTexts.HeadName, StTitleFont, 13, true, center);
 		StMerge(ws, h1, cSpec, h2, cSpec, ShiftTableTexts.HeadSpeciality, StTextFont, 13, true, center);
@@ -139,15 +143,18 @@ public partial class ClosedXmlReportRenderer
 			(cDay0 + 5, cDay0 + 13),                                   // Ο συντάξας
 			(cDay0 + 18, Math.Max(cDay0 + 26, cCount0 + codes / 2))    // Ο Αν. Προϊστάμενος
 		};
-		for (var s = 0; s < ShiftTableTexts.Signatures.Length && s < blocks.Length; s++)
+		var signatures = ShiftTableTexts.Signatures(m.Texts);
+		for (var s = 0; s < signatures.Length && s < blocks.Length; s++)
 		{
-			var (role, name) = ShiftTableTexts.Signatures[s];
+			var (role, name) = signatures[s];
 			var (from, to) = blocks[s];
 			StMerge(ws, roleRow, from, roleRow, to, role, StTextFont, 14, true, center);
 			for (var i = 0; i < name.Length; i++)
 				StMerge(ws, nameRow + i, from, nameRow + i, to, name[i], StTextFont, 14, true, center);
 		}
-		var lastRow = Math.Max(lr - 1, nameRow + 1);
+		// The print area reaches the last name line of the longest signature block.
+		var nameLines = signatures.Select(block => block.Name.Length).DefaultIfEmpty(0).Max();
+		var lastRow = Math.Max(lr - 1, nameRow + Math.Max(nameLines, 2) - 1);
 
 		// ---- Widths and page: A3 landscape, everything on one page ----
 		ws.Column(1).Width = 1.5;

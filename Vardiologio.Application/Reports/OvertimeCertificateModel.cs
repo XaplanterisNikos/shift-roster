@@ -1,3 +1,5 @@
+using Vardiologio.Application.ReportTexts;
+
 namespace Vardiologio.Application.Reports;
 
 /// <summary>
@@ -40,6 +42,9 @@ public class OvertimeCertificateModel
 
 	/// <summary>Εργασία προς Συμπλήρωση — Κυριακών και εξαιρέσιμων ημερών (paid Αργίας hours).</summary>
 	public decimal SundayHolidayToComplete { get; set; }
+
+	/// <summary>The form's editable texts (letterhead, titles, signatures…), as set in Παράμετροι → Αναφορές.</summary>
+	public ReportTextSet Texts { get; set; } = ReportTextSet.Empty;
 
 	/// <summary>First day of the month (start of the certified period).</summary>
 	public DateOnly From => new(Year, Month, 1);

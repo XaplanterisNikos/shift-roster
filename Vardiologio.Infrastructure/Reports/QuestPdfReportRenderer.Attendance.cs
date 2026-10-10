@@ -2,6 +2,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using Vardiologio.Application.Reports;
+using Vardiologio.Application.ReportTexts;
 
 namespace Vardiologio.Infrastructure.Reports;
 
@@ -28,9 +29,9 @@ public partial class QuestPdfReportRenderer
 					page.Margin(20);
 					page.DefaultTextStyle(x => x.FontFamily("Lato").FontSize(8));
 
-					page.Header().Element(h => AttHead(h, m.Sheet, p.From, p.To));
+					page.Header().Element(h => AttHead(h, m.Sheet, m.Texts, p.From, p.To));
 					page.Content().PaddingTop(6).Element(c => AttTable(c, p.Table, p.From, p.To, p.Rows));
-					page.Footer().Element(f => AttSignatures(f, m.Sheet));
+					page.Footer().Element(f => AttSignatures(f, m.Sheet, m.Texts));
 				});
 			}
 		});
@@ -39,12 +40,12 @@ public partial class QuestPdfReportRenderer
 	}
 
 	/// <summary>Addressee (directorate only), emblem + letterhead on the left, titles + period in the centre.</summary>
-	private static void AttHead(IContainer c, AttendanceSheet sheet, DateOnly from, DateOnly to) => c.Column(col =>
+	private static void AttHead(IContainer c, AttendanceSheet sheet, ReportTextSet texts, DateOnly from, DateOnly to) => c.Column(col =>
 	{
 		var formal = AttendanceSheetTexts.IsFormal(sheet);
 
 		// Directorate only: addressee above everything, bold and centred.
-		var addressee = AttendanceSheetTexts.Addressee(sheet);
+		var addressee = AttendanceSheetTexts.Addressee(texts);
 		if (addressee is not null)
 			col.Item().PaddingBottom(4).AlignCenter().Text(addressee).Bold().FontSize(10);
 
@@ -56,18 +57,17 @@ public partial class QuestPdfReportRenderer
 				left.Item().Width(46).Height(44).Image(AttendanceSheetTexts.Emblem).FitArea();
 				left.Item().Height(3);
 
-				var lh = AttendanceSheetTexts.Letterhead;
-				for (var i = 0; i < lh.Length; i++)
+				foreach (var (text, bold) in AttendanceSheetTexts.Letterhead(texts))
 				{
-					var line = left.Item().Text(lh[i]).FontSize(7.5f);
-					if (i < AttendanceSheetTexts.LetterheadBoldLines) line.Bold();
+					var line = left.Item().Text(text).FontSize(7.5f);
+					if (bold) line.Bold();
 				}
 			});
 
 			// Titles start level with the letterhead (under the emblem's height).
 			row.RelativeItem().PaddingTop(47).Column(mid =>
 			{
-				foreach (var title in AttendanceSheetTexts.Titles(sheet))
+				foreach (var title in AttendanceSheetTexts.Titles(texts))
 					mid.Item().AlignCenter().Text(title).Bold().FontSize(9.5f);
 				if (formal)
 				{
@@ -133,10 +133,10 @@ public partial class QuestPdfReportRenderer
 	});
 
 	/// <summary>Signature blocks: role lines, space to sign, name / title lines.</summary>
-	private static void AttSignatures(IContainer c, AttendanceSheet sheet) => c.PaddingTop(8).Row(row =>
+	private static void AttSignatures(IContainer c, AttendanceSheet sheet, ReportTextSet texts) => c.PaddingTop(8).Row(row =>
 	{
-		var signatures = AttendanceSheetTexts.Signatures(sheet);
-		var roleRows = signatures.Max(s => s.Role.Length);
+		var signatures = AttendanceSheetTexts.Signatures(texts);
+		var roleRows = signatures.Select(s => s.Role.Length).DefaultIfEmpty(0).Max();
 		var formal = AttendanceSheetTexts.IsFormal(sheet);
 		var size = formal ? 9.5f : 8.5f;   // formal: bold, slightly larger, taller signing space
 		var gap = formal ? 70f : 34f;

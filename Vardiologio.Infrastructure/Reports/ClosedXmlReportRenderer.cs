@@ -1,10 +1,13 @@
 ﻿using ClosedXML.Excel;
+using Vardiologio.Application.ReportColors;
 using Vardiologio.Application.Reports;
 
 namespace Vardiologio.Infrastructure.Reports;
 
 /// <summary>
-/// Renders the Σ.Ω. monthly roster to an .xlsx file using ClosedXML.
+/// Renders the Σ.Ω. monthly roster to an .xlsx file using ClosedXML: emblem + letterhead, titles
+/// and addressee above the table, the legend of shift codes and the signatures below it. The
+/// texts are the user's (Παράμετροι → Αναφορών) and are formatted like those of the shift table.
 /// Partial: the hours report lives in ClosedXmlReportRenderer.Hours.cs and reuses the helpers here.
 /// </summary>
 public partial class ClosedXmlReportRenderer : IExcelReportRenderer
@@ -17,10 +20,11 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 	/// <inheritdoc/>
 	public byte[] Render(ReportModel m)
 	{
-		var hdrFill = XLColor.FromHtml("#D9E1F2");
-		var sunFill = XLColor.FromHtml("#FCE4D6");
-		var satFill = XLColor.FromHtml("#FFF2CC");
-		var totFill = XLColor.FromHtml("#E2EFDA");
+		// Colours from Παράμετροι → Αναφορών → Χρώματα.
+		var hdrFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.MonthlyTotalHeader]);
+		var sunFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.MonthlyTotalSunday]);
+		var satFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.MonthlyTotalSaturday]);
+		var totFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.MonthlyTotalTotals]);
 
 		using var wb = new XLWorkbook();
 		var ws = wb.AddWorksheet("Σ.Ω.");
@@ -34,22 +38,47 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 		var cKyr = cHmer + 1;
 		var lastCol = cKyr;
 
-		// Header block (fixed organisation text)
-		Merge(ws, 1, cDay0, 1, cDay0 + 10, "ΔΙΕΥΘΥΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ", 11, true, XLAlignmentHorizontalValues.Center, null);
-		Merge(ws, 2, cName, 2, 8, "ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ", 9, true, XLAlignmentHorizontalValues.Left, null);
-		Merge(ws, 3, cName, 3, 8, "ΠΕΡΙΦΕΡΕΙΑ ΑΤΤΙΚΗΣ", 9, false, XLAlignmentHorizontalValues.Left, null);
-		Merge(ws, 4, cName, 4, 10, "ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ", 9, true, XLAlignmentHorizontalValues.Left, null);
-		Merge(ws, 5, cName, 5, 12, "ΕΔΡΑ: Άντερσεν 6 και Μωραΐτη 90, 11525 Αθήνα", 8, false, XLAlignmentHorizontalValues.Left, null);
-		Merge(ws, 6, cName, 6, 12, "Πληρ.: Κασσιανή Μακρή   Τηλ.: 210 4015080, 210 4320581   e-mail: makri@edsna.gr", 8, false, XLAlignmentHorizontalValues.Left, null);
+		var center = XLAlignmentHorizontalValues.Center;
 
-		Merge(ws, 3, cDay0 + 11, 3, cDay0 + 24, "ΠΙΝΑΚΑΣ ΒΑΡΔΙΩΝ ΕΡΓΑΣΙΑΣ ΠΡΟΣΩΠΙΚΟΥ", 12, true, XLAlignmentHorizontalValues.Center, null);
-		Merge(ws, 4, cDay0 + 11, 4, cDay0 + 24, "ΤΜΗΜΑΤΟΣ ΚΕΝΤΡΙΚΩΝ ΣΜΑ", 10, true, XLAlignmentHorizontalValues.Center, null);
-		Merge(ws, 5, cDay0 + 11, 5, cDay0 + 24, $"ΜΗΝΟΣ {MonthsGen[m.Month - 1]} {m.Year}", 11, true, XLAlignmentHorizontalValues.Center, null);
-		Merge(ws, 2, cHmer - 6, 2, cKyr, "ΠΡΟΣ: Αναπλ/τρια Προϊστ. Τμ. Λογιστηρίου", 8, false, XLAlignmentHorizontalValues.Right, null);
-		Merge(ws, 3, cHmer - 6, 3, cKyr, "κ. Αγιανίδου Δέσποινα", 8, false, XLAlignmentHorizontalValues.Right, null);
+		// ---- Header: emblem + letterhead (left), titles (centre), addressee (right) ----
+		// Same arrangement and the same position-based formatting as the official shift table.
+		for (var i = 1; i <= 3; i++) ws.Row(i).Height = 16;
+		using (var emblem = new MemoryStream(AttendanceSheetTexts.Emblem))   // ClosedXML copies the image
+			ws.AddPicture(emblem, "Emblem").MoveTo(ws.Cell(1, cName), 30, 2).WithSize(62, 60);
 
-		// Table column headers
-		const int rGroup = 8, rDay = 9, rWd = 10, rData0 = 11;
+		const int lh0 = 4;
+		var letterhead = ShiftTableTexts.Letterhead(m.Texts);
+		for (var i = 0; i < letterhead.Length; i++)
+		{
+			var (plain, bold) = letterhead[i];
+			// The letterhead is wider than name + speciality here, so it runs over the first day columns.
+			ws.Range(lh0 + i, cName, lh0 + i, cDay0 + 5).Merge();
+			var cell = ws.Cell(lh0 + i, cName);
+			// Rich text so that only the bold part is bold (e.g. just the e-mail address).
+			var rich = cell.GetRichText();
+			if (plain.Length > 0) rich.AddText(plain).SetFontName("Arial").SetFontSize(9);
+			if (bold.Length > 0) rich.AddText(bold).SetFontName("Arial").SetFontSize(9).SetBold();
+			cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+			ws.Row(lh0 + i).Height = 14;
+		}
+
+		// Titles in the middle of the day columns; the first is the largest.
+		var titles = ShiftTableTexts.Titles(m.Texts, m.Year, m.Month);
+		int[] titleRows = { 2, 4, 5, 6 };
+		for (var i = 0; i < titles.Length && i < titleRows.Length; i++)
+			Merge(ws, titleRows[i], cDay0 + 8, titleRows[i], cDay0 + days - 5, titles[i].Text, titles[i].Large ? 14 : 11, titles[i].Bold, center, null);
+		ws.Row(titleRows[0]).Height = 22;
+
+		var addressee = ShiftTableTexts.Addressee(m.Texts);
+		for (var i = 0; i < addressee.Length; i++)
+			Merge(ws, 3 + i, cCount0 - 2, 3 + i, lastCol, addressee[i], 10, true, center, null);
+
+		// Table column headers: under the letterhead; at least three rows down, so a short
+		// letterhead cannot pull the table up onto the title rows.
+		var rGroup = lh0 + Math.Max(letterhead.Length, 3) + 1;
+		var rDay = rGroup + 1;
+		var rWd = rGroup + 2;
+		var rData0 = rGroup + 3;
 
 		Merge(ws, rGroup, cAA, rWd, cAA, "Α/Α", 8, true, XLAlignmentHorizontalValues.Center, hdrFill);
 		Merge(ws, rGroup, cName, rWd, cName, "ΟΝΟΜΑΤΕΠΩΝΥΜΟ", 9, true, XLAlignmentHorizontalValues.Center, hdrFill);
@@ -109,6 +138,38 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 		table.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
 		table.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 
+		// ---- Legend of the shift codes (name / speciality columns), as on the shift table ----
+		var lt = lastRow + 2;
+		Merge(ws, lt, cName, lt, cSpec, ShiftTableTexts.LegendTitle, 9, true, center, hdrFill);
+		var lr = lt + 1;
+		foreach (var (code, description) in m.WorkCodes.Concat(m.StatusCodes))
+		{
+			Put(ws, lr, cName, code, 9, true, null);
+			Put(ws, lr, cSpec, description, 8, false, null);
+			lr++;
+		}
+		var legend = ws.Range(lt, cName, Math.Max(lr - 1, lt), cSpec);
+		legend.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+		legend.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+		// ---- Signatures, beside the legend: role, space to sign, name / title lines ----
+		var roleRow = lt + 2;
+		var nameRow = roleRow + 6;
+		(int From, int To)[] signatureColumns =
+		{
+			(cDay0 + 3, cDay0 + 12),
+			(cDay0 + 17, Math.Min(cDay0 + 26, lastCol))
+		};
+		var signatures = ShiftTableTexts.Signatures(m.Texts);
+		for (var k = 0; k < signatures.Length && k < signatureColumns.Length; k++)
+		{
+			var (role, name) = signatures[k];
+			var (from, to) = signatureColumns[k];
+			Merge(ws, roleRow, from, roleRow, to, role, 10, true, center, null);
+			for (var i = 0; i < name.Length; i++)
+				Merge(ws, nameRow + i, from, nameRow + i, to, name[i], 10, true, center, null);
+		}
+
 		ws.Column(cAA).Width = 4;
 		ws.Column(cName).Width = 22;
 		ws.Column(cSpec).Width = 16;
@@ -120,9 +181,14 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 		ws.SheetView.FreezeColumns(cSpec);
 
 		ws.PageSetup.PageOrientation = XLPageOrientation.Landscape;
-		ws.PageSetup.PaperSize = XLPaperSize.A3Paper;
-		ws.PageSetup.PagesWide = 1;
+		// A4 landscape, one page wide and as many pages tall as the employees need: the
+		// letterhead prints once at the top, the table headers repeat on every page, the
+		// legend and the signatures come once after the last row.
+		ws.PageSetup.PaperSize = XLPaperSize.A4Paper;
+		ws.PageSetup.PagesWide = 1;   // the height is left free
 		ws.PageSetup.SetRowsToRepeatAtTop(rGroup, rWd);
+		ws.PageSetup.CenterHorizontally = true;
+		ws.PageSetup.PrintAreas.Add(1, 1, Math.Max(Math.Max(lr - 1, lt), nameRow + 2), lastCol);
 		ws.PageSetup.Margins.Left = 0.3; ws.PageSetup.Margins.Right = 0.3;
 		ws.PageSetup.Margins.Top = 0.4; ws.PageSetup.Margins.Bottom = 0.4;
 

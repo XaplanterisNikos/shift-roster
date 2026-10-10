@@ -1,30 +1,26 @@
 using System.Globalization;
 using Vardiologio.Application.Reports;
+using Vardiologio.Application.ReportTexts;
 
 namespace Vardiologio.Infrastructure.Reports;
 
 /// <summary>
-/// Fixed texts and the emblem of the attendance report, as on the organisation's
-/// "ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ" sheet. Kept in one place so the Excel and the PDF renderer
-/// always print the same wording; change them here if a signatory changes.
+/// Texts and the emblem of the attendance report, as on the organisation's "ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ"
+/// sheet. The letterhead, addressee, titles and signatures are the user's editable texts
+/// (<see cref="ReportTextSet"/>); read through this class so the Excel and the PDF renderer
+/// always print the same wording with the same formatting.
 /// </summary>
 internal static class AttendanceSheetTexts
 {
-	/// <summary>Letterhead under the emblem (top left). The first four lines are printed bold.</summary>
-	public static readonly string[] Letterhead =
-	{
-		"ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ",
-		"ΠΕΡΙΦΕΡΕΙΑ ΑΤΤΙΚΗΣ",
-		"ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ",
-		"Δ/ΝΣΗ: ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡΡΙΜΜΑΤΩΝ",
-		"ΕΔΡΑ: Άντερσεν 6 και Μωραΐτη 90, 11525 Αθήνα",
-		"Πληρ.: Βρύνας Γεώργιος",
-		"Τηλ.: 210 4015080, 210 4320581",
-		"e-mail: vrinas@edsna.gr"
-	};
+	/// <summary>How many letterhead lines (from the top of the form) are bold.</summary>
+	private const int LetterheadBoldLines = 4;
 
-	/// <summary>How many letterhead lines (from the top) are bold.</summary>
-	public const int LetterheadBoldLines = 4;
+	/// <summary>
+	/// Letterhead lines under the emblem (top left) and whether each is bold. Also used by the
+	/// overtime certificate, which has the same letterhead layout (with its own texts).
+	/// </summary>
+	public static (string Text, bool Bold)[] Letterhead(ReportTextSet texts) =>
+		texts.Lines(ReportTextBlocks.Letterhead).Select(l => (l.Text, l.Line < LetterheadBoldLines)).ToArray();
 
 	/// <summary>Weekday names as printed under the day numbers, indexed by <see cref="DayOfWeek"/>.</summary>
 	private static readonly string[] DayNames =
@@ -37,23 +33,14 @@ internal static class AttendanceSheetTexts
 	public static string SheetName(AttendanceSheet sheet) =>
 		sheet == AttendanceSheet.Directorate ? "ΔΙΕΥΘΥΝΣΗ" : "ΥΠΑΛΛΗΛΟΙ";
 
-	/// <summary>Line printed above the letterhead (directorate only: the report is addressed to HR).</summary>
-	public static string? Addressee(AttendanceSheet sheet) =>
-		sheet == AttendanceSheet.Directorate ? "Προς τη Δ/νση Διοικητικών Υπηρεσιών/Τμήμα Προσωπικού" : null;
+	/// <summary>
+	/// Line printed above the letterhead, or null when the form has none (only the directorate
+	/// report has one: it is addressed to HR).
+	/// </summary>
+	public static string? Addressee(ReportTextSet texts) => texts.Texts(ReportTextBlocks.Addressee).FirstOrDefault();
 
 	/// <summary>Centre title lines (without the period line).</summary>
-	public static string[] Titles(AttendanceSheet sheet) => sheet == AttendanceSheet.Directorate
-		? new[]
-		{
-			"Δ/ΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡ/ΤΩΝ ΣΜΑ",
-			"ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΥΠΑΛΛΗΛΟΥ Δ/ΝΣΗΣ ΣΜΑ ΠΑΠΑΣΤΑΜΑΤΗ ΑΘΑΝΑΣΙΟΥ"
-		}
-		: new[]
-		{
-			"ΔΙΕΥΘΥΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ",
-			"ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΠΡΟΣΩΠΙΚΟΥ",
-			"ΤΜΗΜΑΤΟΣ ΚΕΝΤΡΙΚΩΝ ΣΜΑ"
-		};
+	public static string[] Titles(ReportTextSet texts) => texts.Texts(ReportTextBlocks.Titles);
 
 	/// <summary>Period line under the titles ("Από 1/8/2026 έως 15/8/2026").</summary>
 	public static string Period(DateOnly from, DateOnly to) => $"Από {Date(from)} έως {Date(to)}";
@@ -76,19 +63,7 @@ internal static class AttendanceSheetTexts
 	/// signing space and the name / title lines below it. The staff report has two
 	/// (author and acting head of the directorate); the directorate report has one.
 	/// </summary>
-	public static (string[] Role, string[] Name)[] Signatures(AttendanceSheet sheet) => sheet == AttendanceSheet.Directorate
-		? new[]
-		{
-			(new[] { "Με εντολή Προέδρου", "Ο Γενικός Γραμματέας του Ε.Δ.Σ.Ν.Α." },
-			 new[] { "Γεώργιος Αποστολόπουλος" })
-		}
-		: new[]
-		{
-			(new[] { "Ο Συντάξας" },
-			 new[] { "Βρύνας Γεώργιος", "ΠΕ Διοικητικού - Οικονομικού" }),
-			(new[] { "Ο Αν. Προϊστάμενος", "Διεύθυνσης", "Σταθμών Μεταφόρτωσης" },
-			 new[] { "Αθανάσιος Παπασταμάτης", "ΠΕ Χημικών Μηχανικών MSc / Α΄" })
-		};
+	public static (string[] Role, string[] Name)[] Signatures(ReportTextSet texts) => texts.Signatures();
 
 	/// <summary>Name of the emblem resource (see LogicalName in Vardiologio.Infrastructure.csproj).</summary>
 	private const string EmblemResource = "Vardiologio.Reports.Emblem.png";

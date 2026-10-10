@@ -8,6 +8,8 @@ using Vardiologio.Application.Files;
 using Vardiologio.Application.Hours;
 using Vardiologio.Application.Logging;
 using Vardiologio.Application.Reports;
+using Vardiologio.Application.ReportColors;
+using Vardiologio.Application.ReportTexts;
 using Vardiologio.Application.Parameters;
 using Vardiologio.Application.ShiftCodes;
 using Vardiologio.Application.ShiftEntry;
@@ -18,6 +20,8 @@ using Vardiologio.Infrastructure.Hours;
 using Vardiologio.Infrastructure.Logging;
 using Vardiologio.Infrastructure.Persistence;
 using Vardiologio.Infrastructure.Reports;
+using Vardiologio.Infrastructure.ReportColors;
+using Vardiologio.Infrastructure.ReportTexts;
 using Vardiologio.Infrastructure.Parameters;
 using Vardiologio.Infrastructure.ShiftCodes;
 using Vardiologio.Infrastructure.ShiftEntry;
@@ -74,6 +78,8 @@ public partial class App : System.Windows.Application
 			services.AddScoped<ILookupService, LookupService>();
 			services.AddScoped<IHolidayService, HolidayService>();
 			services.AddScoped<IHourLimitsService, HourLimitsService>();
+			services.AddScoped<IReportTextService, ReportTextService>();
+			services.AddScoped<IReportColorService, ReportColorService>();
 
 			// Report renderers
 			services.AddSingleton<IExcelReportRenderer, ClosedXmlReportRenderer>();

@@ -36,16 +36,10 @@
             }
         </select>
     </label>
-    <label>
-        Εργαζόμενος
-        <select @bind="employeeId">
-            <option value="0">— επίλεξε —</option>
-            @foreach (var e in employees)
-            {
-                <option value="@e.Id">@e.Display</option>
-            }
-        </select>
-    </label>
+    @* Search box instead of a plain list: type part of the surname or first name (Shared/EmployeePicker.razor). *@
+    <div class="filter-employee-box">
+        <EmployeePicker Employees="employees" @bind-Value="employeeId" />
+    </div>
     <button @onclick="PreviewAsync" disabled="@(busy || employeeId == 0)">Προεπισκόπηση</button>
     <button @onclick="ExportExcelAsync" disabled="@(busy || employeeId == 0)">Εξαγωγή Excel</button>
     <button @onclick="ExportPdfAsync" disabled="@(busy || employeeId == 0)">Εξαγωγή PDF</button>

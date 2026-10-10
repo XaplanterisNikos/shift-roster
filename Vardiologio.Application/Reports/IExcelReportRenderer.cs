@@ -17,4 +17,7 @@ public interface IExcelReportRenderer
 
 	/// <summary>Produces the Excel file bytes for the official shift table (one A3 landscape page).</summary>
 	byte[] Render(ShiftTableModel model);
+
+	/// <summary>Produces the Excel file bytes for one employee's individual analytical sheet (one A4 landscape page).</summary>
+	byte[] Render(IndividualReportModel model);
 }

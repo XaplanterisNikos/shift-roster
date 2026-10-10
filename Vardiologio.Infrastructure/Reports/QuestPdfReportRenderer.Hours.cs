@@ -2,6 +2,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using Vardiologio.Application.Hours;
+using Vardiologio.Application.ReportColors;
 using Vardiologio.Application.Reports;
 using Vardiologio.Domain.Enums;
 
@@ -10,9 +11,6 @@ namespace Vardiologio.Infrastructure.Reports;
 /// <summary>Hours report (declared / paid / excess per category) — reuses H/T/D of the Σ.Ω. part.</summary>
 public partial class QuestPdfReportRenderer
 {
-	/// <summary>Excess (unpaid) hours background.</summary>
-	private const string OverBg = "#FDE2E1";
-
 	/// <inheritdoc/>
 	public byte[] Render(HoursReportModel m)
 	{
@@ -48,6 +46,13 @@ public partial class QuestPdfReportRenderer
 	private static void HoursTable(IContainer c, HoursReportModel m) => c.Table(table =>
 	{
 		var categories = Enum.GetValues<HourCategory>();
+
+		// Cell styles with the report's colours (Παράμετροι → Αναφορών → Χρώματα).
+		var hdrBg = m.Colors[ReportColorCatalog.HoursHeader];
+		var catBg = m.Colors[ReportColorCatalog.HoursCategories];
+		var overBg = m.Colors[ReportColorCatalog.HoursExcess];   // excess (unpaid) hours
+		Func<IContainer, IContainer> H = cell => Filled(cell, hdrBg);   // header cell
+		Func<IContainer, IContainer> T = cell => Filled(cell, catBg);   // category header / totals cell
 
 		table.ColumnsDefinition(cols =>
 		{
@@ -86,7 +91,7 @@ public partial class QuestPdfReportRenderer
 				table.Cell().Element(D).Text(Blank(h.Declared));
 				table.Cell().Element(D).Text(Blank(h.Paid));
 				// Excess highlighted: these hours are declared but not paid.
-				table.Cell().Element(x => h.Excess > 0 ? D(x.Background(OverBg)) : D(x)).Text(Blank(h.Excess));
+				table.Cell().Element(x => h.Excess > 0 ? D(x.Background(overBg)) : D(x)).Text(Blank(h.Excess));
 			}
 		}
 

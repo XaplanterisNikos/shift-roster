@@ -1,6 +1,9 @@
 ﻿using Vardiologio.Application.Reports;
 using Microsoft.EntityFrameworkCore;              
-using Vardiologio.Infrastructure.Persistence;     
+using Vardiologio.Domain.Enums;
+using Vardiologio.Infrastructure.Persistence;
+using Vardiologio.Infrastructure.ReportColors;
+using Vardiologio.Infrastructure.ReportTexts;
 
 namespace Vardiologio.Infrastructure.Reports;
 
@@ -26,12 +29,34 @@ public class ReportService : IReportService
 
 		var entries = await db.ShiftDays
 			.Where(s => s.Date >= first && s.Date <= last)
-			.Select(s => new { s.EmployeeId, s.Date, s.ShiftCode.Code })
+			.Select(s => new { s.EmployeeId, s.Date, s.ShiftCodeId, s.ShiftCode.Code })
 			.ToListAsync();
+
+		// Legend: active codes, plus retired ones still used this month (as on the shift table).
+		var usedIds = entries.Select(x => x.ShiftCodeId).Distinct().ToList();
+		var codes = await db.ShiftCodes
+			.IgnoreQueryFilters()
+			.AsNoTracking()
+			.Where(c => c.IsActive || usedIds.Contains(c.Id))
+			.ToListAsync();
+		var workCodes = codes
+			.Where(c => c.StartTime != null)
+			.OrderBy(c => int.TryParse(c.Code, out var n) ? n : int.MaxValue).ThenBy(c => c.Code)
+			.ToList();
+		var statusCodes = codes.Where(c => c.StartTime == null).OrderBy(c => c.Id).ToList();
 
 		var byEmp = entries.ToLookup(x => x.EmployeeId);
 
-		var model = new ReportModel { Year = year, Month = month, DaysInMonth = days };
+		var model = new ReportModel
+		{
+			Year = year,
+			Month = month,
+			DaysInMonth = days,
+			WorkCodes = workCodes.Select(c => (c.Code, c.Description)).ToList(),
+			StatusCodes = statusCodes.Select(c => (c.Code, c.Description)).ToList(),
+			Texts = await ReportTextService.LoadSetAsync(db, ReportForm.MonthlyTotal),
+			Colors = await ReportColorService.LoadSetAsync(db)
+		};
 		var idx = 1;
 		foreach (var e in employees)
 		{
