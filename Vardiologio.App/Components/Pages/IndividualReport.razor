@@ -11,47 +11,37 @@
 @inject IPdfReportRenderer Pdf
 @inject IReportFileStore FileStore
 @inject IErrorLog ErrorLog
+@inject ISnackbar Snackbar
 
 @* Individual analytical sheet of one employee for one month: on-screen preview, Excel and PDF.
    Columns, cell values and the summary come from IndividualSheetLayout (Application), so the
    three outputs always agree. Styles: "table.indiv" rules in app.css. *@
-<h1>Ατομικό φύλλο (Ανάλυση παρουσιών & ωραρίων)</h1>
-
-<div class="filters">
-    <label>
-        Έτος
-        <select @bind="year">
-            @for (int y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
-            {
-                <option value="@y">@y</option>
-            }
-        </select>
-    </label>
-    <label>
-        Μήνας
-        <select @bind="month">
-            @for (int mo = 1; mo <= 12; mo++)
-            {
-                <option value="@mo">@Months[mo - 1]</option>
-            }
-        </select>
-    </label>
-    @* Search box instead of a plain list: type part of the surname or first name (Shared/EmployeePicker.razor). *@
-    <div class="filter-employee-box">
-        <EmployeePicker Employees="employees" @bind-Value="employeeId" />
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Ατομικό φύλλο (Ανάλυση παρουσιών & ωραρίων)</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Οι ημέρες, τα ωράρια και οι ώρες ενός εργαζομένου για τον μήνα.</MudText>
     </div>
-    <button @onclick="PreviewAsync" disabled="@(busy || employeeId == 0)">Προεπισκόπηση</button>
-    <button @onclick="ExportExcelAsync" disabled="@(busy || employeeId == 0)">Εξαγωγή Excel</button>
-    <button @onclick="ExportPdfAsync" disabled="@(busy || employeeId == 0)">Εξαγωγή PDF</button>
 </div>
 
-@if (message is not null)
-{
-    <p class="ok">@message</p>
-}
+@* Month, preview and export buttons (Shared/ReportToolbar.razor). *@
+<ReportToolbar @bind-Year="year" @bind-Month="month" Busy="busy" Disabled="@(employeeId == 0)"
+               OnPreview="PreviewAsync" OnExcel="ExportExcelAsync" OnPdf="ExportPdfAsync">
+    @* Search box: type part of the surname or first name (Shared/EmployeePicker.razor). *@
+    <EmployeePicker Employees="employees" @bind-Value="employeeId" Class="report-employee" />
+</ReportToolbar>
+
 @if (error is not null)
 {
-    <p style="color:#c00">@error</p>
+    <MudAlert Severity="Severity.Error" Dense="true" Class="report-alert">@error</MudAlert>
+}
+
+@if (model is null && error is null && !busy)
+{
+    @* Shown until an employee is picked and the report is asked for. *@
+    <MudPaper Elevation="0" Class="empty-state">
+        <MudIcon Icon="@Icons.Material.Rounded.PersonSearch" Size="Size.Large" />
+        <MudText Typo="Typo.body1">Επιλέξτε μήνα και εργαζόμενο και πατήστε «Προεπισκόπηση».</MudText>
+    </MudPaper>
 }
 
 @if (model is not null)
@@ -60,7 +50,9 @@
     @if (model.WorkType.Length == 0)
     {
         @* The column is filled from the employee's contract; say why it is empty instead of leaving a silent gap. *@
-        <p class="hint">Το «Είδος εργασίας» είναι κενό επειδή ο εργαζόμενος δεν έχει σύμβαση. Ορίστε τη στο μενού «Εργαζόμενοι», στο πεδίο «Σύμβαση».</p>
+        <MudAlert Severity="Severity.Info" Dense="true" Class="report-alert">
+            Το «Είδος εργασίας» είναι κενό επειδή ο εργαζόμενος δεν έχει σύμβαση. Ορίστε τη στο μενού «Εργαζόμενοι», στο πεδίο «Σύμβαση».
+        </MudAlert>
     }
 
     @* Two-row header: a header without sub-columns spans both rows, a group spans its sub-columns. *@
@@ -139,7 +131,7 @@
     private int month = DateTime.Today.Month;
     private int employeeId;
     private bool busy;
-    private string? message, error;
+    private string? error;
     private IndividualReportModel? model;
 
     /// <summary>Loads the active employees for the picker.</summary>
@@ -149,7 +141,8 @@
     /// <summary>Builds the sheet and shows it on the page (no file written).</summary>
     private async Task PreviewAsync()
     {
-        busy = true; message = null; error = null;
+        busy = true; error = null;
+        await ShowBusyAsync();
         try
         {
             model = await Report.BuildAsync(employeeId, year, month);
@@ -168,27 +161,34 @@
     /// </summary>
     private async Task ExportAsync(Func<IndividualReportModel, byte[]> render, string ext)
     {
-        busy = true; message = null; error = null;
+        busy = true; error = null;
+        await ShowBusyAsync();
         try
         {
             model = await Report.BuildAsync(employeeId, year, month);
             var fileName = $"Individual_{GreekText.ToLatin(model.LastName)}_{year}_{month:00}.{ext}";
             var path = await FileStore.SaveAsync(ReportFolder.IndividualSheet, year, month, fileName, render(model));
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-            message = $"Δημιουργήθηκε: {path}";
+            Snackbar.ReportSaved(path);
         }
         catch (Exception ex) { Fail("Excel/PDF export", ex); }
         finally { busy = false; }
     }
 
-    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows its message on the page.</summary>
+    /// <summary>
+    /// Draws the progress bar before the report work starts: building and rendering a report
+    /// keeps the UI thread busy, so without this pause the bar would never be seen.
+    /// </summary>
+    private async Task ShowBusyAsync()
+    {
+        StateHasChanged();
+        await Task.Delay(1);
+    }
+
+    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows what went wrong on the page.</summary>
     private void Fail(string action, Exception ex)
     {
         ErrorLog.Error($"Individual sheet / {action}", ex);
         error = ex.Message;
     }
-
-    private static readonly string[] Months =
-        { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",
-          "Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος" };
 }

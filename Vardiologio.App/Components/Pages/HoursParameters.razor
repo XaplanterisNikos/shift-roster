@@ -1,36 +1,21 @@
 @page "/hours-parameters"
 
 @* Hours settings as tabs: holidays (per year) and monthly limits.
-   @key="active" recreates the tab's editor on every switch, so each tab starts clean. *@
-<h1>Παράμετροι Ωρών</h1>
+   A tab's editor is created when the tab opens and dropped when it closes, so each tab
+   starts clean. Tab styles: "Report texts" block in app.css. *@
 
-<div class="tabs">
-    @foreach (var tab in Tabs)
-    {
-        <button type="button"
-                class="tab @(tab.Key == active ? "active" : "")"
-                @onclick="() => active = tab.Key">
-            @tab.Title
-        </button>
-    }
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Παράμετροι Ωρών</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Οι αργίες κάθε έτους και τα μηνιαία όρια των πληρωτέων ωρών.</MudText>
+    </div>
 </div>
 
-@if (active == "holidays")
-{
-    <HolidaysEditor @key="active" />
-}
-else
-{
-    <HourLimitsEditor @key="active" />
-}
-
-@code {
-    /// <summary>Tab order and titles.</summary>
-    private static readonly (string Key, string Title)[] Tabs =
-    {
-        ("holidays", "Αργίες"),
-        ("limits", "Όρια ωρών")
-    };
-
-    private string active = "holidays";
-}
+<MudTabs Elevation="0" SliderColor="Color.Primary" Class="report-tabs" TabPanelsClass="report-tab-panel">
+    <MudTabPanel Text="Αργίες">
+        <HolidaysEditor />
+    </MudTabPanel>
+    <MudTabPanel Text="Όρια ωρών">
+        <HourLimitsEditor />
+    </MudTabPanel>
+</MudTabs>

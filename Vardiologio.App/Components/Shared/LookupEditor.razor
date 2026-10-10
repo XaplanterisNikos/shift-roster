@@ -1,84 +1,107 @@
 @using Vardiologio.Application.Parameters
 @using Microsoft.AspNetCore.Components.Forms
 @inject ILookupService LookupService
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
 
-@* Master-detail CRUD for ONE lookup table (chosen by Kind), same shape as ShiftCodes.razor.
-   Used once per tab in EmployeeParameters.razor; the page gives it @key="Kind" so switching
-   tabs creates a fresh instance (no stale list/form carried across kinds). *@
-<div class="filters">
-    <label class="chk">
-        <input type="checkbox" @bind="includeInactive" @bind:after="ReloadListAsync" />
-        Εμφάνιση ανενεργών
-    </label>
+@* Master-detail CRUD for ONE lookup table (chosen by Kind), same shape as Pages/Employees.razor.
+   Used once per tab in EmployeeParameters.razor; every tab gets its own fresh instance
+   (no stale list/form carried across kinds). Styles: "Master-detail" block in app.css. *@
+<div class="md-bar">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+               StartIcon="@Icons.Material.Rounded.Add" OnClick="NewItem">Νέα</MudButton>
 
-    <button @onclick="NewItem">＋ Νέα</button>
+    <MudSwitch T="bool" @bind-Value="includeInactive" @bind-Value:after="ReloadListAsync"
+               Color="Color.Primary" Label="Εμφάνιση ανενεργών" />
 </div>
 
-<div class="master-detail">
-    <!-- LEFT: rows of this lookup -->
-    <ul class="emp-list">
-        @foreach (var x in list)
-        {
-            <li class="@(x.Id == selectedId ? "sel" : "") @(x.IsActive ? "" : "inactive")"
-                @onclick="() => Select(x)">
-                @Label(x)
-                @if (!x.IsActive)
-                {
-                    <span class="tag">ανενεργή</span>
-                }
-            </li>
-        }
+<div class="md-grid">
+    @* LEFT: rows of this lookup. The list marks the row of selectedId. *@
+    <MudPaper Elevation="0" Class="md-list">
+        <div class="md-list-head">@list.Count @(list.Count == 1 ? "εγγραφή" : "εγγραφές")</div>
         @if (list.Count == 0)
         {
-            <li class="muted">— καμία —</li>
+            <MudText Typo="Typo.body2" Class="md-list-empty">Καμία εγγραφή.</MudText>
         }
-    </ul>
-
-    <!-- RIGHT: create/edit form -->
-    @if (form is not null)
-    {
-        <EditForm class="emp-form" Model="form" OnValidSubmit="SaveAsync">
-            <DataAnnotationsValidator />
-
-            <h3>@(form.Id == 0 ? "Νέα εγγραφή" : "Επεξεργασία")</h3>
-
-            @if (HasCode)
-            {
-                <label>Κωδικός
-                    <InputText @bind-Value="form.Code" @bind-Value:after="ClearError" />
-                    <ValidationMessage For="@(() => form.Code)" />
-                </label>
-            }
-
-            <label>Όνομα
-                <InputText @bind-Value="form.Name" @bind-Value:after="ClearError" />
-                <ValidationMessage For="@(() => form.Name)" />
-            </label>
-
-            @if (errorMessage is not null)
-            {
-                <div class="error">@errorMessage</div>
-            }
-
-            <div class="actions">
-                <button type="submit">Αποθήκευση</button>
-                <button type="button" @onclick="CancelEdit">Ακύρωση</button>
-
-                @if (form.Id != 0)
+        else
+        {
+            <MudList T="int" SelectedValue="selectedId" SelectedValueChanged="SelectById"
+                     Color="Color.Primary" Dense="true">
+                @foreach (var x in list)
                 {
-                    @if (form.IsActive)
+                    <MudListItem T="int" Value="@x.Id" Class="@(x.IsActive ? null : "md-inactive")">
+                        <span class="md-item">
+                            <span>@Label(x)</span>
+                            @if (!x.IsActive)
+                            {
+                                <span class="md-tag">ανενεργή</span>
+                            }
+                        </span>
+                    </MudListItem>
+                }
+            </MudList>
+        }
+    </MudPaper>
+
+    @* RIGHT: create/edit form *@
+    @if (form is null)
+    {
+        <MudPaper Elevation="0" Class="empty-state md-hint">
+            <MudIcon Icon="@Icons.Material.Rounded.TouchApp" Size="Size.Large" />
+            <MudText Typo="Typo.body1">Επιλέξτε εγγραφή από τη λίστα ή πατήστε «Νέα».</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Elevation="0" Class="md-form">
+            <EditForm Model="form" OnValidSubmit="SaveAsync">
+                <DataAnnotationsValidator />
+
+                <div class="md-form-head">
+                    <MudText Typo="Typo.h6">@(form.Id == 0 ? "Νέα εγγραφή" : "Επεξεργασία")</MudText>
+                    @if (!form.IsActive)
                     {
-                        <button type="button" class="danger" @onclick="() => SetActiveAsync(false)">Διαγραφή</button>
+                        <span class="md-tag">ανενεργή</span>
                     }
-                    else
+                </div>
+
+                <div class="md-fields">
+                    @if (HasCode)
                     {
-                        <button type="button" @onclick="() => SetActiveAsync(true)">Επαναφορά</button>
+                        <MudTextField T="string" Label="Κωδικός" @bind-Value="form.Code" @bind-Value:after="ClearError"
+                                      For="@(() => form.Code)" Variant="Variant.Outlined" Margin="Margin.Dense" />
                     }
+
+                    <MudTextField T="string" Label="Όνομα" @bind-Value="form.Name" @bind-Value:after="ClearError"
+                                  For="@(() => form.Name)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </div>
+
+                @if (errorMessage is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="md-alert">@errorMessage</MudAlert>
                 }
 
-                @if (message is not null) { <span class="ok">@message</span> }
-            </div>
-        </EditForm>
+                <div class="md-actions">
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+                               StartIcon="@Icons.Material.Rounded.Save">Αποθήκευση</MudButton>
+                    <MudButton Variant="Variant.Text" OnClick="CancelEdit">Ακύρωση</MudButton>
+
+                    @if (form.Id != 0)
+                    {
+                        @if (form.IsActive)
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Error" DropShadow="false"
+                                       StartIcon="@Icons.Material.Rounded.Delete" OnClick="() => SetActiveAsync(false)">Διαγραφή</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" DropShadow="false"
+                                       StartIcon="@Icons.Material.Rounded.RestoreFromTrash" OnClick="() => SetActiveAsync(true)">Επαναφορά</MudButton>
+                        }
+                    }
+                </div>
+            </EditForm>
+        </MudPaper>
     }
 </div>
 
@@ -91,7 +114,6 @@
     private bool includeInactive;
     private int selectedId;
     private LookupItem? form;
-    private string? message;
     private string? errorMessage;
 
     /// <summary>Only employment types have a short Code (shown in the roster grid).</summary>
@@ -111,13 +133,18 @@
     /// <summary>List label: "Code — Name" for employment types, just Name otherwise.</summary>
     private string Label(LookupItem x) => HasCode ? $"{x.Code} — {x.Name}" : x.Name;
 
+    /// <summary>Called by the list with the Id of the clicked row (0 = nothing selected).</summary>
+    private void SelectById(int id)
+    {
+        if (list.FirstOrDefault(x => x.Id == id) is { } item) Select(item);
+    }
+
     /// <summary>
     /// Loads a row into the form as a COPY, so unsaved edits never show up in the list
     /// (the list row object is not touched until a successful save + reload).
     /// </summary>
     private void Select(LookupItem x)
     {
-        message = null;
         errorMessage = null;
         selectedId = x.Id;
         form = new LookupItem { Id = x.Id, Code = x.Code, Name = x.Name, IsActive = x.IsActive };
@@ -126,7 +153,6 @@
     /// <summary>Prepares a blank form for a new row.</summary>
     private void NewItem()
     {
-        message = null;
         errorMessage = null;
         selectedId = 0;
         form = new LookupItem { IsActive = true };
@@ -138,7 +164,6 @@
     private async Task SaveAsync()
     {
         if (form is null) return;
-        message = null;
         errorMessage = null;
 
         var name = form.Name.Trim();
@@ -178,15 +203,16 @@
             await LookupService.UpdateAsync(Kind, form);
         }
 
-        message = "Αποθηκεύτηκε.";
+        Snackbar.Add("Αποθηκεύτηκε.", Severity.Success);
         await ReloadListAsync();
     }
 
-    /// <summary>Soft-delete (blocked while active employees use it) or restore.</summary>
+    /// <summary>
+    /// Soft-delete (blocked while active employees use it, otherwise asked first) or restore.
+    /// </summary>
     private async Task SetActiveAsync(bool isActive)
     {
         if (form is null || form.Id == 0) return;
-        message = null;
         errorMessage = null;
 
         if (!isActive)
@@ -199,11 +225,19 @@
                                "Άλλαξέ τους πρώτα και μετά κάνε διαγραφή.";
                 return;
             }
+
+            // Asked after the check, so the user is not asked about something that cannot be done.
+            var confirmed = await Dialogs.ShowMessageBoxAsync(
+                "Διαγραφή εγγραφής",
+                $"Η εγγραφή «{form.Name}» θα γίνει ανενεργή. " +
+                "Μπορείτε να την επαναφέρετε από την «Εμφάνιση ανενεργών».",
+                yesText: "Διαγραφή", cancelText: "Ακύρωση");
+            if (confirmed != true) return;
         }
 
         await LookupService.SetActiveAsync(Kind, form.Id, isActive);
         form.IsActive = isActive;
-        message = isActive ? "Επαναφέρθηκε." : "Διαγράφηκε.";
+        Snackbar.Add(isActive ? "Επαναφέρθηκε." : "Διαγράφηκε.", Severity.Success);
         await ReloadListAsync();
 
         // If it became inactive and we're not showing inactive, clear the form.
@@ -215,7 +249,6 @@
     {
         form = null;
         selectedId = 0;
-        message = null;
         errorMessage = null;
     }
 }

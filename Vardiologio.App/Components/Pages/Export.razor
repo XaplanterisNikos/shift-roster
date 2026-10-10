@@ -9,60 +9,35 @@
 @inject IPdfReportRenderer Pdf
 @inject IReportFileStore FileStore
 @inject IErrorLog ErrorLog
+@inject ISnackbar Snackbar
 
 @* Export the monthly Σ.Ω. report: save+open as Excel or PDF, or preview the PDF inline. *@
-<h1>Συνολική μηνιαία Σ.Ω.</h1>
-
-<div class="filters">
-    <label>
-        Έτος
-        <select @bind="year">
-            @for (int y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
-            {
-                <option value="@y">@y</option>
-            }
-        </select>
-    </label>
-    <label>
-        Μήνας
-        <select @bind="month">
-            @for (int mo = 1; mo <= 12; mo++)
-            {
-                <option value="@mo">@Months[mo - 1]</option>
-            }
-        </select>
-    </label>
-    <button @onclick="PreviewPdf" disabled="@busy">Προεπισκόπηση</button>
-    <button @onclick="ExportExcel" disabled="@busy">Εξαγωγή Excel</button>
-    <button @onclick="ExportPdf" disabled="@busy">Εξαγωγή PDF</button>
-    
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Συνολική μηνιαία Σ.Ω.</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Το μηνιαίο πρόγραμμα όλων των εργαζομένων σε ένα φύλλο.</MudText>
+    </div>
 </div>
 
-@if (message is not null)
-{
-    <p class="ok">@message</p>
-}
+@* Month, preview and export buttons (Shared/ReportToolbar.razor). *@
+<ReportToolbar @bind-Year="year" @bind-Month="month" Busy="busy"
+               OnPreview="PreviewPdf" OnExcel="ExportExcel" OnPdf="ExportPdf" />
+
 @if (error is not null)
 {
-    <p style="color:#c00">@error</p>
+    <MudAlert Severity="Severity.Error" Dense="true" Class="report-alert">@error</MudAlert>
 }
 
 @if (pdfDataUri is not null)
 {
-    @* Inline PDF preview via a base64 data-URI (WebView2 has a built-in PDF viewer). *@
-    <object data="@pdfDataUri" type="application/pdf" style="width:100%;height:75vh;border:1px solid #ccc;margin-top:12px">
-        <p>
-            Δεν εμφανίζεται η προεπισκόπηση.
-            <a href="@pdfDataUri" target="_blank">Άνοιγμα PDF</a>
-        </p>
-    </object>
+    <PdfPreview Data="@pdfDataUri" />
 }
 
 @code {
     private int year = DateTime.Today.Year;
     private int month = DateTime.Today.Month;
     private bool busy;
-    private string? message, error, pdfDataUri;
+    private string? error, pdfDataUri;
 
     /// <summary>
     /// The page opens with the current month already shown. Done after the first render, so
@@ -82,14 +57,15 @@
     // Shared helper: build the model, render to bytes, save under Reports\Monthly-Total\<month>, then open with the default app.
     private async Task SaveAndOpen(Func<ReportModel, byte[]> render, string ext)
     {
-        busy = true; message = null; error = null;
+        busy = true; error = null;
+        await ShowBusyAsync();
         try
         {
             var model = await ReportService.BuildMonthlyRosterAsync(year, month);
             var bytes = render(model);
             var path = await FileStore.SaveAsync(ReportFolder.MonthlyTotal, year, month, $"Monthly_Total_{year}_{month:00}.{ext}", bytes);
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-            message = $"Δημιουργήθηκε: {path}";
+            Snackbar.ReportSaved(path);
         }
         catch (Exception ex) { Fail("Excel/PDF export", ex); }
         finally { busy = false; }
@@ -98,7 +74,8 @@
     // Build the PDF in memory and show it inline (no file written).
     private async Task PreviewPdf()
     {
-        busy = true; message = null; error = null; pdfDataUri = null;
+        busy = true; error = null; pdfDataUri = null;
+        await ShowBusyAsync();
         try
         {
             var model = await ReportService.BuildMonthlyRosterAsync(year, month);
@@ -109,14 +86,20 @@
         finally { busy = false; }
     }
 
-    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows its message on the page.</summary>
+    /// <summary>
+    /// Draws the progress bar before the report work starts: building and rendering a report
+    /// keeps the UI thread busy, so without this pause the bar would never be seen.
+    /// </summary>
+    private async Task ShowBusyAsync()
+    {
+        StateHasChanged();
+        await Task.Delay(1);
+    }
+
+    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows what went wrong on the page.</summary>
     private void Fail(string action, Exception ex)
     {
         ErrorLog.Error($"Monthly total report / {action}", ex);
         error = ex.Message;
     }
-
-    private static readonly string[] Months =
-        { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",
-          "Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος" };
 }

@@ -9,72 +9,47 @@
 @inject IPdfReportRenderer Pdf
 @inject IReportFileStore FileStore
 @inject IErrorLog ErrorLog
+@inject ISnackbar Snackbar
 
 @* Monthly staff attendance report ("ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΠΡΟΣΩΠΙΚΟΥ"), in two reports:
    the staff and the directorate. The preview is the PDF itself (exactly what gets printed);
    every export writes one file per report (Excel or PDF). *@
-<h1>Εξαγωγή Αναφοράς Παρουσιών Προσωπικού</h1>
-
-<div class="filters">
-    <label>
-        Έτος
-        <select @bind="year">
-            @for (int y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
-            {
-                <option value="@y">@y</option>
-            }
-        </select>
-    </label>
-    <label>
-        Μήνας
-        <select @bind="month">
-            @for (int mo = 1; mo <= 12; mo++)
-            {
-                <option value="@mo">@Months[mo - 1]</option>
-            }
-        </select>
-    </label>
-    <button @onclick="PreviewAsync" disabled="@busy">Προεπισκόπηση</button>
-    <button @onclick="ExportExcelAsync" disabled="@busy">Εξαγωγή Excel</button>
-    <button @onclick="ExportPdfAsync" disabled="@busy">Εξαγωγή PDF</button>
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Εξαγωγή Αναφοράς Παρουσιών Προσωπικού</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Δύο έντυπα: Υπάλληλοι και Διεύθυνση. Κάθε εξαγωγή γράφει ένα αρχείο για το καθένα.</MudText>
+    </div>
 </div>
 
-@if (message is not null)
-{
-    <p class="ok">@message</p>
-}
+@* Month, preview and export buttons (Shared/ReportToolbar.razor). *@
+<ReportToolbar @bind-Year="year" @bind-Month="month" Busy="busy"
+               OnPreview="PreviewAsync" OnExcel="ExportExcelAsync" OnPdf="ExportPdfAsync" />
+
 @if (error is not null)
 {
-    <p style="color:#c00">@error</p>
+    <MudAlert Severity="Severity.Error" Dense="true" Class="report-alert">@error</MudAlert>
 }
 @if (noDirector)
 {
-    <p class="hint">
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="report-alert">
         Δεν βρέθηκε ο Διευθυντής (ενεργός εργαζόμενος με θέση «@PresenceRules.DirectorPosition»)·
         η αναφορά της Διεύθυνσης βγαίνει κενή.
-    </p>
+    </MudAlert>
 }
 
 @if (previews is not null)
 {
-    @* One tab per report; each shows its own PDF inline (WebView2 has a built-in PDF viewer). *@
-    <div class="tabs">
+    @* One tab per report; the PDF under the tabs is the one of the open tab. *@
+    <MudTabs Elevation="0" SliderColor="Color.Primary" Class="report-tabs report-sheets"
+             ActivePanelIndex="Array.IndexOf(Sheets, activeSheet)"
+             ActivePanelIndexChanged="index => activeSheet = Sheets[index]">
         @foreach (var sheet in Sheets)
         {
-            <button type="button"
-                    class="tab @(sheet == activeSheet ? "active" : "")"
-                    @onclick="() => activeSheet = sheet">
-                @TabTitle(sheet)
-            </button>
+            <MudTabPanel Text="@TabTitle(sheet)" />
         }
-    </div>
+    </MudTabs>
 
-    <object data="@previews[activeSheet]" type="application/pdf" style="width:100%;height:75vh;border:1px solid #ccc">
-        <p>
-            Δεν εμφανίζεται η προεπισκόπηση.
-            <a href="@previews[activeSheet]" target="_blank">Άνοιγμα PDF</a>
-        </p>
-    </object>
+    <PdfPreview Data="@(previews[activeSheet])" />
 }
 
 @code {
@@ -84,7 +59,7 @@
     private int year = DateTime.Today.Year;
     private int month = DateTime.Today.Month;
     private bool busy, noDirector;
-    private string? message, error;
+    private string? error;
     private AttendanceSheet activeSheet = AttendanceSheet.Staff;
 
     /// <summary>PDF data-URI per report, after "Προεπισκόπηση".</summary>
@@ -117,7 +92,8 @@
     /// <summary>Renders both reports to PDF in memory and shows them inline (no file written).</summary>
     private async Task PreviewAsync()
     {
-        busy = true; message = null; error = null; previews = null;
+        busy = true; error = null; previews = null;
+        await ShowBusyAsync();
         try
         {
             var models = await BuildAllAsync();
@@ -138,7 +114,8 @@
     /// </summary>
     private async Task ExportAsync(Func<AttendanceReportModel, byte[]> render, string ext)
     {
-        busy = true; message = null; error = null;
+        busy = true; error = null;
+        await ShowBusyAsync();
         try
         {
             var models = await BuildAllAsync();
@@ -146,7 +123,7 @@
             foreach (var m in models)
                 paths.Add(await FileStore.SaveAsync(ReportFolder.StaffAttendance, year, month, FileName(m.Sheet, ext), render(m)));
             paths.ForEach(Open);
-            message = "Δημιουργήθηκαν: " + string.Join(", ", paths);
+            Snackbar.ReportSaved(paths.ToArray());
         }
         catch (Exception ex) { Fail("Excel/PDF export", ex); }
         finally { busy = false; }
@@ -164,14 +141,20 @@
     private static string TabTitle(AttendanceSheet sheet) =>
         sheet == AttendanceSheet.Directorate ? "Διεύθυνση" : "Υπάλληλοι";
 
-    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows its message on the page.</summary>
+    /// <summary>
+    /// Draws the progress bar before the report work starts: building and rendering a report
+    /// keeps the UI thread busy, so without this pause the bar would never be seen.
+    /// </summary>
+    private async Task ShowBusyAsync()
+    {
+        StateHasChanged();
+        await Task.Delay(1);
+    }
+
+    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows what went wrong on the page.</summary>
     private void Fail(string action, Exception ex)
     {
         ErrorLog.Error($"Attendance report / {action}", ex);
         error = ex.Message;
     }
-
-    private static readonly string[] Months =
-        { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",
-          "Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος" };
 }

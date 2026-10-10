@@ -9,72 +9,47 @@
 @inject IPdfReportRenderer Pdf
 @inject IReportFileStore FileStore
 @inject IErrorLog ErrorLog
+@inject ISnackbar Snackbar
 
 @* Collective "ΠΙΣΤΟΠΟΙΗΣΗ ΥΠΕΡΩΡΙΑΚΗΣ ΚΑΙ ΛΟΙΠΗΣ ΕΡΓΑΣΙΑΣ" per contract, in two forms (one tab each):
    permanent staff + open-ended contracts, and fixed-term contracts. The preview is the PDF
    itself (exactly what gets printed); an export writes the file of the open tab (Excel or PDF). *@
-<h1>Εξαγωγή Πιστοποίησης ανά Σύμβαση (ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι)</h1>
-
-<div class="filters">
-    <label>
-        Έτος
-        <select @bind="year">
-            @for (int y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
-            {
-                <option value="@y">@y</option>
-            }
-        </select>
-    </label>
-    <label>
-        Μήνας
-        <select @bind="month">
-            @for (int mo = 1; mo <= 12; mo++)
-            {
-                <option value="@mo">@Months[mo - 1]</option>
-            }
-        </select>
-    </label>
-    <button @onclick="PreviewAsync" disabled="@busy">Προεπισκόπηση</button>
-    <button @onclick="ExportExcelAsync" disabled="@busy">Εξαγωγή Excel</button>
-    <button @onclick="ExportPdfAsync" disabled="@busy">Εξαγωγή PDF</button>
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Εξαγωγή Πιστοποίησης ανά Σύμβαση (ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι)</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Δύο έντυπα: Μόνιμοι / ΙΔΑΧ και ΙΔΟΧ. Η εξαγωγή γράφει το έντυπο της ανοιχτής καρτέλας.</MudText>
+    </div>
 </div>
 
-@if (message is not null)
-{
-    <p class="ok">@message</p>
-}
+@* Month, preview and export buttons (Shared/ReportToolbar.razor). *@
+<ReportToolbar @bind-Year="year" @bind-Month="month" Busy="busy"
+               OnPreview="PreviewAsync" OnExcel="ExportExcelAsync" OnPdf="ExportPdfAsync" />
+
 @if (error is not null)
 {
-    <p style="color:#c00">@error</p>
+    <MudAlert Severity="Severity.Error" Dense="true" Class="report-alert">@error</MudAlert>
 }
 @if (withoutContract.Count > 0)
 {
-    <p class="hint">
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="report-alert">
         Δεν περιλαμβάνονται σε κανένα έντυπο, επειδή δεν έχουν σύμβαση Μόνιμου, ΙΔΑΧ ή ΙΔΟΧ
         (Εργαζόμενοι → Σύμβαση): @(string.Join(", ", withoutContract)).
-    </p>
+    </MudAlert>
 }
 
 @if (previews is not null)
 {
-    @* One tab per form; each shows its own PDF inline (WebView2 has a built-in PDF viewer). *@
-    <div class="tabs">
+    @* One tab per form; the PDF under the tabs is the one of the open tab. *@
+    <MudTabs Elevation="0" SliderColor="Color.Primary" Class="report-tabs report-sheets"
+             ActivePanelIndex="Array.IndexOf(Sheets, activeSheet)"
+             ActivePanelIndexChanged="index => activeSheet = Sheets[index]">
         @foreach (var sheet in Sheets)
         {
-            <button type="button"
-                    class="tab @(sheet == activeSheet ? "active" : "")"
-                    @onclick="() => activeSheet = sheet">
-                @TabTitle(sheet)
-            </button>
+            <MudTabPanel Text="@TabTitle(sheet)" />
         }
-    </div>
+    </MudTabs>
 
-    <object data="@previews[activeSheet]" type="application/pdf" style="width:100%;height:75vh;border:1px solid #ccc">
-        <p>
-            Δεν εμφανίζεται η προεπισκόπηση.
-            <a href="@previews[activeSheet]" target="_blank">Άνοιγμα PDF</a>
-        </p>
-    </object>
+    <PdfPreview Data="@(previews[activeSheet])" />
 }
 
 @code {
@@ -85,7 +60,7 @@
     private int year = DateTime.Today.Year;
     private int month = DateTime.Today.Month;
     private bool busy;
-    private string? message, error;
+    private string? error;
     private ContractCertificateSheet activeSheet = ContractCertificateSheet.PermanentAndOpenEnded;
 
     /// <summary>PDF data-URI per form, after "Προεπισκόπηση".</summary>
@@ -109,7 +84,8 @@
     /// <summary>Renders both forms to PDF in memory and shows them inline (no file written).</summary>
     private async Task PreviewAsync()
     {
-        busy = true; message = null; error = null; previews = null;
+        busy = true; error = null; previews = null;
+        await ShowBusyAsync();
         try
         {
             var result = new Dictionary<ContractCertificateSheet, string>();
@@ -131,14 +107,15 @@
     /// <summary>Writes the file of the open tab, then opens it with the default application.</summary>
     private async Task ExportAsync(Func<ContractCertificateModel, byte[]> render, string ext)
     {
-        busy = true; message = null; error = null;
+        busy = true; error = null;
+        await ShowBusyAsync();
         try
         {
             var model = await ContractCertificateService.BuildAsync(year, month, activeSheet);
             withoutContract = model.WithoutContract;
             var path = await FileStore.SaveAsync(ReportFolder.ContractCertificate, year, month, FileName(activeSheet, ext), render(model));
             Open(path);
-            message = "Δημιουργήθηκε: " + path;
+            Snackbar.ReportSaved(path);
         }
         catch (Exception ex) { Fail("Excel/PDF export", ex); }
         finally { busy = false; }
@@ -156,14 +133,20 @@
     private static string TabTitle(ContractCertificateSheet sheet) =>
         sheet == ContractCertificateSheet.FixedTerm ? "ΙΔΟΧ" : "Μόνιμοι / ΙΔΑΧ";
 
-    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows its message on the page.</summary>
+    /// <summary>
+    /// Draws the progress bar before the report work starts: building and rendering a report
+    /// keeps the UI thread busy, so without this pause the bar would never be seen.
+    /// </summary>
+    private async Task ShowBusyAsync()
+    {
+        StateHasChanged();
+        await Task.Delay(1);
+    }
+
+    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows what went wrong on the page.</summary>
     private void Fail(string action, Exception ex)
     {
         ErrorLog.Error($"Contract certificate / {action}", ex);
         error = ex.Message;
     }
-
-    private static readonly string[] Months =
-        { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",
-          "Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος" };
 }

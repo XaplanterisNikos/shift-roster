@@ -137,8 +137,7 @@ migrations and seeding run automatically at startup.
 
 ## User interface
 
-The UI is being moved from hand-written HTML/CSS to **MudBlazor** components, one piece at a time,
-on the `ui/mudblazor` branch.
+Every page is built from **MudBlazor** components (the move from hand-written HTML/CSS is complete).
 
 - **Theme** — `Vardiologio.App/Theme/AppTheme.cs` holds the colours, typography and layout sizes.
   `MudThemeProvider` applies it once in `Components/Routes.razor`; the app's stylesheet
@@ -165,16 +164,29 @@ on the `ui/mudblazor` branch.
 - **Employee picker** — `Shared/EmployeePicker.razor`, used wherever an employee is chosen:
   a search box (surname and / or first name, any order, case- and accent-insensitive) with the
   matching letters highlighted. The matching rules are in `Application/ShiftEntry/EmployeeSearch.cs`.
-- **Legacy pages** — pages that still use plain HTML keep working inside the new shell through the
-  "Legacy pages" block of `app.css`, which is deleted when the last page is migrated.
+- **Report pages** — the seven report pages share one row, `Shared/ReportToolbar.razor`: a month
+  picker (year and month in one box), preview and Excel / PDF buttons, and a progress bar while
+  a report is built. `Shared/PdfPreview.razor` shows the PDF inline; a finished export is
+  announced by a snackbar with an "open folder" button (`Shared/ReportSnackbar.cs`).
+- **Master-detail pages** — Employees, shift codes and the parameter editors show a list on the
+  left and the form on the right (the "Master-detail" block of `app.css`). Fields validate through
+  the DTO attributes (`EditForm` + `DataAnnotationsValidator`); a delete, and a change to a shift
+  code already used in the roster, are confirmed in a dialog.
+- **Hours boxes** — `Shared/HoursConverter.cs` lets a number box read both "6,5" and "6.5".
+- **Plain elements** — a few plain HTML elements are kept on purpose: the 31 day boxes of the
+  shift entry (light, keyboard-friendly), the colour boxes of the report parameters, and the
+  on-screen tables that copy a printed form. Their defaults are the "Plain elements" block of
+  `app.css`.
 
 | Area | State |
 |---|---|
 | Theme, shell, login, administrator dialog, help drawer, message form | MudBlazor |
 | Daily shift entry (Προγράμματα) | MudBlazor — hour tiles per pay category, day rows with a Day / Night / Status tag, holidays and weekends marked, sticky save bar |
 | Report text parameters (Παράμετροι → Αναφορών) | MudBlazor — one tab per form, a header card and a footer card, save bar with undo of the last save |
-| Employees, the other parameter pages and the report pages | plain HTML (to be migrated) |
-| Dark theme switch | planned, after the pages are migrated |
+| Report pages (Αναφορές - Έντυπα) | MudBlazor — shared toolbar with a month picker, progress bar, tabs per form, hours table with a fixed header and a pinned name column |
+| Employees, employee parameters, hours parameters | MudBlazor — list and form side by side, switch for inactive rows, confirmation dialogs |
+| Shift codes (Παράμετροι → Βαρδιών) | MudBlazor — code badges in the list, chips for the allowed days, a number box per day and pay category |
+| Dark theme switch | planned |
 
 ## Getting started
 
@@ -233,15 +245,21 @@ administrator password, which is public: create `admin.json` before any real use
 
 ## Status
 
-Working: database + seeding, login with per-installation users, employee CRUD, daily shift entry, monthly
-Σ.Ω. report (Excel/PDF/preview), individual sheet (preview/Excel/PDF),
-shift-code & extra-hours parameter management (CRUD + soft-delete), context help and
-message to the developer.
+Current release: **1.19.0**.
+
+Working: database and seeding, login with per-installation users and the administrator's area
+(activity log, error log, users, archive of the documents folder), employee management, daily shift
+entry with live hour limits, all seven reports and forms (preview, Excel, PDF), the parameter
+pages (shift codes, employee lists, holidays and hour limits, report texts and colours), database
+export and import, context help and the message to the developer. Every page is built from
+MudBlazor components.
 
 Not finished yet:
 
-- Report totals columns (ΗΜΕΡΗΣΙΑ / ΚΥΡΙΑΚΩΝ) — calculation rule pending.
+- Report totals columns (ΗΜΕΡΗΣΙΑ / ΚΥΡΙΑΚΩΝ) of the Σ.Ω. report — calculation rule pending.
+- Automatic copy of the database when the application closes (today: export by button).
 - Automatic sync between the two workstations (today: manual export / import of the database).
+- Dark theme switch.
 
 ## License
 

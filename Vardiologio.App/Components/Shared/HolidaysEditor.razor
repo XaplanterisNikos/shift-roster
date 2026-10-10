@@ -2,79 +2,99 @@
 @using Vardiologio.Application.Hours
 @using Microsoft.AspNetCore.Components.Forms
 @inject IHolidayService HolidayService
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
 
 @* Master-detail CRUD for the holidays of one year (same shape as LookupEditor).
    "Πρόταση αργιών" adds the suggested holidays of the year that are missing (never
-   overwrites). Delete is a hard delete, confirmed by a second click. *@
-<div class="filters">
-    <label>Έτος
-        <select @bind="year" @bind:after="ReloadListAsync">
-            @foreach (var y in Years)
-            {
-                <option value="@y">@y</option>
-            }
-        </select>
-    </label>
+   overwrites). Delete is a hard delete, asked first in a dialog.
+   Styles: "Master-detail" block in app.css. *@
+<div class="md-bar">
+    <MudSelect T="int" Label="Έτος" @bind-Value="year" @bind-Value:after="ReloadListAsync"
+               Variant="Variant.Outlined" Margin="Margin.Dense">
+        @foreach (var y in Years)
+        {
+            <MudSelectItem T="int" Value="@y">@y</MudSelectItem>
+        }
+    </MudSelect>
 
-    <button @onclick="NewItem">＋ Νέα</button>
-    <button @onclick="AddSuggestedAsync">Πρόταση αργιών @year</button>
-    @if (topMessage is not null) { <span class="ok">@topMessage</span> }
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+               StartIcon="@Icons.Material.Rounded.Add" OnClick="NewItem">Νέα</MudButton>
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" DropShadow="false"
+               StartIcon="@Icons.Material.Rounded.AutoAwesome" OnClick="AddSuggestedAsync">Πρόταση αργιών @year</MudButton>
 </div>
 
-<div class="master-detail">
-    <!-- LEFT: holidays of the year -->
-    <ul class="emp-list">
-        @foreach (var x in list)
-        {
-            <li class="@(x.Id == selectedId ? "sel" : "")" @onclick="() => Select(x)">
-                @Label(x)
-            </li>
-        }
+<div class="md-grid">
+    @* LEFT: holidays of the year. The list marks the row of selectedId. *@
+    <MudPaper Elevation="0" Class="md-list">
+        <div class="md-list-head">@list.Count @(list.Count == 1 ? "αργία" : "αργίες") το @year</div>
         @if (list.Count == 0)
         {
-            <li class="muted">— καμία —</li>
+            <MudText Typo="Typo.body2" Class="md-list-empty">Καμία αργία. Πατήστε «Πρόταση αργιών @year» για να προστεθούν οι γνωστές.</MudText>
         }
-    </ul>
-
-    <!-- RIGHT: create/edit form -->
-    @if (form is not null)
-    {
-        <EditForm class="emp-form" Model="form" OnValidSubmit="SaveAsync">
-            <DataAnnotationsValidator />
-
-            <h3>@(form.Id == 0 ? "Νέα αργία" : "Επεξεργασία")</h3>
-
-            <label>Ημερομηνία
-                <InputDate @bind-Value="form.Date" @bind-Value:after="ClearError" />
-            </label>
-
-            <label>Όνομα
-                <InputText @bind-Value="form.Name" @bind-Value:after="ClearError" />
-                <ValidationMessage For="@(() => form.Name)" />
-            </label>
-
-            @if (errorMessage is not null)
-            {
-                <div class="error">@errorMessage</div>
-            }
-
-            @if (pendingDelete)
-            {
-                <div class="warning">Πατήστε ξανά "Διαγραφή" για οριστική διαγραφή της αργίας.</div>
-            }
-
-            <div class="actions">
-                <button type="submit">Αποθήκευση</button>
-                <button type="button" @onclick="CancelEdit">Ακύρωση</button>
-
-                @if (form.Id != 0)
+        else
+        {
+            <MudList T="int" SelectedValue="selectedId" SelectedValueChanged="SelectById"
+                     Color="Color.Primary" Dense="true">
+                @foreach (var x in list)
                 {
-                    <button type="button" class="danger" @onclick="DeleteAsync">Διαγραφή</button>
+                    <MudListItem T="int" Value="@x.Id">
+                        <span class="md-item">
+                            <span>@x.Name</span>
+                            <span class="md-item-side">@x.Date.ToString("ddd dd/MM", El)</span>
+                        </span>
+                    </MudListItem>
+                }
+            </MudList>
+        }
+    </MudPaper>
+
+    @* RIGHT: create/edit form *@
+    @if (form is null)
+    {
+        <MudPaper Elevation="0" Class="empty-state md-hint">
+            <MudIcon Icon="@Icons.Material.Rounded.TouchApp" Size="Size.Large" />
+            <MudText Typo="Typo.body1">Επιλέξτε αργία από τη λίστα ή πατήστε «Νέα».</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Elevation="0" Class="md-form">
+            <EditForm Model="form" OnValidSubmit="SaveAsync">
+                <DataAnnotationsValidator />
+
+                <div class="md-form-head">
+                    <MudText Typo="Typo.h6">@(form.Id == 0 ? "Νέα αργία" : "Επεξεργασία")</MudText>
+                </div>
+
+                <div class="md-fields">
+                    @* The picker works with DateTime; the form keeps a DateOnly (see OnDateChanged). *@
+                    <MudDatePicker Label="Ημερομηνία" Date="form.Date.ToDateTime(TimeOnly.MinValue)" DateChanged="OnDateChanged"
+                                   DateFormat="dd/MM/yyyy" Culture="El" Editable="true" AutoClose="true"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+                    <MudTextField T="string" Label="Όνομα" @bind-Value="form.Name" @bind-Value:after="ClearError"
+                                  For="@(() => form.Name)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </div>
+
+                @if (errorMessage is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="md-alert">@errorMessage</MudAlert>
                 }
 
-                @if (message is not null) { <span class="ok">@message</span> }
-            </div>
-        </EditForm>
+                <div class="md-actions">
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+                               StartIcon="@Icons.Material.Rounded.Save">Αποθήκευση</MudButton>
+                    <MudButton Variant="Variant.Text" OnClick="CancelEdit">Ακύρωση</MudButton>
+
+                    @if (form.Id != 0)
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" DropShadow="false"
+                                   StartIcon="@Icons.Material.Rounded.Delete" OnClick="DeleteAsync">Διαγραφή</MudButton>
+                    }
+                </div>
+            </EditForm>
+        </MudPaper>
     }
 </div>
 
@@ -90,10 +110,7 @@
     private List<HolidayItem> list = new();
     private int selectedId;
     private HolidayItem? form;
-    private string? message;
-    private string? topMessage;
     private string? errorMessage;
-    private bool pendingDelete;
 
     protected override async Task OnInitializedAsync()
     {
@@ -110,10 +127,16 @@
     private static string Label(HolidayItem x) =>
         $"{x.Date.ToString("dd/MM ddd", El)} — {x.Name}";
 
+    /// <summary>Called by the list with the Id of the clicked row (0 = nothing selected).</summary>
+    private void SelectById(int id)
+    {
+        if (list.FirstOrDefault(x => x.Id == id) is { } item) Select(item);
+    }
+
     /// <summary>Loads a row into the form as a COPY (unsaved edits never touch the list).</summary>
     private void Select(HolidayItem x)
     {
-        ResetMessages();
+        errorMessage = null;
         selectedId = x.Id;
         form = new HolidayItem { Id = x.Id, Date = x.Date, Name = x.Name };
     }
@@ -121,30 +144,26 @@
     /// <summary>Prepares a blank form, dated 1 January of the selected year.</summary>
     private void NewItem()
     {
-        ResetMessages();
+        errorMessage = null;
         selectedId = 0;
         form = new HolidayItem { Date = new DateOnly(year, 1, 1) };
     }
 
-    private void ClearError()
-    {
-        errorMessage = null;
-        pendingDelete = false;
-    }
+    private void ClearError() => errorMessage = null;
 
-    private void ResetMessages()
+    /// <summary>The date picker gives a DateTime; the form keeps the date only. A cleared box changes nothing.</summary>
+    private void OnDateChanged(DateTime? date)
     {
-        message = null;
-        topMessage = null;
-        errorMessage = null;
-        pendingDelete = false;
+        if (date is not DateTime picked || form is null) return;
+        form.Date = DateOnly.FromDateTime(picked);
+        ClearError();
     }
 
     /// <summary>Creates or updates after the unique-date check (no exceptions).</summary>
     private async Task SaveAsync()
     {
         if (form is null) return;
-        ResetMessages();
+        errorMessage = null;
 
         if (await HolidayService.DateExistsAsync(form.Date, form.Id))
         {
@@ -165,39 +184,36 @@
         // A date moved to another year leaves this year's list; show that year instead.
         if (form.Date.Year != year && Years.Contains(form.Date.Year)) year = form.Date.Year;
 
-        message = "Αποθηκεύτηκε.";
+        Snackbar.Add("Αποθηκεύτηκε.", Severity.Success);
         await ReloadListAsync();
     }
 
-    /// <summary>Hard delete, on the second click.</summary>
+    /// <summary>Hard delete, asked first (it cannot be undone).</summary>
     private async Task DeleteAsync()
     {
         if (form is null || form.Id == 0) return;
+        errorMessage = null;
 
-        if (!pendingDelete)
-        {
-            message = null;
-            errorMessage = null;
-            pendingDelete = true;
-            return;
-        }
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Διαγραφή αργίας",
+            $"Η αργία «{Label(form)}» θα διαγραφεί οριστικά.",
+            yesText: "Διαγραφή", cancelText: "Ακύρωση");
+        if (confirmed != true) return;
 
         await HolidayService.DeleteAsync(form.Id);
         form = null;
         selectedId = 0;
-        ResetMessages();
-        topMessage = "Διαγράφηκε.";
+        Snackbar.Add("Διαγράφηκε.", Severity.Success);
         await ReloadListAsync();
     }
 
     /// <summary>Adds the year's missing suggested holidays and reports how many.</summary>
     private async Task AddSuggestedAsync()
     {
-        ResetMessages();
+        errorMessage = null;
         var added = await HolidayService.AddSuggestedAsync(year);
-        topMessage = added == 0
-            ? "Δεν λείπει καμία προτεινόμενη αργία."
-            : $"Προστέθηκαν {added}. Έλεγξέ τες (π.χ. αν μετακινήθηκε η Πρωτομαγιά).";
+        if (added == 0) Snackbar.Add("Δεν λείπει καμία προτεινόμενη αργία.", Severity.Info);
+        else Snackbar.Add($"Προστέθηκαν {added}. Έλεγξέ τες (π.χ. αν μετακινήθηκε η Πρωτομαγιά).", Severity.Success);
         await ReloadListAsync();
     }
 
@@ -206,6 +222,6 @@
     {
         form = null;
         selectedId = 0;
-        ResetMessages();
+        errorMessage = null;
     }
 }

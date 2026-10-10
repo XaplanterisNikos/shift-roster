@@ -97,7 +97,7 @@
     {
         error = null;
         var user = await Auth.AuthenticateAsync(username, password);
-        if (user is null) { error = "Wrong Password."; return; }
+        if (user is null) { error = "Λάθος κωδικός."; return; }
         Session.SignIn(user);// fires Session.Changed -> MainLayout re-renders
         Nav.NavigateTo("/");
     }

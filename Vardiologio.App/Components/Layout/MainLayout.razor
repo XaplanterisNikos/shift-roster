@@ -103,8 +103,8 @@
         </MudDrawer>
 
         <MudMainContent>
-            @* "legacy" restores plain-HTML defaults for pages not yet moved to MudBlazor components
-               (see the "Legacy pages" block in app.css). *@
+            @* "legacy" gives sensible defaults to the few plain HTML elements left on purpose
+               (rules in app.css, "Plain elements"). *@
             <div class="app-content legacy">
                 @* Nothing is rendered while the guard redirects a page of the wrong side. *@
                 @if (IsAdmin == OnAdminRoute)

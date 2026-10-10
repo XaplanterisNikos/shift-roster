@@ -2,126 +2,163 @@
 @using Vardiologio.Application.Employees
 @using Microsoft.AspNetCore.Components.Forms
 @inject IEmployeeService EmployeeService
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
 
 @* Employees CRUD (master-detail): pick a specialty (auto-reloads the list),
-   select a name to edit, or [+] to add. Soft-delete/restore live in the form. *@
-<h1>Εργαζόμενοι</h1>
+   select a name to edit, or "Νέος" to add. Soft-delete/restore live in the form.
+   Styles: "Master-detail" block in app.css. *@
 
-@* @bind:after => reload the list automatically when the specialty or the
-   "show inactive" toggle changes (no button needed here). *@
-<div class="filters">
-    <label>
-        Ειδικότητα
-        <select @bind="specialityId" @bind:after="OnSpecialityChanged">
-            <option value="0">— επίλεξε —</option>
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Εργαζόμενοι</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Επιλέξτε ειδικότητα για να δείτε, να προσθέσετε ή να αλλάξετε εργαζόμενους.</MudText>
+    </div>
+
+    @* @bind-Value:after => reload the list automatically when the specialty or the
+       "show inactive" switch changes (no button needed here). *@
+    <div class="page-filters">
+        @* ToStringFunc: the closed box shows the name, not the Id it is bound to. *@
+        <MudSelect T="int" Label="Ειδικότητα" @bind-Value="specialityId" @bind-Value:after="OnSpecialityChanged"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="filter-speciality"
+                   ToStringFunc="SpecialityName">
+            <MudSelectItem T="int" Value="0">— επίλεξε —</MudSelectItem>
             @* Inactive specialities only when "show inactive" is on (or already selected). *@
             @foreach (var s in specialities.Where(o => o.IsActive || includeInactive || o.Id == specialityId))
             {
-                <option value="@s.Id">@OptionLabel(s)</option>
+                <MudSelectItem T="int" Value="@s.Id">@OptionLabel(s)</MudSelectItem>
             }
-        </select>
-    </label>
+        </MudSelect>
 
-    <label class="chk">
-        <input type="checkbox" @bind="includeInactive" @bind:after="ReloadListAsync" />
-        Εμφάνιση ανενεργών
-    </label>
+        <MudSwitch T="bool" @bind-Value="includeInactive" @bind-Value:after="ReloadListAsync"
+                   Color="Color.Primary" Label="Εμφάνιση ανενεργών" />
 
-    @* No new employees under a retired speciality. *@
-    <button @onclick="NewEmployee" disabled="@(specialityId == 0 || !IsSpecialityActive(specialityId))">＋ Νέος</button>
+        @* No new employees under a retired speciality. *@
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Class="filter-load"
+                   StartIcon="@Icons.Material.Rounded.PersonAdd"
+                   Disabled="@(specialityId == 0 || !IsSpecialityActive(specialityId))" OnClick="NewEmployee">Νέος</MudButton>
+    </div>
 </div>
 
-@if (specialityId != 0)
+@if (specialityId == 0)
 {
-    <div class="master-detail">
-        <!-- LEFT: employee list of the selected specialty -->
-        <ul class="emp-list">
-            @foreach (var e in list)
-            {
-                <li class="@(e.Id == selectedId ? "sel" : "") @(e.IsActive ? "" : "inactive")"
-                    @onclick="() => SelectAsync(e.Id)">
-                    @e.FullName
-                    @if (!e.IsActive)
-                    {
-                        <span class="tag">ανενεργός</span>
-                    }
-                </li>
-            }
+    <MudPaper Elevation="0" Class="empty-state">
+        <MudIcon Icon="@Icons.Material.Rounded.Groups" Size="Size.Large" />
+        <MudText Typo="Typo.body1">Επιλέξτε ειδικότητα για να εμφανιστούν οι εργαζόμενοί της.</MudText>
+    </MudPaper>
+}
+else
+{
+    <div class="md-grid">
+        @* LEFT: employee list of the selected specialty. The list marks the row of selectedId. *@
+        <MudPaper Elevation="0" Class="md-list">
+            <div class="md-list-head">@list.Count @(list.Count == 1 ? "εργαζόμενος" : "εργαζόμενοι")</div>
             @if (list.Count == 0)
             {
-                <li class="muted">— κανένας —</li>
-            }
-        </ul>
-
-        <!-- RIGHT: create/edit form -->
-        @if (form is not null)
-        {
-           <EditForm class="emp-form" Model="form" OnValidSubmit="SaveAsync">
-    <DataAnnotationsValidator />
-
-    <h3>@(form.Id == 0 ? "Νέος εργαζόμενος" : "Επεξεργασία")</h3>
-
-    <label>Επώνυμο
-        <InputText @bind-Value="form.LastName" />
-        <ValidationMessage For="@(() => form.LastName)" />
-    </label>
-
-    <label>Όνομα
-        <InputText @bind-Value="form.FirstName" />
-        <ValidationMessage For="@(() => form.FirstName)" />
-    </label>
-
-    <label>Ειδικότητα
-        <InputSelect @bind-Value="form.SpecialityId">
-            <option value="0">— επίλεξε —</option>
-            @foreach (var s in Visible(lookups!.Specialities, form.SpecialityId))
-            { <option value="@s.Id">@OptionLabel(s)</option> }
-        </InputSelect>
-        <ValidationMessage For="@(() => form.SpecialityId)" />
-    </label>
-
-                <label>
-                    Σύμβαση
-                    <InputSelect @bind-Value="form.EmploymentTypeId">
-                        <option value="">—</option>
-                        @foreach (var t in Visible(lookups!.EmploymentTypes, form.EmploymentTypeId))
-                        {
-                            <option value="@t.Id">@OptionLabel(t)</option>
-                        }
-                    </InputSelect>
-                    <ValidationMessage For="@(() => form.EmploymentTypeId)" />
-                </label>
-
-                <label>
-                    Θέση
-                    <InputSelect @bind-Value="form.WorkPositionId">
-                        <option value="">—</option>
-                        @foreach (var p in Visible(lookups!.WorkPositions, form.WorkPositionId))
-                        {
-                            <option value="@p.Id">@OptionLabel(p)</option>
-                        }
-                    </InputSelect>
-                    <ValidationMessage For="@(() => form.WorkPositionId)" />
-                </label>
-
-    <div class="actions">
-        <button type="submit">Αποθήκευση</button>
-
-        @if (form.Id != 0)
-        {
-            @if (form.IsActive)
-            {
-                <button type="button" class="danger" @onclick="() => SetActiveAsync(false)">Διαγραφή</button>
+                <MudText Typo="Typo.body2" Class="md-list-empty">Κανένας εργαζόμενος σε αυτή την ειδικότητα.</MudText>
             }
             else
             {
-                <button type="button" @onclick="() => SetActiveAsync(true)">Επαναφορά</button>
+                <MudList T="int" SelectedValue="selectedId" SelectedValueChanged="SelectAsync"
+                         Color="Color.Primary" Dense="true">
+                    @foreach (var e in list)
+                    {
+                        <MudListItem T="int" Value="@e.Id" Class="@(e.IsActive ? null : "md-inactive")">
+                            <span class="md-item">
+                                <span>@e.FullName</span>
+                                @if (!e.IsActive)
+                                {
+                                    @* A plain span: the list puts its rows in a paragraph, where a chip (a div) is not valid HTML. *@
+                                    <span class="md-tag">ανενεργός</span>
+                                }
+                            </span>
+                        </MudListItem>
+                    }
+                </MudList>
             }
-        }
+        </MudPaper>
 
-        @if (message is not null) { <span class="ok">@message</span> }
-    </div>
-</EditForm> 
+        @* RIGHT: create/edit form *@
+        @if (form is null)
+        {
+            <MudPaper Elevation="0" Class="empty-state md-hint">
+                <MudIcon Icon="@Icons.Material.Rounded.TouchApp" Size="Size.Large" />
+                <MudText Typo="Typo.body1">Επιλέξτε εργαζόμενο από τη λίστα ή πατήστε «Νέος».</MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudPaper Elevation="0" Class="md-form">
+                <EditForm Model="form" OnValidSubmit="SaveAsync">
+                    <DataAnnotationsValidator />
+
+                    <div class="md-form-head">
+                        <MudText Typo="Typo.h6">@(form.Id == 0 ? "Νέος εργαζόμενος" : "Επεξεργασία")</MudText>
+                        @if (!form.IsActive)
+                        {
+                            <span class="md-tag">ανενεργός</span>
+                        }
+                    </div>
+
+                    @* For: the field shows the message of the DTO's validation attributes under it. *@
+                    <div class="md-fields">
+                        <MudTextField T="string" Label="Επώνυμο" @bind-Value="form.LastName" For="@(() => form.LastName)"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+                        <MudTextField T="string" Label="Όνομα" @bind-Value="form.FirstName" For="@(() => form.FirstName)"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+                        <MudSelect T="int" Label="Ειδικότητα" @bind-Value="form.SpecialityId" For="@(() => form.SpecialityId)"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense"
+                                   ToStringFunc="@(id => NameOf(lookups!.Specialities, id))">
+                            <MudSelectItem T="int" Value="0">— επίλεξε —</MudSelectItem>
+                            @foreach (var s in Visible(lookups!.Specialities, form.SpecialityId))
+                            {
+                                <MudSelectItem T="int" Value="@s.Id">@OptionLabel(s)</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudSelect T="int?" Label="Σύμβαση" @bind-Value="form.EmploymentTypeId" For="@(() => form.EmploymentTypeId)"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense"
+                                   ToStringFunc="@(id => NameOf(lookups!.EmploymentTypes, id))">
+                            <MudSelectItem T="int?" Value="@((int?)null)">—</MudSelectItem>
+                            @foreach (var t in Visible(lookups!.EmploymentTypes, form.EmploymentTypeId))
+                            {
+                                <MudSelectItem T="int?" Value="@t.Id">@OptionLabel(t)</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudSelect T="int?" Label="Θέση" @bind-Value="form.WorkPositionId" For="@(() => form.WorkPositionId)"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense"
+                                   ToStringFunc="@(id => NameOf(lookups!.WorkPositions, id))">
+                            <MudSelectItem T="int?" Value="@((int?)null)">—</MudSelectItem>
+                            @foreach (var p in Visible(lookups!.WorkPositions, form.WorkPositionId))
+                            {
+                                <MudSelectItem T="int?" Value="@p.Id">@OptionLabel(p)</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </div>
+
+                    <div class="md-actions">
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+                                   StartIcon="@Icons.Material.Rounded.Save">Αποθήκευση</MudButton>
+
+                        @if (form.Id != 0)
+                        {
+                            @if (form.IsActive)
+                            {
+                                <MudButton Variant="Variant.Outlined" Color="Color.Error" DropShadow="false"
+                                           StartIcon="@Icons.Material.Rounded.Delete" OnClick="DeleteAsync">Διαγραφή</MudButton>
+                            }
+                            else
+                            {
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" DropShadow="false"
+                                           StartIcon="@Icons.Material.Rounded.RestoreFromTrash" OnClick="() => SetActiveAsync(true)">Επαναφορά</MudButton>
+                            }
+                        }
+                    </div>
+                </EditForm>
+            </MudPaper>
         }
     </div>
 }
@@ -137,7 +174,6 @@
     private bool includeInactive;
     private int selectedId;
     private EmployeeDetail? form;
-    private string? message;
 
     protected override async Task OnInitializedAsync()
     {
@@ -155,6 +191,16 @@
     /// <summary>Marks retired values in dropdowns (all three lookups are feminine nouns).</summary>
     private static string OptionLabel(LookupOption o) => o.IsActive ? o.Name : $"{o.Name} (ανενεργή)";
 
+    /// <summary>Text of the closed speciality filter: the name of the picked speciality.</summary>
+    private string SpecialityName(int id) => id == 0 ? "— επίλεξε —" : NameOf(specialities, id);
+
+    /// <summary>
+    /// Text of a closed dropdown: the label of the option with this Id ("—" when nothing is
+    /// picked). Without it the box would show the Id it is bound to.
+    /// </summary>
+    private static string NameOf(IEnumerable<LookupOption> options, int? id) =>
+        options.FirstOrDefault(o => o.Id == id) is { } option ? OptionLabel(option) : "—";
+
     /// <summary>True if the given speciality exists and is active.</summary>
     private bool IsSpecialityActive(int id) => specialities.Any(s => s.Id == id && s.IsActive);
 
@@ -163,7 +209,6 @@
     {
         selectedId = 0;
         form = null;
-        message = null;
         await ReloadListAsync();
     }
 
@@ -177,7 +222,7 @@
     /// <summary>Loads one employee into the edit form.</summary>
     private async Task SelectAsync(int id)
     {
-        message = null;
+        if (id == 0) return;   // the list reports "nothing selected" as 0
         selectedId = id;
         form = await EmployeeService.GetAsync(id);
     }
@@ -185,7 +230,6 @@
     /// <summary>Prepares a blank form for a new employee (specialty pre-filled).</summary>
     private void NewEmployee()
     {
-        message = null;
         selectedId = 0;
         form = new EmployeeDetail { SpecialityId = specialityId, IsActive = true };
     }
@@ -206,8 +250,23 @@
             await EmployeeService.UpdateAsync(form);
         }
 
-        message = "Αποθηκεύτηκε.";
+        Snackbar.Add("Αποθηκεύτηκε.", Severity.Success);
         await ReloadListAsync();
+    }
+
+    /// <summary>Asks first, then soft-deletes the current employee (can be restored later).</summary>
+    private async Task DeleteAsync()
+    {
+        if (form is null || form.Id == 0) return;
+
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Διαγραφή εργαζομένου",
+            $"Ο εργαζόμενος «{form.LastName} {form.FirstName}» θα γίνει ανενεργός. " +
+            "Μπορείτε να τον επαναφέρετε από την «Εμφάνιση ανενεργών».",
+            yesText: "Διαγραφή", cancelText: "Ακύρωση");
+        if (confirmed != true) return;
+
+        await SetActiveAsync(false);
     }
 
     /// <summary>Soft-delete or restore the current employee.</summary>
@@ -217,7 +276,7 @@
 
         await EmployeeService.SetActiveAsync(form.Id, isActive);
         form.IsActive = isActive;
-        message = isActive ? "Επαναφέρθηκε." : "Διαγράφηκε.";
+        Snackbar.Add(isActive ? "Επαναφέρθηκε." : "Διαγράφηκε.", Severity.Success);
         await ReloadListAsync();
 
         // If it became inactive and we're not showing inactive, clear the form.

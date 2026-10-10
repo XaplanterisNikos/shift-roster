@@ -4,10 +4,12 @@
    1. Font            Manrope, bundled (the app works offline)
    2. Shell           top bar, side menu, content area (Layout/MainLayout.razor)
    3. Login           Layout/LoginLayout.razor + Pages/Login.razor
-   4. Legacy pages    plain-HTML pages not yet moved to MudBlazor components
+   4. Plain elements  defaults for the few plain HTML elements left on purpose
    5. Shift entry     Pages/ShiftEntry.razor
    6. Report texts    Pages/ReportParameters.razor + Shared/ReportTextsEditor.razor
-   7. Page rules      the existing rules of the pages not migrated yet
+   7. Report tables   the on-screen tables that copy a printed form
+   8. Reports         Shared/ReportToolbar.razor + the report pages
+   9. Master-detail   Pages/Employees.razor + the parameter editors (list on the left, form on the right)
 
    Colours come from the theme (Theme/AppTheme.cs) through MudBlazor's CSS variables,
    e.g. var(--mud-palette-primary), so a change there is picked up here as well.
@@ -400,33 +402,18 @@
 	overflow-wrap: anywhere;
 }
 
-/* ---------- 4. Legacy pages ---------------------------------------------- */
+/* ---------- 4. Plain elements --------------------------------------------- */
 
 /* MudBlazor resets every element (no margins, no borders, bare buttons), which is right for its
-   own components but leaves the plain-HTML pages without headings spacing, input borders and
-   visible buttons. These rules give those elements sensible defaults again.
+   own components. Every page is built from MudBlazor components now; these rules cover the few
+   plain HTML elements that are left on purpose and still need sensible defaults:
+   the day boxes of the shift entry, the colour boxes of Παράμετροι αναφορών, the tables that
+   copy a printed form (individual sheet, hours report), and the texts of the help drawer.
 
    - Scope: only inside .legacy (the page area in MainLayout) and the help drawer.
-   - :not([class*="mud-"]) skips MudBlazor's own elements, so a page can be moved to MudBlazor
-     components one piece at a time.
+   - :not([class*="mud-"]) skips MudBlazor's own elements.
    - :where() keeps the specificity at "one element", so every class rule further down
-     (.filters select, .emp-form .danger, ...) still wins exactly as before.
-
-   Delete this block when the last page has been migrated. */
-
-:where(.legacy) h1:where(:not([class*="mud-"])) {
-	font-size: 1.75rem;
-	font-weight: 800;
-	letter-spacing: -.02em;
-	line-height: 1.2;
-	margin: 0 0 18px;
-}
-
-:where(.legacy) h2:where(:not([class*="mud-"])) {
-	font-size: 1.2rem;
-	font-weight: 800;
-	margin: 0 0 10px;
-}
+     still wins. */
 
 :where(.legacy, .help-body) h3:where(:not([class*="mud-"])) {
 	font-size: 1rem;
@@ -487,10 +474,9 @@
 	cursor: default;
 }
 
-/* Tables and the master list were drawn on a white page; the page is tinted now, so they
-   get their own white background. */
-:where(.legacy) table:where(:not([class*="mud-"])),
-:where(.legacy) .emp-list {
+/* Tables were drawn on a white page; the page is tinted now, so they get their own white
+   background. */
+:where(.legacy) table:where(:not([class*="mud-"])) {
 	background: var(--mud-palette-surface);
 }
 
@@ -502,7 +488,7 @@
 	flex-wrap: wrap;
 	align-items: flex-end;
 	justify-content: space-between;
-	gap: 16px;
+	gap: 22px 16px;
 	margin-bottom: 18px;
 }
 
@@ -523,6 +509,13 @@
 .page-filters .filter-month { width: 170px; flex: none; }
 .page-filters .filter-employee { width: 460px; flex: none; }
 
+/* No extra space above / under the inputs: they stand on the line of the switch and the buttons.
+   (Class repeated on purpose: MudBlazor's own margin rule for labelled inputs is more specific.) */
+div.page-filters .mud-input-control.mud-input-control {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
 /* Outlined inputs sit on the tinted page: give them the white of the cards. */
 .page-filters .mud-input-outlined {
 	background: var(--mud-palette-surface);
@@ -535,29 +528,6 @@
 }
 
 /* Employee picker (Shared/EmployeePicker.razor), on every page that asks for an employee. */
-
-/* On the plain-HTML report pages the picker sits in the row of the old filters. */
-.filters .filter-employee-box {
-	width: 460px;
-	max-width: 100%;
-}
-
-.filters .filter-employee-box .mud-input-outlined {
-	background: var(--mud-palette-surface);
-}
-
-/* Same line as the plain year / month boxes and buttons of that row: the picker loses the
-   margins MudBlazor adds around an input, and the plain controls take its height (40px). */
-div.filters .filter-employee-box .mud-input-control {
-	margin-top: 0;
-	margin-bottom: 0;
-}
-
-.filters:has(.filter-employee-box) select,
-.filters:has(.filter-employee-box) button {
-	height: 40px;
-	box-sizing: border-box;
-}
 
 /* One option: the name, then the speciality dimmed. */
 .employee-option {
@@ -934,61 +904,10 @@ mark.search-hit {
 	border: 1px solid var(--mud-palette-lines-default);
 }
 
-/* ---------- 7. Page rules of the pages not migrated yet ------------------ */
-
-.filters {
-	display: flex;
-	gap: 16px;
-	align-items: end;
-	flex-wrap: wrap;
-	margin-bottom: 16px;
-}
-
-.filters label {
-	display: flex;
-	flex-direction: column;
-	font-size: .85rem;
-	gap: 4px;
-}
-
-.filters select, .filters button {
-	padding: 6px;
-}
-
-table.grid {
-	border-collapse: collapse;
-	width: 420px;
-}
-
-table.grid th, table.grid td {
-	border: 1px solid #ccc;
-	padding: 4px 8px;
-	text-align: left;
-}
-
-.actions {
-	margin-top: 14px;
-	display: flex;
-	gap: 12px;
-	align-items: center;
-}
-
-.ok {
-	color: #2e7d32;
-	font-weight: 600;
-}
+/* ---------- 7. Report tables (individual sheet, hours report) ------------ */
 
 button {
 	cursor: pointer;
-}
-
-.linklike {
-	background: none;
-	border: none;
-	color: var(--mud-palette-primary);
-	text-decoration: underline;
-	cursor: pointer;
-	padding: 0;
 }
 
 /* Shared table look of the individual sheet and the hours report. */
@@ -1091,203 +1010,6 @@ table.indiv.sheet th {
 	padding: 6px 8px;
 }
 
-.filters .chk {
-	flex-direction: row;
-	align-items: center;
-	gap: 6px;
-}
-
-.master-detail {
-	display: flex;
-	gap: 20px;
-	margin-top: 14px;
-	align-items: flex-start;
-}
-
-.emp-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	width: 260px;
-	border: 1px solid #ccc;
-	border-radius: 6px;
-	max-height: 60vh;
-	overflow-y: auto;
-}
-
-.emp-list li {
-	padding: 8px 10px;
-	cursor: pointer;
-	border-bottom: 1px solid #eee;
-}
-
-.emp-list li:hover {
-	background: #f2f6fc;
-}
-
-.emp-list li.sel {
-	background: #d9e1f2;
-	font-weight: 600;
-}
-
-.emp-list li.inactive {
-	color: #999;
-	font-style: italic;
-}
-
-.emp-list li .tag {
-	font-size: .7rem;
-	background: #eee;
-	padding: 1px 6px;
-	border-radius: 8px;
-	margin-left: 6px;
-}
-
-.emp-list li.muted {
-	color: #999;
-	cursor: default;
-}
-
-.emp-form {
-	flex: 1;
-	max-width: 360px;
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
-}
-
-.emp-form label {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	font-size: .9rem;
-}
-
-.emp-form input, .emp-form select {
-	padding: 6px;
-}
-
-.emp-form .actions {
-	display: flex;
-	gap: 10px;
-	align-items: center;
-	margin-top: 6px;
-}
-
-.emp-form .danger {
-	background: #c0392b;
-	color: #fff;
-	border: none;
-	border-radius: 6px;
-	padding: 8px 12px;
-}
-
-.validation-message {
-	color: #c0392b;
-	font-size: .8rem;
-}
-
-.grid {
-	width: auto;
-	min-width: 360px;
-	border-collapse: collapse;
-}
-.emp-form .warning {
-	background: #fff3cd;
-	color: #7a5c00;
-	border: 1px solid #ffe08a;
-	border-radius: 6px;
-	padding: 8px 10px;
-	font-size: .85rem;
-}
-
-.emp-form .error {
-	color: #c0392b;
-	font-size: .85rem;
-}
-/* Tabs (Παράμετροι Εργαζομένων): simple button row sitting on a bottom border. */
-.tabs {
-	display: flex;
-	gap: 4px;
-	border-bottom: 1px solid #ccc;
-	margin-bottom: 12px;
-}
-
-.tabs .tab {
-	padding: 6px 14px;
-	border: 1px solid #ccc;
-	border-bottom: none;
-	border-radius: 6px 6px 0 0;
-	background: #f4f4f4;
-	cursor: pointer;
-}
-
-/* Active tab overlaps the row border so it looks "attached" to the content. */
-.tabs .tab.active {
-	background: #fff;
-	font-weight: 600;
-	margin-bottom: -1px;
-}
-
-/* Small informational line under a form field (e.g. shift duration / Day-Night suggestion). */
-.emp-form .hint {
-	color: #555;
-	font-size: .85rem;
-}
-
-/* A link-like button after a hint text needs a little distance from it. */
-.emp-form .hint .linklike {
-	margin-left: 6px;
-}
-
-/* Shift-code form: wider, to fit the day × category hours grid. */
-.emp-form.wide {
-	max-width: 640px;
-}
-
-.emp-form .split-title {
-	font-size: .9rem;
-	margin-top: 4px;
-}
-
-/* Day × pay-category grid of a shift code (Παράμετροι Βαρδιών). */
-.hours-grid {
-	border-collapse: collapse;
-	font-size: .8rem;
-}
-
-.hours-grid th, .hours-grid td {
-	border: 1px solid #ccc;
-	padding: 3px 4px;
-	text-align: center;
-}
-
-.hours-grid th {
-	background: #f0f3f7;
-	font-weight: 600;
-}
-
-.hours-grid td.day {
-	text-align: left;
-	white-space: nowrap;
-}
-
-.hours-grid td.total {
-	font-weight: 600;
-}
-
-/* Cells: compact number inputs (overrides .emp-form input padding). */
-.emp-form .hours-grid input[type=number] {
-	width: 56px;
-	padding: 3px;
-}
-
-/* A kind of day the code is not allowed on: greyed out. */
-.hours-grid tr.off td {
-	color: #999;
-	background: #fafafa;
-}
-
 /* Monthly hours report (screen version). */
 table.hours-report {
 	font-size: .8rem;
@@ -1307,11 +1029,6 @@ table.hours-report td.over {
 table.hours-report tr.totals td {
 	background: var(--hours-cat, #e2efda);
 	font-weight: 600;
-}
-
-p.hint {
-	color: #555;
-	font-size: .85rem;
 }
 
 /* Help drawer (right side of MainLayout): a hairline instead of a shadow, like the top bar. */
@@ -1395,4 +1112,411 @@ p.hint {
 
 .help-body li {
 	margin-bottom: 5px;
+}
+
+/* ---------- 8. Reports (Shared/ReportToolbar.razor + the report pages) ---- */
+
+/* Month, the page's own filters and the buttons in one row; they wrap on a narrow window. */
+.report-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+}
+
+/* MudBlazor inputs take the full width of their parent, so each one gets a width here. */
+.report-bar .report-month { width: 200px; flex: none; }
+/* The employee box gives way first on a narrow window (down to 260px), before the row wraps. */
+.report-bar .report-employee { flex: 1 1 260px; max-width: 420px; }
+
+/* No extra space above / under the inputs: they stand on the line of the buttons.
+   (Class repeated on purpose: MudBlazor's own margin rule for labelled inputs is more specific.) */
+div.report-bar .mud-input-control.mud-input-control {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+/* Outlined inputs sit on the tinted page: give them the white of the cards. */
+.report-bar .mud-input-outlined {
+	background: var(--mud-palette-surface);
+	border-radius: var(--mud-default-borderradius);
+}
+
+/* Same height as the dense outlined inputs next to them. */
+.report-bar .mud-button-root {
+	height: 40px;
+}
+
+/* Pushes the two export buttons to the right end of the row. */
+.report-bar-gap {
+	flex: 1 1 12px;
+}
+
+/* Place of the progress bar: always there, so the page does not jump when the bar shows. */
+.report-progress {
+	height: 4px;
+	margin: 8px 0 14px;
+}
+
+.report-alert {
+	margin-bottom: 12px;
+}
+
+.report-note {
+	margin-top: 10px;
+	color: var(--mud-palette-text-secondary);
+}
+
+/* Tabs that only choose which PDF is shown: no panel of their own under the tab bar. */
+.report-sheets {
+	margin-bottom: 12px;
+}
+
+.report-sheets .mud-tabs-panels {
+	display: none;
+}
+
+/* Inline PDF (Shared/PdfPreview.razor). */
+.pdf-preview {
+	display: block;
+	width: 100%;
+	height: 75vh;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 12px;
+	background: var(--mud-palette-surface);
+}
+
+/* Monthly hours report on screen: the table scrolls inside this box, while the two header
+   rows and the first two columns (number, name) stay in view. */
+.hours-scroll {
+	max-height: calc(100vh - 300px);
+	min-height: 260px;
+	overflow: auto;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 12px;
+	background: var(--mud-palette-surface);
+}
+
+/* Separate borders: with collapsed borders a sticky cell leaves its lines behind when it scrolls. */
+.hours-scroll table.hours-report {
+	width: 100%;
+	min-width: max-content;
+	border-collapse: separate;
+	border-spacing: 0;
+}
+
+.hours-scroll table.hours-report th,
+.hours-scroll table.hours-report td {
+	border: 0;
+	border-right: 1px solid var(--mud-palette-table-lines);
+	border-bottom: 1px solid var(--mud-palette-table-lines);
+	padding: 5px 9px;
+	text-align: center;
+	white-space: nowrap;
+}
+
+.hours-scroll table.hours-report td.lft {
+	text-align: left;
+}
+
+/* Fixed row height, so the second header row knows where the first one ends. */
+.hours-scroll table.hours-report thead th {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	height: 32px;
+	box-sizing: border-box;
+	background: var(--mud-palette-background-gray);
+	font-weight: 700;
+}
+
+.hours-scroll table.hours-report thead tr:nth-child(2) th {
+	top: 32px;
+}
+
+/* Pinned columns: number (fixed width) and, right after it, the name. */
+.hours-scroll table.hours-report .pin-index,
+.hours-scroll table.hours-report .pin-name,
+.hours-scroll table.hours-report .pin-total {
+	position: sticky;
+	left: 0;
+	z-index: 1;
+}
+
+.hours-scroll table.hours-report .pin-index {
+	width: 48px;
+	min-width: 48px;
+	max-width: 48px;
+	box-sizing: border-box;
+}
+
+.hours-scroll table.hours-report .pin-name {
+	left: 48px;
+}
+
+/* A pinned body cell needs its own background, or the scrolling cells show through it. */
+.hours-scroll table.hours-report tbody td.pin-index,
+.hours-scroll table.hours-report tbody td.pin-name {
+	background: var(--mud-palette-surface);
+}
+
+/* Corner cells: above both the header rows and the pinned columns. */
+.hours-scroll table.hours-report thead th.pin-index,
+.hours-scroll table.hours-report thead th.pin-name {
+	z-index: 3;
+}
+
+/* ---------- 9. Master-detail (Employees, parameter editors) --------------- */
+
+/* Width of the speciality filter in the page head (Pages/Employees.razor). */
+.page-filters .filter-speciality { width: 260px; flex: none; }
+
+/* Filters and buttons of an editor that lives inside a tab (no page head of its own). */
+.md-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 16px;
+}
+
+/* A select grows to fill its row by default; here it keeps the width of a year. */
+.md-bar > .mud-select { flex: 0 0 120px; }
+
+div.md-bar .mud-input-control.mud-input-control {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+.md-bar .mud-input-outlined {
+	background: var(--mud-palette-surface);
+	border-radius: var(--mud-default-borderradius);
+}
+
+.md-bar .mud-button-root {
+	height: 40px;
+}
+
+/* List on the left, form on the right; one under the other on a narrow window. */
+.md-grid {
+	display: grid;
+	grid-template-columns: minmax(260px, 340px) minmax(320px, 560px);
+	gap: 18px;
+	align-items: start;
+}
+
+@media (max-width: 900px) {
+	.md-grid { grid-template-columns: 1fr; }
+}
+
+/* The list scrolls inside its card, so the form next to it stays in view. */
+.md-list {
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 16px;
+	max-height: calc(100vh - 220px);
+	overflow-y: auto;
+}
+
+.md-list-head {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	padding: 10px 16px;
+	border-bottom: 1px solid var(--mud-palette-lines-default);
+	background: var(--mud-palette-surface);
+	color: var(--mud-palette-text-secondary);
+	font-size: .8rem;
+	font-weight: 700;
+}
+
+.md-list-empty {
+	padding: 18px 16px;
+	color: var(--mud-palette-text-secondary);
+}
+
+/* Name on the left, "inactive" tag on the right. */
+.md-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	width: 100%;
+}
+
+/* Second, dimmed text of a row (e.g. the date of a holiday). */
+.md-item-side {
+	flex: none;
+	color: var(--mud-palette-text-secondary);
+	font-size: .82rem;
+}
+
+.md-list .md-inactive {
+	color: var(--mud-palette-text-secondary);
+}
+
+/* Small outlined pill: "inactive" next to a name. */
+.md-tag {
+	flex: none;
+	padding: 1px 9px;
+	border: 1px solid var(--mud-palette-lines-inputs);
+	border-radius: 999px;
+	color: var(--mud-palette-text-secondary);
+	font-size: .72rem;
+	font-weight: 600;
+	line-height: 1.5;
+	white-space: nowrap;
+}
+
+.md-form {
+	padding: 18px 20px 20px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 16px;
+}
+
+.md-form-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 14px;
+}
+
+.md-fields {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+/* Two fields per row (hour limits). */
+.md-fields.md-two {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 6px 16px;
+}
+
+/* The limits form stands alone (no list next to it): keep it at a readable width. */
+.md-form.md-limits {
+	max-width: 720px;
+}
+
+.md-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-top: 18px;
+}
+
+.md-form .md-alert {
+	margin-top: 12px;
+}
+
+.md-note {
+	margin-top: 10px;
+	color: var(--mud-palette-text-secondary);
+}
+
+/* The "pick a row" card next to the list: same place and width as the form. */
+.empty-state.md-hint {
+	padding: 40px 24px;
+}
+
+/* Shift codes (Pages/ShiftCodes.razor): a wider form, for the day × category hours grid. */
+.md-grid.md-wide {
+	grid-template-columns: minmax(240px, 320px) minmax(420px, 820px);
+}
+
+/* Code of a shift in the list: a small box of fixed width, so the descriptions line up. */
+.md-code {
+	flex: none;
+	min-width: 34px;
+	padding: 1px 6px;
+	border-radius: 6px;
+	background: var(--mud-palette-background-gray);
+	color: var(--mud-palette-text-primary);
+	font-weight: 700;
+	font-size: .82rem;
+	text-align: center;
+}
+
+.md-item-text {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* Fields side by side in a form (they wrap on a narrow window). */
+.md-row {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+	gap: 6px 14px;
+}
+
+/* Short code, long description. */
+.md-row.md-code-row {
+	grid-template-columns: 150px minmax(0, 1fr);
+}
+
+.md-section {
+	margin: 18px 0 8px;
+}
+
+.md-days {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.md-days .mud-chip {
+	margin: 0;
+}
+
+/* Day × pay-category grid of a shift code: a number box in every cell. */
+.md-split-scroll {
+	overflow-x: auto;
+}
+
+.md-split {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: 0;
+	border: 1px solid var(--mud-palette-table-lines);
+	border-radius: 12px;
+	overflow: hidden;
+	font-size: .85rem;
+}
+
+.md-split th,
+.md-split td {
+	padding: 6px 8px;
+	border-bottom: 1px solid var(--mud-palette-table-lines);
+	text-align: center;
+	vertical-align: middle;
+}
+
+.md-split tbody tr:last-child td {
+	border-bottom: 0;
+}
+
+.md-split th {
+	background: var(--mud-palette-background-gray);
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.md-split td.day {
+	text-align: left;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.md-split td.total {
+	font-weight: 700;
+}
+
+/* The number boxes: narrow, centred text, no room kept for a label or a helper line. */
+.md-split .mud-input-control.mud-input-control {
+	margin: 0;
+	min-width: 72px;
+}
+
+.md-split .mud-input-control input {
+	text-align: center;
 }
