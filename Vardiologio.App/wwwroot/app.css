@@ -1,44 +1,572 @@
-﻿body {
-	font-family: Segoe UI, Arial, sans-serif;
-	margin: 0;
-	color: #222;
+﻿/* ==========================================================================
+   Βαρδιολόγιο — the app's own styles, loaded after MudBlazor's (see index.html).
+
+   1. Font            Manrope, bundled (the app works offline)
+   2. Shell           top bar, side menu, content area (Layout/MainLayout.razor)
+   3. Login           Layout/LoginLayout.razor + Pages/Login.razor
+   4. Legacy pages    plain-HTML pages not yet moved to MudBlazor components
+   5. Shift entry     Pages/ShiftEntry.razor
+   6. Page rules      the existing rules of the pages not migrated yet
+
+   Colours come from the theme (Theme/AppTheme.cs) through MudBlazor's CSS variables,
+   e.g. var(--mud-palette-primary), so a change there is picked up here as well.
+   ========================================================================== */
+
+/* ---------- 1. Font ------------------------------------------------------ */
+
+/* Variable font (weights 200–800 in one file), split by script like Google Fonts does:
+   the browser downloads a file only when the page has characters in its unicode-range.
+   Licence: SIL Open Font License 1.1 (fonts/Manrope-OFL.txt). */
+@font-face {
+	font-family: 'Manrope';
+	font-style: normal;
+	font-weight: 200 800;
+	font-display: swap;
+	src: url('fonts/manrope-greek-wght-normal.woff2') format('woff2');
+	unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
 }
 
-.page {
+@font-face {
+	font-family: 'Manrope';
+	font-style: normal;
+	font-weight: 200 800;
+	font-display: swap;
+	src: url('fonts/manrope-latin-wght-normal.woff2') format('woff2');
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ---------- 2. Shell ----------------------------------------------------- */
+
+/* Top bar: flat, separated from the page by a hairline instead of a shadow. */
+.app-bar {
+	border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+/* Rounded square with the app icon (top bar; larger on the login card). */
+.brand-mark {
+	width: 40px;
+	height: 40px;
+	flex: none;
+	border-radius: 12px;
+	background: var(--mud-palette-primary);
+	color: var(--mud-palette-primary-text);
 	display: flex;
-	min-height: 100vh;
+	align-items: center;
+	justify-content: center;
+	margin-right: 12px;
 }
 
-.sidebar {
-	width: 210px;
-	background: #1f3a5f;
-	color: #fff;
-	padding: 16px;
+.brand-mark.brand-mark-lg {
+	width: 60px;
+	height: 60px;
+	border-radius: 18px;
+	margin-right: 0;
 }
 
-.sidebar .brand {
+/* Outlined square button of the top bar (help). */
+.bar-btn.mud-icon-button {
+	width: 44px;
+	height: 44px;
+	border-radius: 12px;
+	border-color: var(--mud-palette-lines-default);
+	color: var(--mud-palette-text-primary);
+}
+
+/* Signed-in user: name + sign-out inside one outlined pill. */
+.user-box {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-left: 10px;
+	padding: 4px 6px 4px 14px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 12px;
+}
+
+/* Tonal (soft) button instead of a solid one, so it does not compete with page actions. */
+.user-box .logout-btn {
+	height: 36px;
+	border-radius: 9px;
+	background: var(--mud-palette-background-gray);
+	color: var(--mud-palette-secondary);
+}
+
+.user-box .logout-btn:hover {
+	background: var(--mud-palette-lines-default);
+}
+
+/* Side menu: same colour as the page (no card), entries with air around them. */
+.app-drawer .app-nav {
+	padding: 8px 14px 20px;
+}
+
+/* Section title: small icon + label above a group of entries. */
+.nav-section {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 18px 10px 6px;
+	font-size: .75rem;
 	font-weight: 700;
-	font-size: 1.1rem;
-	margin-bottom: 20px;
+	color: var(--mud-palette-text-secondary);
 }
 
-.sidebar .nav-item {
-	display: block;
-	color: #dbe6f5;
-	text-decoration: none;
-	padding: 8px;
-	border-radius: 6px;
+.app-nav .mud-nav-link {
+	padding: 9px 12px;
+	font-weight: 500;
+	line-height: 1.4;
 }
 
-.sidebar .nav-item.active {
-	background: #33557f;
-	color: #fff;
+/* Current page: solid brand colour with white text (MudBlazor's default is a light tint). */
+.app-nav.mud-navmenu .mud-nav-link.active:not(.mud-nav-link-disabled),
+.app-nav.mud-navmenu .mud-nav-link.active:not(.mud-nav-link-disabled):hover {
+	background-color: var(--mud-palette-primary);
+	color: var(--mud-palette-primary-text);
+	font-weight: 700 !important;
 }
 
-.content {
-	flex: 1;
-	padding: 20px;
+/* Thin line between the plain reports and the three official forms. */
+.app-nav .nav-divider {
+	width: auto;
+	margin: 6px 12px;
 }
+
+/* Page area. */
+.app-content {
+	padding: 24px 28px 32px 14px;
+}
+
+/* ---------- 3. Login ----------------------------------------------------- */
+
+.login-shell {
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 32px;
+}
+
+.login-card {
+	width: 100%;
+	max-width: 420px;
+	padding: 36px 36px 32px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 24px;
+	box-shadow: 0 18px 40px rgba(29, 27, 46, .08);
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+}
+
+.login-brand {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+	text-align: center;
+	margin-bottom: 4px;
+}
+
+.login-brand .brand-mark {
+	margin-bottom: 8px;
+}
+
+.login-sub {
+	color: var(--mud-palette-text-secondary);
+}
+
+/* Credits fixed to the bottom-right corner of the login screen. */
+.login-credits {
+	position: fixed;
+	right: 32px;
+	bottom: 24px;
+	text-align: right;
+	font-size: .8rem;
+	color: var(--mud-palette-text-secondary);
+	line-height: 1.5;
+}
+
+.login-credits .app-name {
+	font-weight: 700;
+	color: var(--mud-palette-text-primary);
+}
+
+.login-credits .app-version {
+	font-weight: 400;
+	color: var(--mud-palette-text-secondary);
+}
+
+.login-credits a {
+	color: var(--mud-palette-secondary);
+	text-decoration: underline;
+}
+
+/* Administrator sign-in dialog (Shared/DbExportButton.razor): space between its fields. */
+.admin-fields {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+/* ---------- 4. Legacy pages ---------------------------------------------- */
+
+/* MudBlazor resets every element (no margins, no borders, bare buttons), which is right for its
+   own components but leaves the plain-HTML pages without headings spacing, input borders and
+   visible buttons. These rules give those elements sensible defaults again.
+
+   - Scope: only inside .legacy (the page area in MainLayout) and the help panel.
+   - :not([class*="mud-"]) skips MudBlazor's own elements, so a page can be moved to MudBlazor
+     components one piece at a time.
+   - :where() keeps the specificity at "one element", so every class rule further down
+     (.filters select, .emp-form .danger, ...) still wins exactly as before.
+
+   Delete this block when the last page has been migrated. */
+
+:where(.legacy) h1:where(:not([class*="mud-"])) {
+	font-size: 1.75rem;
+	font-weight: 800;
+	letter-spacing: -.02em;
+	line-height: 1.2;
+	margin: 0 0 18px;
+}
+
+:where(.legacy) h2:where(:not([class*="mud-"])) {
+	font-size: 1.2rem;
+	font-weight: 800;
+	margin: 0 0 10px;
+}
+
+:where(.legacy, .help-body) h3:where(:not([class*="mud-"])) {
+	font-size: 1rem;
+	font-weight: 700;
+	margin: 14px 0 6px;
+}
+
+:where(.legacy, .help-body) p:where(:not([class*="mud-"])) {
+	margin: 0 0 10px;
+}
+
+:where(.legacy, .help-body) :is(ul, ol):where(:not([class*="mud-"])) {
+	margin: 0 0 10px;
+	padding-left: 22px;
+}
+
+:where(.legacy) a:where(:not([class*="mud-"])) {
+	color: var(--mud-palette-primary);
+	text-decoration: underline;
+}
+
+/* Text boxes and drop-downs (check boxes and radio buttons keep the browser's look). */
+:where(.legacy) :is(input:not([type=checkbox], [type=radio]), select, textarea):where(:not([class*="mud-"])) {
+	border: 1px solid var(--mud-palette-lines-inputs);
+	border-radius: 8px;
+	padding: 6px 8px;
+	background: var(--mud-palette-surface);
+	color: var(--mud-palette-text-primary);
+}
+
+:where(.legacy) :is(input, select, textarea):where(:not([class*="mud-"])):focus {
+	outline: 2px solid var(--mud-palette-primary);
+	outline-offset: 0;
+}
+
+:where(.legacy) :is(input, select, textarea):where(:not([class*="mud-"])):disabled {
+	background: var(--mud-palette-background);
+	color: var(--mud-palette-text-secondary);
+}
+
+/* Buttons: a neutral outlined button (pages style their special ones with classes). */
+:where(.legacy) button:where(:not([class*="mud-"])) {
+	border: 1px solid var(--mud-palette-lines-inputs);
+	border-radius: 10px;
+	padding: 7px 14px;
+	background: var(--mud-palette-surface);
+	color: var(--mud-palette-text-primary);
+	font-weight: 600;
+}
+
+:where(.legacy) button:where(:not([class*="mud-"])):hover:not(:disabled) {
+	border-color: var(--mud-palette-primary);
+	color: var(--mud-palette-primary);
+}
+
+:where(.legacy) button:where(:not([class*="mud-"])):disabled {
+	opacity: .55;
+	cursor: default;
+}
+
+/* Tables and the master list were drawn on a white page; the page is tinted now, so they
+   get their own white background. */
+:where(.legacy) table:where(:not([class*="mud-"])),
+:where(.legacy) .emp-list {
+	background: var(--mud-palette-surface);
+}
+
+/* ---------- 5. Shift entry (Pages/ShiftEntry.razor) ---------------------- */
+
+/* Title on the left, pickers on the right; they wrap under the title on a narrow window. */
+.page-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 16px;
+	margin-bottom: 18px;
+}
+
+.page-sub {
+	margin-top: 4px;
+	color: var(--mud-palette-text-secondary);
+}
+
+.page-filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+}
+
+/* MudBlazor inputs take the full width of their parent, so each picker gets a width here. */
+.page-filters .filter-year { width: 110px; flex: none; }
+.page-filters .filter-month { width: 170px; flex: none; }
+.page-filters .filter-employee { width: 340px; flex: none; }
+
+/* Outlined inputs sit on the tinted page: give them the white of the cards. */
+.page-filters .mud-input-outlined {
+	background: var(--mud-palette-surface);
+	border-radius: var(--mud-default-borderradius);
+}
+
+/* Same height as the dense outlined inputs next to it. */
+.page-filters .filter-load {
+	height: 40px;
+}
+
+/* Shown until a month is loaded. */
+.empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	padding: 56px 24px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 16px;
+	color: var(--mud-palette-text-secondary);
+	text-align: center;
+}
+
+/* Hours of the month: one tile per pay category. */
+.hour-tiles {
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	gap: 14px;
+	margin-bottom: 18px;
+}
+
+.hour-tile {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+	padding: 14px 16px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 16px;
+}
+
+.tile-label,
+.tile-note {
+	font-size: .75rem;
+	color: var(--mud-palette-text-secondary);
+}
+
+.tile-label {
+	font-weight: 700;
+}
+
+.tile-value {
+	font-weight: 600;
+	color: var(--mud-palette-text-secondary);
+	font-variant-numeric: tabular-nums;
+}
+
+.tile-num {
+	font-size: 1.625rem;
+	font-weight: 800;
+	letter-spacing: -.02em;
+	color: var(--mud-palette-text-primary);
+}
+
+.tile-over {
+	font-weight: 700;
+	color: var(--mud-palette-error);
+}
+
+/* The two halves of the month, side by side. */
+.fortnights {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 18px;
+	align-items: start;
+}
+
+.fortnight {
+	padding: 6px 0 8px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 16px;
+	overflow: hidden;
+}
+
+.fortnight-title {
+	padding: 12px 20px;
+}
+
+/* One day: number | weekday | code picker (+ warning) | kind of code. */
+.day-row {
+	display: grid;
+	grid-template-columns: 40px 96px minmax(0, 1fr) 84px;
+	align-items: center;
+	column-gap: 14px;
+	padding: 4px 20px;
+}
+
+.day-row.weekend {
+	background: #F7F6FC;
+}
+
+.day-row.holiday {
+	background: #FFF8EA;
+}
+
+.day-row.warn {
+	background: #FFF1DC;
+}
+
+/* Day of the month in a rounded square; tinted by the kind of day. */
+.day-num {
+	width: 40px;
+	height: 40px;
+	border-radius: 12px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1rem;
+	font-weight: 800;
+	font-variant-numeric: tabular-nums;
+	background: var(--mud-palette-background-gray);
+	color: var(--mud-palette-secondary);
+}
+
+.day-row.weekend .day-num {
+	background: var(--mud-palette-lines-default);
+	color: var(--mud-palette-drawer-text);
+}
+
+.day-row.holiday .day-num {
+	background: #FFEFD0;
+	color: #6B4500;
+}
+
+.day-name {
+	display: flex;
+	flex-direction: column;
+	font-weight: 600;
+	line-height: 1.25;
+}
+
+.day-kind {
+	font-size: .7rem;
+	font-weight: 700;
+	color: #6B4500;
+}
+
+.day-pick {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+/* The plain <select> of a day, sized and rounded like the rest of the page.
+   (.legacy gives it the border and the white background.) */
+.day-pick .day-select {
+	width: 100%;
+	height: 38px;
+	padding: 0 10px;
+	border-radius: 10px;
+	font-weight: 500;
+}
+
+.day-row.warn .day-select {
+	border-color: var(--mud-palette-warning);
+}
+
+.day-warn {
+	font-size: .75rem;
+	font-weight: 600;
+	color: #8A3B00;
+}
+
+/* Kind of the chosen code. The three kinds differ in lightness as well as hue,
+   and always carry their name, so they do not rely on colour alone. */
+.day-tag {
+	padding: 4px 0;
+	border-radius: 8px;
+	text-align: center;
+	font-size: .7rem;
+	font-weight: 700;
+}
+
+.day-tag.tag-day {
+	background: #FFEFD0;
+	color: #6B4500;
+}
+
+.day-tag.tag-night {
+	background: #2A2F8F;
+	color: #FFFFFF;
+}
+
+.day-tag.tag-status {
+	background: #E1F2EA;
+	color: #14573A;
+}
+
+/* Summary + save button; sticks to the bottom of the window while the days scroll. */
+.save-bar {
+	position: sticky;
+	bottom: 16px;
+	z-index: 2;
+	margin-top: 18px;
+	padding: 12px 14px 12px 20px;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 14px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 16px;
+	box-shadow: 0 10px 28px rgba(29, 27, 46, .10);
+}
+
+.save-info {
+	flex: 1 1 320px;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.save-warn {
+	font-weight: 700;
+	color: #8A3B00;
+}
+
+.save-note {
+	font-size: .75rem;
+	color: var(--mud-palette-text-secondary);
+}
+
+/* ---------- 6. Page rules of the pages not migrated yet ------------------ */
 
 .filters {
 	display: flex;
@@ -70,10 +598,6 @@ table.grid th, table.grid td {
 	text-align: left;
 }
 
-table.grid tr.sun {
-	background: #fce4d6;
-}
-
 .actions {
 	margin-top: 14px;
 	display: flex;
@@ -89,96 +613,11 @@ table.grid tr.sun {
 button {
 	cursor: pointer;
 }
-.login-shell {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	min-height: 100vh;
-	background: #eef2f7;
-}
-
-.login-card {
-	background: #fff;
-	padding: 28px 32px;
-	border-radius: 10px;
-	box-shadow: 0 4px 18px rgba(0,0,0,.12);
-	width: 300px;
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-}
-
-.login-card h2 {
-	margin: 0 0 8px;
-}
-
-.login-card label {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	font-size: .9rem;
-}
-
-.login-card input {
-	padding: 8px;
-}
-
-.login-card button {
-	padding: 9px;
-	background: #1f3a5f;
-	color: #fff;
-	border: none;
-	border-radius: 6px;
-}
-
-/* Credits fixed to the bottom-right corner of the login screen. */
-.login-credits {
-	position: fixed;
-	right: 24px;
-	bottom: 18px;
-	text-align: right;
-	font-size: .85rem;
-	color: #4a5a70;
-	line-height: 1.5;
-}
-
-.login-credits .app-name {
-	font-weight: 700;
-	font-size: 1rem;
-	color: #1f3a5f;
-}
-
-.login-credits .app-version {
-	font-weight: 400;
-	font-size: .85rem;
-	color: #4a5a70;
-}
-
-.login-credits a {
-	color: #1f3a5f;
-}
-
-.login-card .err {
-	color: #c00;
-	margin: 0;
-}
-
-.user-box {
-	margin-top: 24px;
-	padding-top: 12px;
-	border-top: 1px solid #33557f;
-}
-
-.user-name {
-	font-size: .9rem;
-	color: #dbe6f5;
-	margin-bottom: 6px;
-}
 
 .linklike {
 	background: none;
 	border: none;
-	color: #ffd;
+	color: var(--mud-palette-primary);
 	text-decoration: underline;
 	cursor: pointer;
 	padding: 0;
@@ -219,25 +658,6 @@ table.indiv.totals {
 
 table.indiv.totals td {
 	min-width: 70px;
-}
-/* Hidden by default; Blazor toggles it to visible only on an actual component error. */
-#blazor-error-ui {
-	display: none;
-	position: fixed;
-	bottom: 0;
-	left: 0;
-	right: 0;
-	background: #ffe0e0;
-	border-top: 1px solid #e0a0a0;
-	padding: 8px 16px;
-	font-size: .9rem;
-	box-shadow: 0 -2px 6px rgba(0,0,0,.1);
-	z-index: 1000;
-}
-
-#blazor-error-ui .reload {
-	color: #c00;
-	margin-left: 8px;
 }
 
 .filters .chk {
@@ -336,50 +756,10 @@ table.indiv.totals td {
 	font-size: .8rem;
 }
 
-.fortnights {
-	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 24px;
-	align-items: start;
-}
-
-.fortnight {
-	padding: 16px;
-	background: #fff;
-	border: 1px solid #e5e7eb;
-	border-radius: 10px;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-}
-
-.fortnight h2 {
-	align-self: stretch;
-	text-align: left;
-	margin: 0 0 12px;
-	font-size: 1.05rem;
-}
-
-.fortnight table.grid {
-	margin: 0 auto;
-}
-
 .grid {
 	width: auto;
 	min-width: 360px;
 	border-collapse: collapse;
-}
-
-
-@media (max-width: 800px) {
-	.fortnights {
-		grid-template-columns: 1fr;
-	}
-}
-.settings-box {
-	margin-top: 24px;
-	padding-top: 12px;
-	border-top: 1px solid #33557f;
 }
 .emp-form .warning {
 	background: #fff3cd;
@@ -424,9 +804,8 @@ table.indiv.totals td {
 	font-size: .85rem;
 }
 
-/* .linklike is styled for the dark sidebar; inside the light form it needs a dark colour. */
+/* A link-like button after a hint text needs a little distance from it. */
 .emp-form .hint .linklike {
-	color: #1f4e79;
 	margin-left: 6px;
 }
 
@@ -478,40 +857,6 @@ table.indiv.totals td {
 	background: #fafafa;
 }
 
-/* Shift entry: a day with a warning (code not allowed that day, 12 on the 1st, ...). */
-table.grid tr.warn td {
-	background: #fff4e0;
-}
-
-.day-warn {
-	color: #9a5b00;
-	font-size: .8rem;
-	margin-top: 2px;
-	max-width: 320px;
-}
-
-/* Shift entry: month's hours per category; over-limit rows highlighted. */
-.month-hours {
-	margin-top: 16px;
-	max-width: 640px;
-}
-
-.month-hours h2 {
-	font-size: 1.1rem;
-	margin: 0 0 6px;
-}
-
-.month-hours tr.over td {
-	background: #fde2e1;
-	font-weight: 600;
-}
-
-.month-hours .hint {
-	color: #555;
-	font-size: .85rem;
-	margin-top: 6px;
-}
-
 /* Monthly hours report (screen version). */
 table.hours-report {
 	font-size: .8rem;
@@ -535,28 +880,6 @@ table.hours-report tr.totals td {
 p.hint {
 	color: #555;
 	font-size: .85rem;
-}
-
-/* Context help: round "?" button fixed at the top-right of every page. */
-.help-btn {
-	position: fixed;
-	top: 14px;
-	right: 18px;
-	z-index: 900;
-	width: 34px;
-	height: 34px;
-	border-radius: 50%;
-	border: none;
-	background: #1f4e79;
-	color: #fff;
-	font-size: 1.1rem;
-	font-weight: 700;
-	cursor: pointer;
-	box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
-}
-
-.help-btn:hover {
-	background: #2b6aa3;
 }
 
 /* Dimmed background; a click on it closes the panel. */
@@ -586,8 +909,8 @@ p.hint {
 	align-items: center;
 	justify-content: space-between;
 	padding: 12px 16px;
-	background: #1f4e79;
-	color: #fff;
+	background: var(--mud-palette-primary);
+	color: var(--mud-palette-primary-text);
 }
 
 .help-head h2 {
@@ -614,7 +937,7 @@ p.hint {
 .help-body h3 {
 	font-size: .95rem;
 	margin: 14px 0 6px;
-	color: #1f4e79;
+	color: var(--mud-palette-primary);
 }
 
 .help-body ol, .help-body ul {
@@ -624,132 +947,4 @@ p.hint {
 
 .help-body li {
 	margin-bottom: 5px;
-}
-
-/* Reports & forms section of the sidebar (same separator as .settings-box). */
-.reports-box {
-	margin-top: 24px;
-	padding-top: 12px;
-	border-top: 1px solid #33557f;
-}
-
-/* The two official forms: a slightly darker tone than the sidebar, so they stand out a little. */
-.sidebar .nav-item.official {
-	background: rgba(0, 0, 0, .14);
-	margin-top: 2px;
-}
-
-.sidebar .nav-item.official.active {
-	background: #33557f;
-}
-
-/* Section title in the sidebar (all sections): small caps-like label, aligned with the
-   entries' text (.nav-item has 8px padding). */
-.sidebar .box-title {
-	font-size: .75rem;
-	text-transform: uppercase;
-	letter-spacing: .04em;
-	opacity: .7;
-	padding: 0 8px 6px;
-}
-
-/* Administrator section at the bottom of the sidebar (same separator as .settings-box). */
-.admin-box {
-	margin-top: 24px;
-	padding-top: 12px;
-	border-top: 1px solid #33557f;
-}
-
-/* A <button> that looks like the sidebar's NavLink items. */
-.sidebar .nav-button {
-	width: 100%;
-	background: none;
-	border: none;
-	font: inherit;
-	text-align: left;
-	cursor: pointer;
-}
-
-.sidebar .nav-button:hover {
-	background: #33557f;
-	color: #fff;
-}
-
-/* Administrator sign-in dialog: dimmed background + centred card. */
-.admin-overlay {
-	position: fixed;
-	inset: 0;
-	z-index: 950;
-	background: rgba(0, 0, 0, .35);
-}
-
-.admin-dialog {
-	position: fixed;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	z-index: 1000;
-	width: min(340px, 90vw);
-	background: #fff;
-	color: #222;
-	padding: 24px 28px;
-	border-radius: 10px;
-	box-shadow: 0 6px 24px rgba(0, 0, 0, .25);
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-}
-
-.admin-dialog h2 {
-	margin: 0;
-	font-size: 1.1rem;
-	color: #1f3a5f;
-}
-
-.admin-dialog .admin-note {
-	margin: 0;
-	font-size: .85rem;
-	color: #555;
-}
-
-.admin-dialog label {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	font-size: .9rem;
-}
-
-.admin-dialog input {
-	padding: 8px;
-}
-
-.admin-dialog input[readonly] {
-	background: #f1f3f6;
-	color: #555;
-}
-
-.admin-dialog .err {
-	color: #c00;
-	margin: 0;
-	font-size: .9rem;
-}
-
-.admin-actions {
-	display: flex;
-	justify-content: flex-end;
-	gap: 8px;
-}
-
-.admin-actions button {
-	padding: 8px 16px;
-	border: none;
-	border-radius: 6px;
-	background: #1f3a5f;
-	color: #fff;
-	cursor: pointer;
-}
-
-.admin-actions button.secondary {
-	background: #e3e8ef;
-	color: #1f3a5f;
 }

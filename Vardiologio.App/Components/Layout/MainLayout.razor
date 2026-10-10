@@ -4,57 +4,81 @@
 @inject NavigationManager Nav
 @implements IDisposable
 
-@* Shell (sidebar + content) shown only when signed in; otherwise the guard below redirects to /login. *@
+@* Shell (top bar + side menu + content) shown only when signed in; otherwise the guard below
+   redirects to /login. Colours and sizes come from Theme/AppTheme.cs; the few extra rules
+   (.app-bar, .app-drawer, ...) are in wwwroot/app.css. *@
 @if (Session.IsAuthenticated)
 {
-    <div class="page">
-        <nav class="sidebar">
-            <div class="brand">Βαρδιολόγιο</div>
-
-            @* Every section has the same shape: a small title, then its entries (see .box-title in app.css). *@
-            <div class="menu-box">
-                <div class="box-title">Λειτουργίες</div>
-                <NavLink class="nav-item" href="employees">Εργαζόμενοι</NavLink>
-                @* Match.All so this is active only at "/", not on every route. *@
-                <NavLink class="nav-item" href="" Match="NavLinkMatch.All">Προγράμματα</NavLink>
+    <MudLayout>
+        @* Top bar: brand on the left; help, user and sign-out on the right. *@
+        <MudAppBar Elevation="0" Class="app-bar">
+            <div class="brand-mark">
+                <MudIcon Icon="@Icons.Material.Rounded.CalendarMonth" />
             </div>
-
-            @* Reports and forms together; the two official forms (emblem + signatures) have a slightly darker tone. *@
-            <div class="reports-box">
-                <div class="box-title">Αναφορές - Έντυπα</div>
-                <NavLink class="nav-item" href="export">Συνολική Μηνιαία</NavLink>
-                <NavLink class="nav-item" href="individual">Ατομική Μηνιαία</NavLink>
-                <NavLink class="nav-item" href="hours-report">Ωρών Μηνιαία</NavLink>
-                <NavLink class="nav-item official" href="shift-table">Πίνακας Βαρδιών Εργασίας</NavLink>
-                <NavLink class="nav-item official" href="attendance-report">Παρουσιών Προσωπικού</NavLink>
-                <NavLink class="nav-item official" href="overtime-certificate">Ατομικής Βεβαίωσης</NavLink>
-            </div>
-
-            <div class="settings-box">
-                <div class="box-title">Παράμετροι</div>
-                <NavLink class="nav-item" href="shift-codes">Βαρδιών</NavLink>
-                <NavLink class="nav-item" href="employee-parameters">Εργαζομένων</NavLink>
-                <NavLink class="nav-item" href="hours-parameters">Ωρών</NavLink>
-            </div>
-
-            @* Administrator-only tools; the entry opens its own sign-in dialog (Shared/DbExportButton.razor). *@
-            <div class="admin-box">
-                <div class="box-title">Διαχείριση</div>
-                <DbExportButton />
-            </div>
-
-            <div class="user-box">
-                <div class="box-title">Login</div>
-                <div class="user-name">@Session.Current!.DisplayName</div>
-                <button class="linklike" @onclick="Logout">Αποσύνδεση</button>
-            </div>
-        </nav>
-        <main class="content">
-            @* Context help for the current page (top-right "?"); texts in Shared/HelpContent.razor. *@
+            <MudText Typo="Typo.h6" Class="brand-name">Βαρδιολόγιο</MudText>
+            <MudSpacer />
+            @* Context help for the current page ("?"); texts in Shared/HelpContent.razor. *@
             <HelpButton />
-            @Body
-        </main>
-    </div>
+            <div class="user-box">
+                <MudText Typo="Typo.subtitle2">@Session.Current!.DisplayName</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           DropShadow="false" Class="logout-btn" OnClick="Logout">Αποσύνδεση</MudButton>
+            </div>
+        </MudAppBar>
+
+        @* Side menu: always open (the window is always maximised), placed under the top bar. *@
+        <MudDrawer Open="true" Variant="DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always"
+                   Elevation="0" Class="app-drawer">
+            <MudNavMenu Rounded="true" Margin="Margin.Dense" Class="app-nav">
+
+                @* Every section has the same shape: an icon + small title, then its entries. *@
+                <div class="nav-section">
+                    <MudIcon Icon="@Icons.Material.Rounded.GridView" Size="Size.Small" />
+                    <span>Λειτουργίες</span>
+                </div>
+                <MudNavLink Href="employees">Εργαζόμενοι</MudNavLink>
+                @* Match.All so this is active only at "/", not on every route. *@
+                <MudNavLink Href="" Match="NavLinkMatch.All">Προγράμματα</MudNavLink>
+
+                @* Reports and forms together; a thin line separates the three official forms
+                   (emblem + signatures) from the plain reports. *@
+                <div class="nav-section">
+                    <MudIcon Icon="@Icons.Material.Rounded.Description" Size="Size.Small" />
+                    <span>Αναφορές - Έντυπα</span>
+                </div>
+                <MudNavLink Href="export">Συνολική Μηνιαία</MudNavLink>
+                <MudNavLink Href="individual">Ατομική Μηνιαία</MudNavLink>
+                <MudNavLink Href="hours-report">Ωρών Μηνιαία</MudNavLink>
+                <MudDivider Class="nav-divider" />
+                <MudNavLink Href="shift-table">Πίνακας Βαρδιών Εργασίας</MudNavLink>
+                <MudNavLink Href="attendance-report">Παρουσιών Προσωπικού</MudNavLink>
+                <MudNavLink Href="overtime-certificate">Ατομικής Βεβαίωσης</MudNavLink>
+
+                <div class="nav-section">
+                    <MudIcon Icon="@Icons.Material.Rounded.Tune" Size="Size.Small" />
+                    <span>Παράμετροι</span>
+                </div>
+                <MudNavLink Href="shift-codes">Βαρδιών</MudNavLink>
+                <MudNavLink Href="employee-parameters">Εργαζομένων</MudNavLink>
+                <MudNavLink Href="hours-parameters">Ωρών</MudNavLink>
+
+                @* Administrator-only tools; the entry opens its own sign-in dialog (Shared/DbExportButton.razor). *@
+                <div class="nav-section">
+                    <MudIcon Icon="@Icons.Material.Rounded.Storage" Size="Size.Small" />
+                    <span>Διαχείριση</span>
+                </div>
+                <DbExportButton />
+            </MudNavMenu>
+        </MudDrawer>
+
+        <MudMainContent>
+            @* "legacy" restores plain-HTML defaults for pages not yet moved to MudBlazor components
+               (see the "Legacy pages" block in app.css). *@
+            <div class="app-content legacy">
+                @Body
+            </div>
+        </MudMainContent>
+    </MudLayout>
 }
 
 @code {

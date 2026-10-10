@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using MudBlazor.Services;
 using System.Windows;
 using Vardiologio.Application.Auth;
 using Vardiologio.Application.Employees;
@@ -57,6 +58,7 @@ public partial class App : System.Windows.Application
 #if DEBUG
 			services.AddBlazorWebViewDeveloperTools();
 #endif
+			services.AddMudServices(); // MudBlazor: dialogs, snackbars, pop-ups, JS interop
 			services.AddDbContextFactory<AppDbContext>(o => o.UseSqlite(AppPaths.ConnectionString));
 
 			// Application services

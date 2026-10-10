@@ -1,57 +1,58 @@
-@* Sidebar entry "Εισαγωγή / Εξαγωγή βάσης" and its administrator sign-in dialog.
+@* Side-menu entry "Εισαγωγή / Εξαγωγή βάσης" and its administrator sign-in dialog.
    Placeholder stage: the dialog exists so users can see the feature is coming,
    but every attempt is refused. The typed password is never checked, stored or
    logged; it is cleared after each attempt and when the dialog closes.
    Next stage: verify against an admin PBKDF2 hash (same scheme as UserStore)
    and, on success, run the actual database export. *@
-<button type="button" class="nav-item nav-button" @onclick="Open">Εισαγωγή / Εξαγωγή βάσης</button>
+<MudNavLink OnClick="Open">Εισαγωγή / Εξαγωγή βάσης</MudNavLink>
 
-@if (open)
-{
-    @* Dimmed background; a click on it cancels the dialog. *@
-    <div class="admin-overlay" @onclick="Close"></div>
-    <div class="admin-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title">
-        <h2 id="admin-dialog-title">Εισαγωγή / Εξαγωγή βάσης</h2>
-        <p class="admin-note">Η λειτουργία είναι διαθέσιμη μόνο στον διαχειριστή.</p>
-        <label>
-            Χρήστης
+@* Inline dialog: MudBlazor renders it in MudDialogProvider (Routes.razor), above the whole shell.
+   Escape or a click on the dimmed background closes it (-> OnVisibleChanged). *@
+<MudDialog Visible="open" VisibleChanged="OnVisibleChanged" Options="DialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Εισαγωγή / Εξαγωγή βάσης</MudText>
+    </TitleContent>
+    <DialogContent>
+        <div class="admin-fields">
+            <MudText Typo="Typo.body2">Η λειτουργία είναι διαθέσιμη μόνο στον διαχειριστή.</MudText>
             @* Fixed administrator account name; not editable. *@
-            <input type="text" value="@AdminUserName" readonly tabindex="-1" />
-        </label>
-        <label>
-            Κωδικός
-            @* oninput => value is current when Enter is pressed; autocomplete off => no saved passwords offered. *@
-            <input type="password" @ref="passwordInput" @bind="password" @bind:event="oninput"
-                   @onkeydown="OnKey" autocomplete="off" />
-        </label>
-        @if (denied)
-        {
-            <p class="err">Δεν έχετε πρόσβαση εισόδου.</p>
-        }
-        <div class="admin-actions">
-            <button type="button" class="secondary" @onclick="Close">Ακύρωση</button>
-            <button type="button" @onclick="Submit">Είσοδος</button>
+            <MudTextField T="string" Label="Χρήστης" Value="@AdminUserName" ReadOnly="true"
+                          Variant="Variant.Outlined" tabindex="-1" />
+            @* Immediate => value is current when Enter is pressed; autocomplete off => no saved passwords offered. *@
+            <MudTextField @ref="passwordField" T="string" Label="Κωδικός" @bind-Value="password" Immediate="true"
+                          InputType="InputType.Password" Variant="Variant.Outlined" AutoFocus="true"
+                          OnKeyDown="OnKey" autocomplete="off" />
+            @if (denied)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true">Δεν έχετε πρόσβαση εισόδου.</MudAlert>
+            }
         </div>
-    </div>
-}
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">Ακύρωση</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" OnClick="Submit">Είσοδος</MudButton>
+    </DialogActions>
+</MudDialog>
 
 @code {
     /// <summary>Administrator account name shown in the dialog.</summary>
     private const string AdminUserName = "admin";
 
+    /// <summary>Narrow dialog; Escape closes it.</summary>
+    private static readonly DialogOptions DialogOptions =
+        new() { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseOnEscapeKey = true };
+
     private bool open;          // dialog visible
     private bool denied;        // show the "no access" message
-    private bool focusPending;  // move focus to the password box after the next render
     private string password = "";
-    private ElementReference passwordInput;
+    private MudTextField<string>? passwordField;
 
-    /// <summary>Opens the dialog in a clean state.</summary>
+    /// <summary>Opens the dialog in a clean state (the password box takes focus by itself: AutoFocus).</summary>
     private void Open()
     {
         password = "";
         denied = false;
         open = true;
-        focusPending = true;
     }
 
     /// <summary>Closes the dialog and discards anything typed.</summary>
@@ -62,29 +63,26 @@
         password = "";
     }
 
-    /// <summary>Enter submits, Escape cancels.</summary>
-    private void OnKey(KeyboardEventArgs e)
+    /// <summary>Raised by the dialog when it closes itself (Escape, click on the background).</summary>
+    private void OnVisibleChanged(bool visible)
     {
-        if (e.Key == "Enter") Submit();
-        else if (e.Key == "Escape") Close();
+        if (!visible) Close();
+    }
+
+    /// <summary>Enter submits (Escape is handled by the dialog itself).</summary>
+    private async Task OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await Submit();
     }
 
     /// <summary>
     /// Placeholder: every attempt is refused. The password is cleared immediately
     /// and focus returns to the box so the user can try again or cancel.
     /// </summary>
-    private void Submit()
+    private async Task Submit()
     {
         denied = true;
         password = "";
-        focusPending = true;
-    }
-
-    /// <summary>Focuses the password box once it exists in the DOM.</summary>
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!open || !focusPending) return;
-        focusPending = false;
-        await passwordInput.FocusAsync();
+        if (passwordField is not null) await passwordField.FocusAsync();
     }
 }

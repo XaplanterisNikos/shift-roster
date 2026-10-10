@@ -1,10 +1,16 @@
-﻿namespace Vardiologio.Application.ShiftEntry;
+﻿using Vardiologio.Domain.Enums;
+
+namespace Vardiologio.Application.ShiftEntry;
 
 /// <summary>Employee option for the entry dropdown (Display = "LastName FirstName — Speciality").</summary>
 public record EmployeeListItem(int Id, string Display);
 
-/// <summary>Shift-code option for the day dropdown (Label = "Code — Description").</summary>
-public record ShiftCodeOption(int Id, string Label);
+/// <summary>
+/// Shift-code option for the day dropdown (Label = "Code — Description").
+/// Segment is the code's Day/Night classification, shown as a tag next to the day;
+/// null for status codes (leave, day off, ...), which have no time range.
+/// </summary>
+public record ShiftCodeOption(int Id, string Label, ShiftSegment? Segment);
 
 /// <summary>One day of the month in the entry grid.</summary>
 public class DayEntry

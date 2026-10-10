@@ -19,7 +19,8 @@ staff and producing the official attendance/shift reports.
   in existing entries prompts for confirmation, since it retroactively changes
   how those entries are interpreted.
 - **Daily shift entry** — pick an employee and month, assign a shift/status code
-  to each day (split into two fortnights).
+  to each day (split into two fortnights). The month's hours per pay category are shown
+  live against their limits, and days whose code is not allowed are flagged.
 - **Monthly roster report ** — one row per employee, one column per day,
   with per-program counts; exported to **Excel** and **PDF** (A3 landscape) or
   previewed inline.
@@ -44,6 +45,7 @@ staff and producing the official attendance/shift reports.
 
 - **.NET 10**, **C#**
 - **UI:** Blazor (Razor / HTML / CSS) hosted in **WPF** via **BlazorWebView (WebView2)** — a desktop app with a web UI
+- **Components & theme:** **MudBlazor 9** (Material Design) with the app's own theme; **Manrope** font bundled (works offline)
 - **Database:** **SQLite** through **EF Core** (code-first, migrations, seeding)
 - **Reports:** **ClosedXML** (Excel) and **QuestPDF** (PDF)
 - **DI:** `Microsoft.Extensions.DependencyInjection`
@@ -62,9 +64,29 @@ Vardiologio.Infrastructure implementations (EF Core, services, renderers, seedin
 The local database is created per-user at `%LOCALAPPDATA%\Vardiologio\vardiologio.db`;
 migrations and seeding run automatically at startup.
 
+## User interface
+
+The UI is being moved from hand-written HTML/CSS to **MudBlazor** components, one piece at a time,
+on the `ui/mudblazor` branch.
+
+- **Theme** — `Vardiologio.App/Theme/AppTheme.cs` holds the colours, typography and layout sizes.
+  `MudThemeProvider` applies it once in `Components/Routes.razor`; the app's stylesheet
+  (`wwwroot/app.css`) reads the same values through MudBlazor's CSS variables.
+- **Shell** — `Components/Layout/MainLayout.razor`: top bar (brand, help, user) and a side menu
+  grouped by section.
+- **Legacy pages** — pages that still use plain HTML keep working inside the new shell through the
+  "Legacy pages" block of `app.css`, which is deleted when the last page is migrated.
+
+| Area | State |
+|---|---|
+| Theme, shell, login, administrator dialog | MudBlazor |
+| Daily shift entry (Προγράμματα) | MudBlazor — hour tiles per pay category, day rows with a Day / Night / Status tag, holidays and weekends marked, sticky save bar |
+| Employees, parameter and report pages | plain HTML (to be migrated) |
+| Dark theme switch | planned, after the pages are migrated |
+
 ## Getting started
 
-Requires the .NET 10 SDK on Windows.
+Requires the .NET 10 SDK on Windows. NuGet packages (MudBlazor among them) are restored on the first build.
 
 ```bash
 dotnet run --project Vardiologio.App

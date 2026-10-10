@@ -19,6 +19,9 @@ public sealed class MonthCheck
 	/// <summary>The combined monthly limit of Προς συμπλήρωση + Αργίας (e.g. 138).</summary>
 	public decimal CombinedLimit { get; init; }
 
+	/// <summary>The holidays that fall in the checked month (the screen marks those days).</summary>
+	public IReadOnlySet<DateOnly> Holidays { get; init; } = new HashSet<DateOnly>();
+
 	/// <summary>True when any day has a warning or any category has unpaid hours.</summary>
 	public bool HasWarnings => DayWarnings.Count > 0 || Hours.Any(h => h.Excess > 0);
 }
@@ -86,7 +89,9 @@ public static class MonthEntryRules
 		{
 			DayWarnings = warnings,
 			Hours = result,
-			CombinedLimit = limits.ToCompletePlusHolidayMonthly
+			CombinedLimit = limits.ToCompletePlusHolidayMonthly,
+			// Only this month's holidays: the caller may pass a whole year (or more).
+			Holidays = holidays.Where(h => h.Year == entry.Year && h.Month == entry.Month).ToHashSet()
 		};
 	}
 }

@@ -5,6 +5,8 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title>Βαρδιολόγιο</title>
 	<base href="/" />
+	<!-- Order matters: MudBlazor's styles first, then app.css (fonts + the app's own rules on top). -->
+	<link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
 	<link rel="stylesheet" href="app.css" />
 </head>
 <body>
@@ -13,5 +15,7 @@
 		Παρουσιάστηκε σφάλμα. <a href="" class="reload">Επαναφόρτωση</a>
 	</div>
 	<script src="_framework/blazor.webview.js"></script>
+	<!-- MudBlazor's JS (pop-up positioning, focus, key handling); served from the NuGet package. -->
+	<script src="_content/MudBlazor/MudBlazor.min.js"></script>
 </body>
 </html>

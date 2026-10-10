@@ -35,7 +35,8 @@ public class ShiftEntryService : IShiftEntryService
 			.OrderBy(c => c.Id)
 			.Select(c => new ShiftCodeOption(
 				c.Id,
-				c.Code + " — " + c.Description + (c.IsActive ? "" : " (ανενεργός)")))
+				c.Code + " — " + c.Description + (c.IsActive ? "" : " (ανενεργός)"),
+				c.Segment))
 			.ToListAsync();
 	}
 

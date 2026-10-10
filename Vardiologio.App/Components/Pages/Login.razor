@@ -6,29 +6,37 @@
 @inject IUserSession Session
 @inject NavigationManager Nav
 
-<div class="login-card">
-    <h2>Σύνδεση</h2>
-    <label>
-        Χρήστης
-        @* User picker — populated from LoginOption (no passwords exposed). *@
-        <select @bind="username">
-            @foreach (var u in options)
-            {
-                <option value="@u.Username">@u.DisplayName</option>
-            }
-        </select>
-    </label>
-    <label>
-        Κωδικός
-        @* oninput => update on every keystroke; onkeydown => allow Enter to submit. *@
-        <input type="password" @bind="password" @bind:event="oninput" @onkeydown="OnKey" />
-    </label>
-    <button @onclick="DoLogin">Είσοδος</button>
+<MudPaper Elevation="0" Class="login-card">
+    <div class="login-brand">
+        <div class="brand-mark brand-mark-lg">
+            <MudIcon Icon="@Icons.Material.Rounded.CalendarMonth" Size="Size.Large" />
+        </div>
+        <MudText Typo="Typo.h4">Βαρδιολόγιο</MudText>
+        <MudText Typo="Typo.body2" Class="login-sub">Σύνδεση στην εφαρμογή</MudText>
+    </div>
+
+    @* User picker — populated from LoginOption (no passwords exposed).
+       ToStringFunc: the closed box shows the display name, not the username it is bound to. *@
+    <MudSelect T="string" Label="Χρήστης" @bind-Value="username" Variant="Variant.Outlined"
+               ToStringFunc="DisplayNameOf">
+        @foreach (var u in options)
+        {
+            <MudSelectItem T="string" Value="@u.Username">@u.DisplayName</MudSelectItem>
+        }
+    </MudSelect>
+
+    @* Immediate => the value is current on every keystroke; OnKeyDown => Enter submits. *@
+    <MudTextField T="string" Label="Κωδικός" @bind-Value="password" Immediate="true"
+                  InputType="InputType.Password" Variant="Variant.Outlined" OnKeyDown="OnKey" />
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" FullWidth="true"
+               DropShadow="false" OnClick="DoLogin">Είσοδος</MudButton>
+
     @if (error is not null)
     {
-        <p class="err">@error</p>
+        <MudAlert Severity="Severity.Error" Dense="true">@error</MudAlert>
     }
-</div>
+</MudPaper>
 
 @* Credits, bottom-right of the login screen. The LinkedIn address is outside the app's origin,
    so BlazorWebView opens it in the default browser instead of inside the app window. *@
@@ -57,6 +65,10 @@
         options = Auth.GetLoginOptions();
         username = options.FirstOrDefault()?.Username ?? "";   // default to the first user
     }
+
+    /// <summary>Display name of a username, for the text shown in the closed user picker.</summary>
+    private string DisplayNameOf(string? user) =>
+        options.FirstOrDefault(o => o.Username == user)?.DisplayName ?? "";
 
     // Let Enter submit the form.
     private void OnKey(KeyboardEventArgs e) { if (e.Key == "Enter") DoLogin(); }
