@@ -17,6 +17,117 @@ namespace Vardiologio.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
+            modelBuilder.Entity("Vardiologio.Domain.Entities.ActivityChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ActivityEntryId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Field")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NewValue")
+                        .HasMaxLength(501)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OldValue")
+                        .HasMaxLength(501)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RowKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivityEntryId");
+
+                    b.ToTable("ActivityChanges");
+                });
+
+            modelBuilder.Entity("Vardiologio.Domain.Entities.ActivityEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DatabaseEpochId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DatabaseEpochId", "Timestamp");
+
+                    b.ToTable("ActivityEntries");
+                });
+
+            modelBuilder.Entity("Vardiologio.Domain.Entities.AppSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("MaxUsers")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AppSettings");
+                });
+
+            modelBuilder.Entity("Vardiologio.Domain.Entities.DatabaseEpoch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DatabaseEpochs");
+                });
+
             modelBuilder.Entity("Vardiologio.Domain.Entities.Employee", b =>
                 {
                     b.Property<int>("Id")
@@ -377,6 +488,26 @@ namespace Vardiologio.Infrastructure.Persistence.Migrations
                     b.ToTable("WorkPositions");
                 });
 
+            modelBuilder.Entity("Vardiologio.Domain.Entities.ActivityChange", b =>
+                {
+                    b.HasOne("Vardiologio.Domain.Entities.ActivityEntry", null)
+                        .WithMany("Changes")
+                        .HasForeignKey("ActivityEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Vardiologio.Domain.Entities.ActivityEntry", b =>
+                {
+                    b.HasOne("Vardiologio.Domain.Entities.DatabaseEpoch", "DatabaseEpoch")
+                        .WithMany()
+                        .HasForeignKey("DatabaseEpochId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("DatabaseEpoch");
+                });
+
             modelBuilder.Entity("Vardiologio.Domain.Entities.Employee", b =>
                 {
                     b.HasOne("Vardiologio.Domain.Entities.EmploymentType", "EmploymentType")
@@ -430,6 +561,11 @@ namespace Vardiologio.Infrastructure.Persistence.Migrations
                     b.Navigation("Employee");
 
                     b.Navigation("ShiftCode");
+                });
+
+            modelBuilder.Entity("Vardiologio.Domain.Entities.ActivityEntry", b =>
+                {
+                    b.Navigation("Changes");
                 });
 
             modelBuilder.Entity("Vardiologio.Domain.Entities.Employee", b =>

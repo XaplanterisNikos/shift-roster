@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor.Services;
 using System.Windows;
+using Vardiologio.Application.Activity;
 using Vardiologio.Application.Auth;
 using Vardiologio.Application.DatabaseTransfer;
 using Vardiologio.Application.Employees;
@@ -14,6 +15,7 @@ using Vardiologio.Application.ReportTexts;
 using Vardiologio.Application.Parameters;
 using Vardiologio.Application.ShiftCodes;
 using Vardiologio.Application.ShiftEntry;
+using Vardiologio.Infrastructure.Activity;
 using Vardiologio.Infrastructure.Auth;
 using Vardiologio.Infrastructure.DatabaseTransfer;
 using Vardiologio.Infrastructure.Employees;
@@ -65,7 +67,11 @@ public partial class App : System.Windows.Application
 			services.AddBlazorWebViewDeveloperTools();
 #endif
 			services.AddMudServices(); // MudBlazor: dialogs, snackbars, pop-ups, JS interop
-			services.AddDbContextFactory<AppDbContext>(o => o.UseSqlite(AppPaths.ConnectionString));
+			// Every context of the factory records its saves in the activity log (ActivityInterceptor).
+			services.AddSingleton<ActivityInterceptor>();
+			services.AddDbContextFactory<AppDbContext>((sp, o) => o
+				.UseSqlite(AppPaths.ConnectionString)
+				.AddInterceptors(sp.GetRequiredService<ActivityInterceptor>()));
 
 			// Application services
 			services.AddScoped<IShiftEntryService, ShiftEntryService>();
@@ -92,6 +98,9 @@ public partial class App : System.Windows.Application
 			// Files and error log (Documents\Vardiologio: Reports\..., Logs\...)
 			services.AddSingleton<IReportFileStore, ReportFileStore>();
 			services.AddSingleton<IErrorLog, FileErrorLog>();
+			services.AddSingleton<IErrorLogReader, ErrorLogReader>();
+			services.AddSingleton<IActivityLog, ActivityLog>();
+			services.AddSingleton<IDocumentsArchive, DocumentsArchive>();
 
 			// Auth
 			services.AddSingleton<IAuthService, AuthService>();

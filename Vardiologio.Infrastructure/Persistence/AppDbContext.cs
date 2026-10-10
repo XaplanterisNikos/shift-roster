@@ -53,6 +53,18 @@ public class AppDbContext : DbContext
 	/// <summary>People who sign in to this installation (created from the login screen).</summary>
 	public DbSet<User> Users => Set<User>();
 
+	/// <summary>Epochs of the data: the original database, then one per database import.</summary>
+	public DbSet<DatabaseEpoch> DatabaseEpochs => Set<DatabaseEpoch>();
+
+	/// <summary>Activity log: one row per action (a save per table, an export, an import).</summary>
+	public DbSet<ActivityEntry> ActivityEntries => Set<ActivityEntry>();
+
+	/// <summary>Field changes behind the saves of the activity log.</summary>
+	public DbSet<ActivityChange> ActivityChanges => Set<ActivityChange>();
+
+	/// <summary>Administrator's settings of this installation (single-row table).</summary>
+	public DbSet<AppSettings> AppSettings => Set<AppSettings>();
+
 	/// <summary>Configures every entity's rules via the Fluent API (used by migrations and at runtime).</summary>
 	protected override void OnModelCreating(ModelBuilder b)
 	{
@@ -216,6 +228,46 @@ public class AppDbContext : DbContext
 			// Soft-delete flag without a global query filter: other tables will refer to users
 			// by key, and a filter would hide the rows of a deactivated user's past work.
 			e.Property(x => x.IsActive).HasDefaultValue(true);
+		});
+
+		// --- Activity log (written by ActivityInterceptor / ActivityLog) ---
+		b.Entity<DatabaseEpoch>(e =>
+		{
+			e.Property(x => x.Name).IsRequired().HasMaxLength(200);
+		});
+
+		b.Entity<ActivityEntry>(e =>
+		{
+			e.Property(x => x.Username).IsRequired().HasMaxLength(40);
+			e.Property(x => x.Action).IsRequired().HasMaxLength(40);
+			e.Property(x => x.Subject).IsRequired().HasMaxLength(100);
+			e.Property(x => x.Details).IsRequired().HasMaxLength(1000);
+
+			// The log is listed per epoch, newest first, optionally per user.
+			e.HasIndex(x => new { x.DatabaseEpochId, x.Timestamp });
+
+			// Restrict: an epoch with log lines is never deleted.
+			e.HasOne(x => x.DatabaseEpoch)
+			 .WithMany()
+			 .HasForeignKey(x => x.DatabaseEpochId)
+			 .OnDelete(DeleteBehavior.Restrict);
+
+			// The field changes belong to their entry.
+			e.HasMany(x => x.Changes)
+			 .WithOne()
+			 .HasForeignKey(c => c.ActivityEntryId)
+			 .OnDelete(DeleteBehavior.Cascade);
+		});
+
+		b.Entity<ActivityChange>(e =>
+		{
+			e.Property(x => x.RowKey).IsRequired().HasMaxLength(200);
+			e.Property(x => x.Kind).IsRequired().HasMaxLength(20);
+			e.Property(x => x.Field).IsRequired().HasMaxLength(100);
+
+			// Same limit as ActivityInterceptor.MaxValueLength, plus the "…" of a cut value.
+			e.Property(x => x.OldValue).HasMaxLength(501);
+			e.Property(x => x.NewValue).HasMaxLength(501);
 		});
 
 		// --- Editable colours of the reports ---

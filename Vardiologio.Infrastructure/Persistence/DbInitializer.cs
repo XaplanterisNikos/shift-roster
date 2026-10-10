@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Vardiologio.Application.Reports;
+using Vardiologio.Infrastructure.Activity;
 using Vardiologio.Infrastructure.Persistence.Seeding;
 
 namespace Vardiologio.Infrastructure.Persistence;
@@ -23,6 +24,10 @@ public static class DbInitializer
 
 		using var db = new AppDbContext(options);
 		db.Database.Migrate();      // create DB if needed and apply any pending migrations
+
+		// The activity log needs an epoch to write under; a new database gets its first one here.
+		ActivityEpochs.Current(db);
+		db.SaveChanges();
 
 		// The organisation's own report data (form texts, director's surname) is read from a file
 		// next to the executable, never from the source code.

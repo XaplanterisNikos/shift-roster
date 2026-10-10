@@ -1,0 +1,123 @@
+@page "/admin/users"
+@using Vardiologio.Application.Auth
+@inject IAuthService Auth
+
+@* Users of this installation: the limit on how many may exist, deletion of one user and
+   deletion of all. A deletion is permanent; the activity log keeps the user's name. Every
+   deletion asks for confirmation first, in place.
+   Reached only by the administrator (guard in Layout/MainLayout.razor). *@
+
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Χρήστες</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Οι χρήστες αυτής της εγκατάστασης και το όριό τους.</MudText>
+    </div>
+</div>
+
+@* Limit: once reached, "Δημιουργία νέου χρήστη" on the login screen refuses. *@
+<div class="admin-card">
+    <MudText Typo="Typo.h6">Όριο χρηστών</MudText>
+    <div class="admin-row">
+        <MudNumericField T="int?" Label="Μέγιστος αριθμός χρηστών" @bind-Value="maxUsers" Min="0"
+                         Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                         HelperText="Κενό = χωρίς όριο" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" OnClick="SaveLimitAsync">Αποθήκευση</MudButton>
+    </div>
+    @if (limitSaved)
+    {
+        <MudAlert Severity="Severity.Success" Dense="true">Το όριο αποθηκεύτηκε.</MudAlert>
+    }
+</div>
+
+<div class="admin-card">
+    <MudText Typo="Typo.h6">Χρήστες (@users.Count)</MudText>
+
+    @* Confirmation of the pending deletion (one user or all). *@
+    @if (confirmAll || confirmUser is not null)
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true">
+            @if (confirmAll)
+            {
+                <span>Θα διαγραφούν οριστικά <b>όλοι οι χρήστες</b> (@users.Count). Κανείς δεν θα μπορεί να συνδεθεί μέχρι να δημιουργηθεί νέος χρήστης.</span>
+            }
+            else
+            {
+                <span>Θα διαγραφεί οριστικά ο χρήστης <b>@confirmUser!.Username</b>.</span>
+            }
+        </MudAlert>
+        <div class="admin-row">
+            <MudButton OnClick="CancelDelete">Ακύρωση</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Error" DropShadow="false" OnClick="ConfirmDeleteAsync">Διαγραφή</MudButton>
+        </div>
+    }
+
+    <MudTable T="UserItem" Items="users" Dense="true" Hover="true" Elevation="0" Outlined="true">
+        <HeaderContent>
+            <MudTh>Όνομα χρήστη</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Username</MudTd>
+            <MudTd Style="text-align: right">
+                <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                           StartIcon="@Icons.Material.Rounded.Delete" OnClick="() => AskDelete(context)">Διαγραφή</MudButton>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Typo="Typo.body2">Δεν υπάρχουν χρήστες.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+
+    <div>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="@(users.Count == 0)"
+                   StartIcon="@Icons.Material.Rounded.DeleteSweep" OnClick="AskDeleteAll">Διαγραφή όλων των χρηστών</MudButton>
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<UserItem> users = Array.Empty<UserItem>();
+    private int? maxUsers;          // the limit as typed; null = no limit
+    private bool limitSaved;        // show the "saved" note
+    private UserItem? confirmUser;  // user waiting for the deletion to be confirmed
+    private bool confirmAll;        // "delete all" waiting to be confirmed
+
+    protected override async Task OnInitializedAsync()
+    {
+        maxUsers = await Auth.GetMaxUsersAsync();
+        users = await Auth.GetUsersAsync();
+    }
+
+    private async Task SaveLimitAsync()
+    {
+        await Auth.SetMaxUsersAsync(maxUsers);
+        limitSaved = true;
+    }
+
+    private void AskDelete(UserItem user)
+    {
+        confirmAll = false;
+        confirmUser = user;
+    }
+
+    private void AskDeleteAll()
+    {
+        confirmUser = null;
+        confirmAll = true;
+    }
+
+    private void CancelDelete()
+    {
+        confirmUser = null;
+        confirmAll = false;
+    }
+
+    /// <summary>Runs the confirmed deletion and reloads the list.</summary>
+    private async Task ConfirmDeleteAsync()
+    {
+        if (confirmAll) await Auth.DeleteAllUsersAsync();
+        else if (confirmUser is not null) await Auth.DeleteUserAsync(confirmUser.Id);
+
+        CancelDelete();
+        users = await Auth.GetUsersAsync();
+    }
+}

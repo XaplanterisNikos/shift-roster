@@ -346,6 +346,60 @@
 	gap: 14px;
 }
 
+/* Administrator's pages (Pages/Admin). */
+
+/* Start page: the about card, centred. */
+.admin-home {
+	max-width: 440px;
+	margin: 32px auto 0;
+	padding: 28px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 16px;
+	background: var(--mud-palette-surface);
+}
+
+/* A block of a page: bordered card with stacked content. */
+.admin-card {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	max-width: 720px;
+	margin-bottom: 18px;
+	padding: 20px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 16px;
+	background: var(--mud-palette-surface);
+}
+
+/* Filters and buttons in one row above a grid. */
+.admin-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 14px;
+}
+
+.admin-row .mud-input-control {
+	flex: 0 1 220px;
+}
+
+/* Details under a grid row: field changes of a save, or the text of an error. */
+.admin-detail {
+	padding: 10px 14px 14px;
+	background: var(--mud-palette-background);
+}
+
+.admin-detail pre {
+	margin: 0;
+	max-height: 320px;
+	overflow: auto;
+	font-family: Consolas, monospace;
+	font-size: .78rem;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
 /* ---------- 4. Legacy pages ---------------------------------------------- */
 
 /* MudBlazor resets every element (no margins, no borders, bare buttons), which is right for its

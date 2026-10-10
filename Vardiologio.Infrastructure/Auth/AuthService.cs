@@ -92,6 +92,74 @@ public class AuthService : IAuthService
 		await db.SaveChangesAsync();
 	}
 
+	/// <inheritdoc/>
+	public async Task<bool> UserLimitReachedAsync()
+	{
+		await using var db = await _factory.CreateDbContextAsync();
+
+		var max = await db.AppSettings.Select(s => s.MaxUsers).FirstOrDefaultAsync();
+		return max is not null && await db.Users.CountAsync() >= max;
+	}
+
+	/// <inheritdoc/>
+	public async Task<IReadOnlyList<UserItem>> GetUsersAsync()
+	{
+		await using var db = await _factory.CreateDbContextAsync();
+
+		var users = await db.Users.Select(u => new UserItem(u.Id, u.Username)).ToListAsync();
+
+		// Sorted in memory: SQLite's own ordering is not case-insensitive for Greek letters.
+		return users.OrderBy(u => u.Username, StringComparer.CurrentCultureIgnoreCase).ToList();
+	}
+
+	/// <inheritdoc/>
+	public async Task DeleteUserAsync(int id)
+	{
+		await using var db = await _factory.CreateDbContextAsync();
+
+		// Loaded and removed as a tracked entity (not ExecuteDelete), so the deletion is logged.
+		var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id);
+		if (user is null) return;
+
+		db.Users.Remove(user);
+		await db.SaveChangesAsync();
+	}
+
+	/// <inheritdoc/>
+	public async Task DeleteAllUsersAsync()
+	{
+		await using var db = await _factory.CreateDbContextAsync();
+
+		// Tracked entities, so every deletion is logged (see DeleteUserAsync).
+		db.Users.RemoveRange(await db.Users.ToListAsync());
+		await db.SaveChangesAsync();
+	}
+
+	/// <inheritdoc/>
+	public async Task<int?> GetMaxUsersAsync()
+	{
+		await using var db = await _factory.CreateDbContextAsync();
+
+		return await db.AppSettings.Select(s => s.MaxUsers).FirstOrDefaultAsync();
+	}
+
+	/// <inheritdoc/>
+	public async Task SetMaxUsersAsync(int? max)
+	{
+		await using var db = await _factory.CreateDbContextAsync();
+
+		// Single-row table: the row is created the first time a setting is saved.
+		var settings = await db.AppSettings.FirstOrDefaultAsync();
+		if (settings is null)
+		{
+			settings = new AppSettings();
+			db.AppSettings.Add(settings);
+		}
+
+		settings.MaxUsers = max;
+		await db.SaveChangesAsync();
+	}
+
 	/// <summary>True for the reserved administrator name, in any letter case.</summary>
 	private static bool IsAdminName(string username) =>
 		string.Equals(username.Trim(), UserRules.AdminUsername, StringComparison.OrdinalIgnoreCase);

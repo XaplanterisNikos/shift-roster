@@ -1,7 +1,10 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Vardiologio.Application.Activity;
+using Vardiologio.Application.Auth;
 using Vardiologio.Application.DatabaseTransfer;
 using Vardiologio.Domain.Entities;
+using Vardiologio.Infrastructure.Activity;
 using Vardiologio.Infrastructure.Files;
 using Vardiologio.Infrastructure.Persistence;
 
@@ -16,19 +19,40 @@ public class DatabaseTransferService : IDatabaseTransferService
 	/// <summary>Copies kept in the internal backup folder; older ones are removed.</summary>
 	private const int KeptBackups = 20;
 
+	/// <summary>
+	/// Tables that belong to this installation, not to the data: an import keeps the local rows
+	/// instead of the file's. Listed parents first (insert order; deleted in reverse).
+	/// </summary>
+	private static readonly string[] LocalTables =
+		["Users", "AppSettings", "DatabaseEpochs", "ActivityEntries", "ActivityChanges"];
+
 	private readonly IDbContextFactory<AppDbContext> _factory;
-	public DatabaseTransferService(IDbContextFactory<AppDbContext> factory) => _factory = factory;
+	private readonly IActivityLog _activity;
+	private readonly IUserSession _session;
+
+	public DatabaseTransferService(IDbContextFactory<AppDbContext> factory, IActivityLog activity, IUserSession session)
+	{
+		_factory = factory;
+		_activity = activity;
+		_session = session;
+	}
 
 	/// <inheritdoc/>
-	public Task<string> ExportAsync() => Task.Run(() =>
+	public async Task<string> ExportAsync()
 	{
-		var backup = WriteBackup();
+		var target = await Task.Run(() =>
+		{
+			var backup = WriteBackup();
 
-		// Same file name in Documents\Vardiologio\Database, for the user to keep or carry.
-		var target = Path.Combine(AppFolders.Database, Path.GetFileName(backup));
-		File.Copy(backup, target, overwrite: true);
+			// Same file name in Documents\Vardiologio\Database, for the user to keep or carry.
+			var copy = Path.Combine(AppFolders.Database, Path.GetFileName(backup));
+			File.Copy(backup, copy, overwrite: true);
+			return copy;
+		});
+
+		await _activity.RecordAsync("Εξαγωγή βάσης", "Βάση δεδομένων", Path.GetFileName(target));
 		return target;
-	});
+	}
 
 	/// <inheritdoc/>
 	public async Task<DatabaseFileCheck> CheckAsync(string path)
@@ -46,11 +70,7 @@ public class DatabaseTransferService : IDatabaseTransferService
 	public async Task<DatabaseFileCheck> ImportAsync(string path)
 	{
 		var known = await KnownMigrationsAsync();
-
-		// This installation's users, to put back in place of the file's.
-		List<User> users;
-		await using (var db = await _factory.CreateDbContextAsync())
-			users = await db.Users.AsNoTracking().ToListAsync();
+		var user = _session.Current?.DisplayName ?? ActivityInterceptor.NoUser;
 
 		return await Task.Run(() =>
 		{
@@ -63,7 +83,8 @@ public class DatabaseTransferService : IDatabaseTransferService
 
 				WriteBackup();   // safety copy of the current data, before anything changes
 
-				ReplaceUsers(temp, users);
+				KeepLocalTables(temp);
+				StartEpoch(temp, Path.GetFileNameWithoutExtension(path), user);
 
 				// Overwrite the live database with the prepared copy in one step.
 				SqliteConnection.ClearAllPools();   // release idle pooled connections to the live file
@@ -141,16 +162,72 @@ public class DatabaseTransferService : IDatabaseTransferService
 		}
 	}
 
-	/// <summary>Replaces the Users rows of a database file with the given ones (same keys).</summary>
-	private static void ReplaceUsers(string path, List<User> users)
+	/// <summary>
+	/// Replaces the rows of the <see cref="LocalTables"/> in a database file with the live
+	/// database's rows (users, administrator's settings, activity log), keys included. Both files
+	/// have the same schema (checked before), so the rows are copied table to table in SQL.
+	/// </summary>
+	private static void KeepLocalTables(string path)
+	{
+		// Foreign keys off for this connection: the tables are emptied and refilled as a set.
+		var connectionString = new SqliteConnectionStringBuilder
+			{ DataSource = path, Pooling = false, ForeignKeys = false }.ToString();
+
+		using var conn = new SqliteConnection(connectionString);
+		conn.Open();
+
+		// ATTACH cannot run inside a transaction.
+		using (var attach = conn.CreateCommand())
+		{
+			attach.CommandText = "ATTACH DATABASE $live AS live;";
+			attach.Parameters.AddWithValue("$live", AppPaths.DbPath);
+			attach.ExecuteNonQuery();
+		}
+
+		using (var tx = conn.BeginTransaction())
+		{
+			// Table names come from the constant list above, never from input.
+			foreach (var table in Enumerable.Reverse(LocalTables))   // Enumerable: on an array, .Reverse() is the in-place span method
+				Execute(conn, tx, $"DELETE FROM main.\"{table}\";");
+			foreach (var table in LocalTables)
+				Execute(conn, tx, $"INSERT INTO main.\"{table}\" SELECT * FROM live.\"{table}\";");
+			tx.Commit();
+		}
+
+		using var detach = conn.CreateCommand();
+		detach.CommandText = "DETACH DATABASE live;";
+		detach.ExecuteNonQuery();
+	}
+
+	private static void Execute(SqliteConnection conn, SqliteTransaction tx, string sql)
+	{
+		using var cmd = conn.CreateCommand();
+		cmd.Transaction = tx;
+		cmd.CommandText = sql;
+		cmd.ExecuteNonQuery();
+	}
+
+	/// <summary>
+	/// Starts a new epoch of the activity log in a database file, named after the imported
+	/// file, and writes the import itself as its first line.
+	/// </summary>
+	private static void StartEpoch(string path, string name, string user)
 	{
 		var options = new DbContextOptionsBuilder<AppDbContext>()
 			.UseSqlite(ConnectionString(path))
 			.Options;
 
-		using var db = new AppDbContext(options);
-		db.Users.ExecuteDelete();
-		db.Users.AddRange(users);   // Id is set, so each row keeps its key
+		using var db = new AppDbContext(options);   // no interceptor: this context writes the log itself
+		var now = DateTime.Now;
+		db.ActivityEntries.Add(new ActivityEntry
+		{
+			DatabaseEpoch = new DatabaseEpoch { Name = name, StartedAt = now },
+			Timestamp = now,
+			Username = user,
+			Action = "Εισαγωγή βάσης",
+			Subject = "Βάση δεδομένων",
+			Details = name
+		});
 		db.SaveChanges();
 	}
 

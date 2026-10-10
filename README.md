@@ -80,7 +80,18 @@ staff and producing the official attendance/shift reports.
   Export writes a dated copy of the database to `Documents\Vardiologio\Database`. Import lets
   the user pick such a copy: it is accepted only if it is a database of this application with
   the same schema; after confirmation the current data is backed up and then replaced, and the
-  user is returned to the login screen. The users of the installation are never imported.
+  user is returned to the login screen. What belongs to the installation — users, administrator's
+  settings, activity log — is never imported.
+- **Activity log** — every database save is recorded automatically, for every table: who, when,
+  which table, how many rows, and every changed field with its old and new value (a roster day
+  is shown by employee, date and shift code). Report exports, database export / import and the
+  zip of the files are recorded as well. The log is kept per "epoch" of the data: the original
+  database, then one per database import, named after the imported file.
+- **Administrator's area** — the administrator signs in to four pages of its own and none of the
+  others: the activity log (one tab per epoch, filters by user and dates, a line expands to its
+  field changes), the error log files as a grid, the users (delete one, delete all, set the
+  maximum number of users) and a zip of everything in `Documents\Vardiologio`. The start page
+  shows the version and the creator's details.
 - **Login and users** — every installation has its own users, created from the login screen
   (username, password, password once more) and stored in its database with salted PBKDF2
   hashes. A single administrator account, the same in every installation, is listed after them.
@@ -107,6 +118,22 @@ Vardiologio.Infrastructure implementations (EF Core, services, renderers, seedin
 
 The local database is created per-user at `%LOCALAPPDATA%\Vardiologio\vardiologio.db`;
 migrations and seeding run automatically at startup.
+
+## Activity log and error log
+
+- **Saves** — `Infrastructure/Activity/ActivityInterceptor.cs`, an EF Core `SaveChangesInterceptor`
+  attached to every context of the factory (`App.xaml.cs`). Before a save it reads the change
+  tracker and adds the log rows to the same save, so data and log are written together. Password
+  fields are never written. Bulk statements (`ExecuteDelete`, raw SQL) bypass `SaveChanges` and
+  are not recorded, so services change tracked entities. The start-up context (migrations,
+  seeding) has no interceptor.
+- **Other actions** — `IActivityLog.RecordAsync`, called from the single place each kind of file
+  is written: `ReportFileStore` (every report), `DatabaseTransferService`, `DocumentsArchive`.
+- **Tables** — `DatabaseEpochs`, `ActivityEntries`, `ActivityChanges`. The user is stored as text,
+  so a line survives the user's deletion.
+- **Errors** — a failed save is written to the error log by the same interceptor; exports log
+  their failures in the pages; unhandled exceptions are logged globally in `App.xaml.cs`.
+  `Infrastructure/Logging/ErrorLogReader.cs` parses the daily files for the administrator's grid.
 
 ## User interface
 
@@ -185,9 +212,9 @@ is inserted on the next start. After that they are edited in Παράμετρο�
 demo file every line starts empty (an empty line is not printed) and is filled in there.
 
 Users are rows of the `Users` table of the local database: username, salt and hash
-(`Infrastructure/Auth/PasswordHasher.cs`, PBKDF2-SHA256), and an active flag — a user is
-deactivated, never deleted, and a username is never reused. A fresh database has no users; the
-first one is created from the login screen. The administrator is not a row of the table: its
+(`Infrastructure/Auth/PasswordHasher.cs`, PBKDF2-SHA256). A fresh database has no users; the
+first one is created from the login screen, and only the administrator can delete a user or
+limit how many may exist. The administrator is not a row of the table: its
 salt and hash are read from the data file above (`Infrastructure/Auth/AdminAccountFile.cs`).
 Passwords are never stored in plain text. A build from this repository uses the demo
 administrator password, which is public: create `admin.json` before any real use.
@@ -214,8 +241,6 @@ message to the developer.
 Not finished yet:
 
 - Report totals columns (ΗΜΕΡΗΣΙΑ / ΚΥΡΙΑΚΩΝ) — calculation rule pending.
-- Administrator menu: deactivate users, reset passwords.
-- Activity log: who saved or exported what, and when.
 - Automatic sync between the two workstations (today: manual export / import of the database).
 
 ## License

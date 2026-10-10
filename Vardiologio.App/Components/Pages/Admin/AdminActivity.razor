@@ -1,0 +1,166 @@
+@page "/admin/activity"
+@using Vardiologio.Application.Activity
+@inject IActivityLog Activity
+
+@* Activity log: who saved, exported or imported what, and when. One tab per epoch of the data
+   (the original database, then one per database import, named after the imported file); the
+   newest epoch opens first. A line of a save expands to its field changes (old and new value).
+   Reached only by the administrator (guard in Layout/MainLayout.razor). *@
+
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Κινήσεις</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Αποθηκεύσεις, εξαγωγές και εισαγωγές ανά χρήστη και ημερομηνία.</MudText>
+    </div>
+</div>
+
+@* Tabs only choose the epoch; the grid below is shared, so the filters stay when the tab changes. *@
+<MudTabs Elevation="0" SliderColor="Color.Primary" ActivePanelIndex="tab" ActivePanelIndexChanged="OnTabChanged">
+    @foreach (var epoch in epochs)
+    {
+        <MudTabPanel Text="@epoch.Name" />
+    }
+</MudTabs>
+
+<div class="admin-row">
+    <MudSelect T="string" Label="Χρήστης" @bind-Value="username" Variant="Variant.Outlined" Margin="Margin.Dense"
+               Clearable="true" Placeholder="Όλοι">
+        @foreach (var name in usernames)
+        {
+            <MudSelectItem T="string" Value="@name">@name</MudSelectItem>
+        }
+    </MudSelect>
+    <MudDatePicker Label="Από" @bind-Date="from" Variant="Variant.Outlined" Margin="Margin.Dense"
+                   DateFormat="dd/MM/yyyy" Clearable="true" />
+    <MudDatePicker Label="Έως" @bind-Date="to" Variant="Variant.Outlined" Margin="Margin.Dense"
+                   DateFormat="dd/MM/yyyy" Clearable="true" />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" OnClick="LoadEntriesAsync">Εμφάνιση</MudButton>
+</div>
+
+@if (entries.Count == IActivityLog.MaxEntries)
+{
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+        Εμφανίζονται οι @IActivityLog.MaxEntries πιο πρόσφατες κινήσεις. Περιορίστε το διάστημα για παλαιότερες.
+    </MudAlert>
+}
+
+<MudTable T="ActivityEntryItem" Items="entries" Dense="true" Hover="true" Elevation="0" Outlined="true"
+          RowsPerPage="25">
+    <HeaderContent>
+        <MudTh>Ημερομηνία</MudTh>
+        <MudTh>Ώρα</MudTh>
+        <MudTh>Χρήστης</MudTh>
+        <MudTh>Ενέργεια</MudTh>
+        <MudTh>Αντικείμενο</MudTh>
+        <MudTh>Λεπτομέρειες</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.Timestamp.ToString("dd/MM/yyyy")</MudTd>
+        <MudTd>@context.Timestamp.ToString("HH:mm:ss")</MudTd>
+        <MudTd>@context.Username</MudTd>
+        <MudTd>@context.Action</MudTd>
+        <MudTd>@context.Subject</MudTd>
+        <MudTd>@context.Details</MudTd>
+        <MudTd>
+            @* Only a save has field changes to show. *@
+            @if (context.ChangeCount > 0)
+            {
+                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => ToggleAsync(context.Id)">
+                    @(openEntryId == context.Id ? "Απόκρυψη" : $"Πεδία ({context.ChangeCount})")
+                </MudButton>
+            }
+        </MudTd>
+    </RowTemplate>
+    <ChildRowContent>
+        @if (openEntryId == context.Id)
+        {
+            <MudTr>
+                <td colspan="7">
+                    <div class="admin-detail">
+                        <MudSimpleTable Dense="true" Elevation="0">
+                            <thead>
+                                <tr>
+                                    <th>Γραμμή</th>
+                                    <th>Είδος</th>
+                                    <th>Πεδίο</th>
+                                    <th>Παλιά τιμή</th>
+                                    <th>Νέα τιμή</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var change in changes)
+                                {
+                                    <tr>
+                                        <td>@change.RowKey</td>
+                                        <td>@change.Kind</td>
+                                        <td>@change.Field</td>
+                                        <td>@change.OldValue</td>
+                                        <td>@change.NewValue</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    </div>
+                </td>
+            </MudTr>
+        }
+    </ChildRowContent>
+    <NoRecordsContent>
+        <MudText Typo="Typo.body2">Δεν υπάρχουν κινήσεις για αυτά τα κριτήρια.</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager RowsPerPageString="Γραμμές ανά σελίδα" InfoFormat="{first_item}-{last_item} από {all_items}" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private IReadOnlyList<ActivityEpochItem> epochs = Array.Empty<ActivityEpochItem>();
+    private IReadOnlyList<string> usernames = Array.Empty<string>();
+    private IReadOnlyList<ActivityEntryItem> entries = Array.Empty<ActivityEntryItem>();
+    private IReadOnlyList<ActivityChangeItem> changes = Array.Empty<ActivityChangeItem>();
+
+    private int tab;              // index of the open epoch in epochs
+    private string? username;     // filter: one user; null = everybody
+    private DateTime? from;       // filter: first day
+    private DateTime? to;         // filter: last day
+    private int? openEntryId;     // the line whose field changes are shown
+
+    protected override async Task OnInitializedAsync()
+    {
+        epochs = await Activity.GetEpochsAsync();
+        tab = Math.Max(0, epochs.Count - 1);   // newest epoch first
+        await LoadEpochAsync();
+    }
+
+    private async Task OnTabChanged(int index)
+    {
+        tab = index;
+        username = null;   // the users differ from epoch to epoch
+        await LoadEpochAsync();
+    }
+
+    /// <summary>Loads the user names of the open epoch, then its lines.</summary>
+    private async Task LoadEpochAsync()
+    {
+        if (epochs.Count == 0) return;
+        usernames = await Activity.GetUsernamesAsync(epochs[tab].Id);
+        await LoadEntriesAsync();
+    }
+
+    /// <summary>Loads the lines of the open epoch with the current filters.</summary>
+    private async Task LoadEntriesAsync()
+    {
+        if (epochs.Count == 0) return;
+        openEntryId = null;
+        entries = await Activity.GetEntriesAsync(epochs[tab].Id, username, from, to);
+    }
+
+    /// <summary>Shows the field changes of a line, or hides them when they are already shown.</summary>
+    private async Task ToggleAsync(int entryId)
+    {
+        if (openEntryId == entryId) { openEntryId = null; return; }
+        changes = await Activity.GetChangesAsync(entryId);
+        openEntryId = entryId;
+    }
+}

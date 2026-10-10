@@ -15,7 +15,8 @@ public enum DatabaseFileCheck
 
 /// <summary>
 /// Copies of the whole database: export to a file, and import of such a file over the current
-/// data. The users of this installation are never replaced by an import.
+/// data. What belongs to the installation and not to the data (users, administrator's settings,
+/// activity log) is never replaced by an import.
 /// </summary>
 public interface IDatabaseTransferService
 {
@@ -30,7 +31,8 @@ public interface IDatabaseTransferService
 	Task<DatabaseFileCheck> CheckAsync(string path);
 
 	/// <summary>
-	/// Replaces the current data with the file's, keeping this installation's users. A copy of
+	/// Replaces the current data with the file's, keeping this installation's own tables, and
+	/// starts a new epoch of the activity log named after the file. A copy of
 	/// the current database is first written to the internal backup folder. The file is checked
 	/// again; anything but <see cref="DatabaseFileCheck.Ok"/> means nothing was changed.
 	/// </summary>

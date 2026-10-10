@@ -103,6 +103,12 @@
         busy = true;
         try
         {
+            if (await Auth.UserLimitReachedAsync())
+            {
+                error = "Έχει συμπληρωθεί το όριο χρηστών. Επικοινωνήστε με τον διαχειριστή.";
+                return;
+            }
+
             if (await Auth.UsernameExistsAsync(name))
             {
                 error = "Το όνομα χρήστη υπάρχει ήδη. Επιλέξτε άλλο.";
