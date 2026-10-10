@@ -93,7 +93,7 @@ internal static class OvertimeCertificateTexts
 	/// <summary>Signature role: "Ο" for men, "Η" for women.</summary>
 	public static string SignatureRole(bool isFemale) => isFemale ? "Η Βεβαιών Υπάλληλος" : "Ο Βεβαιών Υπάλληλος";
 
-	/// <summary>Name under the signature ("ΒΡΥΝΑΣ      ΓΕΩΡΓΙΟΣ"), as on the form.</summary>
+	/// <summary>Name under the signature ("ΠΑΠΑΔΟΠΟΥΛΟΣ      ΓΕΩΡΓΙΟΣ"), as on the form.</summary>
 	public static string SignatureName(OvertimeCertificateModel m) => $"{GreekText.Upper(m.LastName)}      {GreekText.Upper(m.FirstName)}";
 
 	/// <summary>A date as printed in the introduction ("01/08/2026").</summary>

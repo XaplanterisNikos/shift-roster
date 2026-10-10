@@ -49,6 +49,16 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 	}
 
 	/// <summary>
+	/// Fills a box with the emblem. Without an emblem file the box stays empty but keeps its
+	/// size, so the layout of the form does not move (see <see cref="AttendanceSheetTexts.Emblem"/>).
+	/// </summary>
+	private static void EmblemImage(IContainer box)
+	{
+		var bytes = AttendanceSheetTexts.Emblem;
+		if (bytes is not null) box.Image(bytes).FitArea();
+	}
+
+	/// <summary>
 	/// Header of the sheet: emblem + letterhead (left), titles (centre), addressee (right).
 	/// Same arrangement and position-based formatting as the official shift table.
 	/// </summary>
@@ -56,7 +66,7 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 	{
 		row.ConstantItem(215).Column(left =>
 		{
-			left.Item().PaddingLeft(20).Width(44).Height(42).Image(AttendanceSheetTexts.Emblem).FitArea();
+			left.Item().PaddingLeft(20).Width(44).Height(42).Element(EmblemImage);
 			left.Item().Height(3);
 			foreach (var (plain, bold) in ShiftTableTexts.Letterhead(m.Texts))
 			{

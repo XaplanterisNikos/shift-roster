@@ -22,5 +22,8 @@ public enum ReportFolder
 	ShiftTable,
 
 	/// <summary>Ατομική μηνιαία (individual analytical sheet of one employee).</summary>
-	IndividualSheet
+	IndividualSheet,
+
+	/// <summary>ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι (collective overtime certificate per contract).</summary>
+	ContractCertificate
 }

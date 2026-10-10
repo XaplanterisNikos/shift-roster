@@ -45,7 +45,7 @@ public partial class QuestPdfReportRenderer
 	{
 		row.ConstantItem(260).Column(left =>
 		{
-			left.Item().PaddingLeft(20).Width(48).Height(46).Image(AttendanceSheetTexts.Emblem).FitArea();
+			left.Item().PaddingLeft(20).Width(48).Height(46).Element(EmblemImage);
 			left.Item().Height(4);
 			foreach (var (plain, bold) in ShiftTableTexts.Letterhead(m.Texts))
 			{

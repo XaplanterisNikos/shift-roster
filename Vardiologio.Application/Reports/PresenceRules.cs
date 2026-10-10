@@ -19,8 +19,10 @@ public static class PresenceRules
 	/// <summary>
 	/// Fallback when nobody has the director's position (e.g. right after a fresh install,
 	/// where seeded employees have no position): the head of the directorate by surname.
+	/// The surname is personal data, so it is not in the source: it is read at startup from the
+	/// git-ignored "report-data.json" (see ReportDataFile). Empty = no fallback.
 	/// </summary>
-	public const string DirectorLastName = "ΠΑΠΑΣΤΑΜΑΤΗΣ";
+	public static string DirectorLastName { get; set; } = "";
 
 	/// <summary>"√" for a work shift; the code itself for a status (leave, rest, holiday…).</summary>
 	public static string Mark(string code, bool isWorkShift) => isWorkShift ? Worked : code;
@@ -28,7 +30,7 @@ public static class PresenceRules
 	/// <summary>
 	/// True when the employee belongs to the directorate report: the work position is
 	/// <see cref="DirectorPosition"/>, or — only when nobody in the list has that position —
-	/// the surname is <see cref="DirectorLastName"/>. Compared without accents / case.
+	/// the surname is <see cref="DirectorLastName"/> (when one is set). Compared without accents / case.
 	/// </summary>
 	/// <param name="lastName">The employee's surname.</param>
 	/// <param name="positionName">The employee's work position name, or null when not set.</param>
@@ -36,12 +38,12 @@ public static class PresenceRules
 	public static bool IsDirector(string lastName, string? positionName, bool anyoneHasPosition) =>
 		anyoneHasPosition
 			? IsDirectorPosition(positionName)
-			: Normalize(lastName) == Normalize(DirectorLastName);
+			: DirectorLastName.Trim().Length > 0 && Normalize(lastName) == Normalize(DirectorLastName);
 
 	/// <summary>True when the work position is the director's (accent / case insensitive).</summary>
 	public static bool IsDirectorPosition(string? positionName) =>
 		positionName is not null && Normalize(positionName) == Normalize(DirectorPosition);
 
-	/// <summary>Upper case without accents or surrounding spaces ("Παπασταμάτης " → "ΠΑΠΑΣΤΑΜΑΤΗΣ").</summary>
+	/// <summary>Upper case without accents or surrounding spaces ("Παπαδόπουλος " → "ΠΑΠΑΔΟΠΟΥΛΟΣ").</summary>
 	private static string Normalize(string text) => GreekText.Upper(text);
 }

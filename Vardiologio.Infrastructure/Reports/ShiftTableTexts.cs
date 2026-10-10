@@ -37,7 +37,7 @@ internal static class ShiftTableTexts
 			if (part == BoldPart.All) return ("", l.Text);
 			if (part == BoldPart.None) return (l.Text, "");
 
-			// "E-mail: iona@edsna.gr" -> plain "E-mail: ", bold "iona@edsna.gr"; no colon -> all plain.
+			// "E-mail: name@example.gr" -> plain "E-mail: ", bold "name@example.gr"; no colon -> all plain.
 			var colon = l.Text.IndexOf(':');
 			if (colon < 0) return (l.Text, "");
 			var start = colon + 1;

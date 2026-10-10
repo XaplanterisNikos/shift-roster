@@ -24,6 +24,9 @@ public static class ReportColorCatalog
 	// Ατομική μηνιαία
 	public const string IndividualSunday = "Individual.Sunday";
 
+	// ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι (συγκεντρωτική πιστοποίηση ανά σύμβαση)
+	public const string ContractCertificateBand = "ContractCertificate.Band";
+
 	/// <summary>One colour of the catalogue.</summary>
 	/// <param name="Key">Key stored in the database.</param>
 	/// <param name="Report">Greek name of the report (group title on the settings page).</param>
@@ -45,7 +48,9 @@ public static class ReportColorCatalog
 
 		new(ShiftTableWeekend, "Πίνακας βαρδιών εργασίας", "Στήλες Σαββάτου, Κυριακής και αργιών", "#D6DCE4"),
 
-		new(IndividualSunday, "Ατομική μηνιαία", "Γραμμές Κυριακής", "#FCE4D6")
+		new(IndividualSunday, "Ατομική μηνιαία", "Γραμμές Κυριακής", "#FCE4D6"),
+
+		new(ContractCertificateBand, "ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι", "Ζώνες τμήματος και σύμβασης", "#92D050")
 	};
 
 	/// <summary>The catalogue entry of a key, or null for an unknown key.</summary>

@@ -12,7 +12,7 @@ public static class GreekText
 	private const string Vowels = "ΑΕΗΙΟΥΩ";
 
 	/// <summary>
-	/// Upper case without accents, as official forms print names ("Βρύνας" → "ΒΡΥΝΑΣ").
+	/// Upper case without accents, as official forms print names ("Γεωργίου" → "ΓΕΩΡΓΙΟΥ").
 	/// Surrounding spaces are removed; inner spaces are kept.
 	/// </summary>
 	public static string Upper(string text)
@@ -29,8 +29,8 @@ public static class GreekText
 	/// <summary>
 	/// True when the name is a woman's, for "Ο"/"Η" on the forms. Greek men's first names end
 	/// in a consonant (Γεώργιος, Ηλίας, and foreign ones such as Ίον), women's in a vowel
-	/// (Μαρία, Κασσιανή, Όλγα). When the first name is only an initial ("Γ."), the same rule is
-	/// applied to the surname (Μακρή, Τόλιου → woman; Βρύνας → man).
+	/// (Μαρία, Ελένη, Όλγα). When the first name is only an initial ("Γ."), the same rule is
+	/// applied to the surname (Ιωάννου, Παππά → woman; Παπαδόπουλος → man).
 	/// </summary>
 	/// <param name="firstName">First name as stored (may be an initial).</param>
 	/// <param name="lastName">Surname as stored.</param>
@@ -53,8 +53,8 @@ public static class GreekText
 	};
 
 	/// <summary>
-	/// Upper-case Latin transliteration for file names ("Βρύνας" → "VRYNAS",
-	/// "Κοτσεκίδου - Κουτσούκου" → "KOTSEKIDOU_KOUTSOUKOU"). Latin letters and digits are kept,
+	/// Upper-case Latin transliteration for file names ("Γεωργίου" → "GEORGIOU",
+	/// "Παππά - Ιωάννου" → "PAPPA_IOANNOU"). Latin letters and digits are kept,
 	/// anything else becomes a single "_", so the result is always a safe Windows file-name part.
 	/// </summary>
 	public static string ToLatin(string text)

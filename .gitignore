@@ -490,6 +490,13 @@ $RECYCLE.BIN/
 # Real employee data (personal). The committed employees.demo.json is the fallback.
 **/employees.json
 
+# Real texts of the official forms (service details, phones, e-mails, signatories, director's
+# surname). The committed report-data.demo.json (same blocks, empty lines) is the fallback.
+**/report-data.json
+
+# Emblem printed on the official forms; without the file the forms print without it.
+**/emblem.png
+
 # Startup crash log
 startup-error.log
 /installer-x64.iss

@@ -17,7 +17,7 @@ public static class IndividualSheetLayout
 		{ "ΙΑΝΟΥΑΡΙΟΥ","ΦΕΒΡΟΥΑΡΙΟΥ","ΜΑΡΤΙΟΥ","ΑΠΡΙΛΙΟΥ","ΜΑΪΟΥ","ΙΟΥΝΙΟΥ",
 		  "ΙΟΥΛΙΟΥ","ΑΥΓΟΥΣΤΟΥ","ΣΕΠΤΕΜΒΡΙΟΥ","ΟΚΤΩΒΡΙΟΥ","ΝΟΕΜΒΡΙΟΥ","ΔΕΚΕΜΒΡΙΟΥ" };
 
-	/// <summary>Line under the title: employee, contract and month ("ΒΡΥΝΑΣ ΓΕΩΡΓΙΟΣ (Μ) — ΜΗΝΟΣ ΑΥΓΟΥΣΤΟΥ 2026").</summary>
+	/// <summary>Line under the title: employee, contract and month ("ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΕΩΡΓΙΟΣ (Μ) — ΜΗΝΟΣ ΑΥΓΟΥΣΤΟΥ 2026").</summary>
 	public static string Subtitle(IndividualReportModel m)
 	{
 		var contract = m.WorkType.Length > 0 ? $" ({m.WorkType})" : "";

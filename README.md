@@ -30,7 +30,8 @@ staff and producing the official attendance/shift reports.
 - **Staff attendance report** (Πίνακας παρουσιών προσωπικού) — one mark per
   employee per day (√ / status code), printed per fortnight on A4 landscape with
   the emblem, letterhead and signatures on every page; a separate report for the
-  head of the directorate (work position ΔΙΕΥΘΥΝΤΗΣ, or by surname as a fallback).
+  head of the directorate (work position ΔΙΕΥΘΥΝΤΗΣ; a surname fallback can be set in the
+  local data file, see [Data & seeding](#data--seeding)).
   Excel and PDF (one file per report) and inline preview.
 - **Official shift table** (Πίνακας βαρδιών εργασίας) — the "Σ.Ω." form on one A3
   landscape page: codes per day (weekends / holidays shaded), counts per work code, paid
@@ -40,8 +41,18 @@ staff and producing the official attendance/shift reports.
   και λοιπής εργασίας») — one employee, one month, one A4 landscape page with the
   emblem, letterhead, declaration and signature; the paid hours per pay category
   (same numbers as the hours report). Excel, PDF and inline preview.
-- **Report text parameters** (Παράμετροι → Αναφορών) — the fixed texts of five forms
-  (shift table, staff attendance, directorate attendance, overtime certificate, Σ.Ω.) are
+- **Collective overtime certificate per contract** (ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι) — the same six hour
+  columns as the individual certificate, one row per employee, in two forms (one tab each):
+  permanent staff + open-ended contracts (ΙΔΑΧ), and fixed-term contracts (ΙΔΟΧ). Employees are
+  grouped by their contract under a coloured band, the running number continues from one group
+  to the next, every contract after the first starts on a new page, the table header repeats
+  on every page and the signatures are printed once at the end. Paid hours from the same
+  calculation as the individual certificate; a zero is left blank. The head of the directorate
+  is left out; employees without one of the three contracts are listed in a note. Excel, PDF
+  (A4 landscape) and inline preview; the page opens with the current month.
+- **Report text parameters** (Παράμετροι → Αναφορών) — the fixed texts of six forms
+  (shift table, staff attendance, directorate attendance, overtime certificate, certificate
+  per contract, Σ.Ω.) are
   stored in the database and edited per form, header and footer separately: service details,
   phones, e-mail, titles, decision numbers, declaration and signatories. Lines are only
   updated (no add / delete); an empty line is not printed, and the last save of a form can be
@@ -129,17 +140,20 @@ become fully editable at runtime from the Παράμετροι Βαρδιών sc
 soft-delete) — the code-level seed values are only the installation defaults,
 not a source of truth that gets re-applied over user edits on upgrade.
 
-The texts of the official forms (letterhead, titles, signatories…) are seeded per line from
-`SeedData.ReportTexts.cs`: a line that already exists is never overwritten, and a line added
-in a later version is inserted on the next start. After that they are edited in
-Παράμετροι → Αναφορών.
+**Personal and organisation data are kept out of this repository.** They live in files next
+to `Vardiologio.App.csproj` that are **git-ignored** (present only on the maintainer's machine
+and inside the installer); each has a committed fallback, so a fresh clone builds and runs:
 
-**Employee names are personal data and are kept out of this repository:**
+| Git-ignored (real) | Committed fallback | What it holds |
+|---|---|---|
+| `employees.json` | `employees.demo.json` (fake sample data) | Employee names and specialities. |
+| `report-data.json` | `report-data.demo.json` (same blocks, every line empty) | Default texts of the official forms — service details, phones, e-mails, decisions, signatories — and, optionally, `directorLastName`: the surname that marks the head of the directorate while no employee has the work position ΔΙΕΥΘΥΝΤΗΣ. |
+| `emblem.png` | none — the forms print without an emblem | The emblem above the letterhead. |
 
-- `employees.json` — real employee data, **git-ignored** (only on the maintainer's machine).
-- `employees.demo.json` — fake sample data, **committed**. Used automatically as a
-  fallback when `employees.json` is absent, so a fresh clone builds and runs with
-  demo data.
+The texts are seeded per line from the data file (`Persistence/Seeding/ReportDataFile.cs`): a
+line that already exists is never overwritten, and a line added to the file in a later version
+is inserted on the next start. After that they are edited in Παράμετροι → Αναφορών. With the
+demo file every line starts empty (an empty line is not printed) and is filled in there.
 
 Login credentials are hard-coded in `UserStore.cs` with PBKDF2 password hashes.
 The committed values are **demo passwords** (`user1/1111`, `user2/2222`) and must
@@ -150,7 +164,7 @@ be changed before any real use. Real passwords are never stored in plain text.
 - **Database:** `%LOCALAPPDATA%\Vardiologio\vardiologio.db` (hidden, survives reinstalls).
 - **Documents\Vardiologio** (Latin names only):
   - `Logs\yyyy-MM-dd.log` — errors only (startup, unhandled, failed exports).
-  - `Reports\<Monthly-Total | Monthly-Hours | Staff-Attendance | Overtime-Certificate | Shift-Table | Individual-Sheet>\yyyy-MM Month\` — exported reports.
+  - `Reports\<Monthly-Total | Monthly-Hours | Staff-Attendance | Overtime-Certificate | Contract-Certificate | Shift-Table | Individual-Sheet>\yyyy-MM Month\` — exported reports.
 - **Version:** `<Version>` in `Vardiologio.App.csproj` is the only place to change it; the login
   screen shows it and the installer reads it from the built exe.
 

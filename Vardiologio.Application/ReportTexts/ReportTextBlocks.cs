@@ -24,6 +24,15 @@ public static class ReportTextBlocks
 	/// <summary>Certificate only: introduction under the titles (the period dates are added automatically).</summary>
 	public const string Intro = "Intro";
 
+	/// <summary>Contract certificate only: band above the first group of the table ("ΤΜΗΜΑ: …").</summary>
+	public const string Department = "Department";
+
+	/// <summary>
+	/// Contract certificate only: title of each contract group, one line per contract in the
+	/// order of the ContractKind enum (permanent, open-ended, fixed-term).
+	/// </summary>
+	public const string ContractGroups = "ContractGroups";
+
 	/// <summary>Certificate only: heading of the declaration.</summary>
 	public const string DeclarationTitle = "DeclarationTitle";
 
@@ -42,7 +51,8 @@ public static class ReportTextBlocks
 	/// <summary>Blocks in the order they are listed on the settings page (signatures come after them).</summary>
 	private static readonly string[] DisplayOrder =
 	{
-		Letterhead, HandFilled, Titles, Addressee, Intro, DeclarationTitle, Declarations, Certification
+		Letterhead, HandFilled, Titles, Addressee, Intro, Department, ContractGroups,
+		DeclarationTitle, Declarations, Certification
 	};
 
 	/// <summary>
@@ -72,6 +82,8 @@ public static class ReportTextBlocks
 			case Titles: return "Τίτλοι";
 			case HandFilled: return "Πεδία που συμπληρώνονται με το χέρι";
 			case Intro: return "Εισαγωγικό κείμενο";
+			case Department: return "Τμήμα (ζώνη πάνω από τον πίνακα)";
+			case ContractGroups: return "Τίτλοι ομάδων σύμβασης (ζώνες του πίνακα)";
 			case DeclarationTitle: return "Τίτλος δήλωσης";
 			case Declarations: return "Σημεία δήλωσης";
 			case Certification: return "Βεβαίωση";
@@ -99,6 +111,7 @@ public static class ReportTextBlocks
 		ReportForm.AttendanceDirectorate => "Παρουσίες Διεύθυνσης",
 		ReportForm.OvertimeCertificate => "Ατομική βεβαίωση",
 		ReportForm.MonthlyTotal => "Συνολική μηνιαία Σ.Ω.",
+		ReportForm.ContractCertificate => "ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι",
 		_ => form.ToString()
 	};
 

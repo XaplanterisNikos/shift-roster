@@ -45,8 +45,9 @@ public class OvertimeCertificateService : IOvertimeCertificateService
 			?? throw new InvalidOperationException("HourLimits row not found.");
 
 		// Same calculation as the hours report, so the certificate always matches its "Πληρ." column.
-		var calc = MonthlyHoursCalculator.Calculate(year, month, entries, hours, holidays, limits);
-		decimal Paid(HourCategory c) => calc.Single(h => h.Category == c).Paid;
+		// The six columns come from one shared mapping (also used by the certificate per contract).
+		var paid = CertificateHours.FromPaid(
+			MonthlyHoursCalculator.Calculate(year, month, entries, hours, holidays, limits));
 
 		return new OvertimeCertificateModel
 		{
@@ -57,12 +58,12 @@ public class OvertimeCertificateService : IOvertimeCertificateService
 			FirstName = emp.FirstName,
 			Speciality = emp.Speciality,
 			IsFemale = GreekText.IsFemaleName(emp.FirstName, emp.LastName),
-			AfternoonOvertime = Paid(HourCategory.Simple),
-			NightOvertime = Paid(HourCategory.Night),
-			SundayDayOvertime = Paid(HourCategory.Sunday),
-			SundayNightOvertime = 0,   // no pay category feeds this column yet
-			WeekdayNightToComplete = Paid(HourCategory.ToComplete),
-			SundayHolidayToComplete = Paid(HourCategory.Holiday),
+			AfternoonOvertime = paid.AfternoonOvertime,
+			NightOvertime = paid.NightOvertime,
+			SundayDayOvertime = paid.SundayDayOvertime,
+			SundayNightOvertime = paid.SundayNightOvertime,
+			WeekdayNightToComplete = paid.WeekdayNightToComplete,
+			SundayHolidayToComplete = paid.SundayHolidayToComplete,
 			Texts = await ReportTextService.LoadSetAsync(db, ReportForm.OvertimeCertificate)
 		};
 	}

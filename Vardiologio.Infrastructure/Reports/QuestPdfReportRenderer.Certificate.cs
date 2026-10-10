@@ -2,6 +2,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using Vardiologio.Application.Reports;
+using Vardiologio.Application.ReportTexts;
 
 namespace Vardiologio.Infrastructure.Reports;
 
@@ -24,8 +25,8 @@ public partial class QuestPdfReportRenderer
 
 				page.Content().Column(col =>
 				{
-					col.Item().Element(c => CertHead(c, m));
-					col.Item().PaddingTop(10).Element(c => CertIntro(c, m));
+					col.Item().Element(c => CertHead(c, m.Texts, m.Year, m.Month));
+					col.Item().PaddingTop(10).Element(c => CertIntro(c, m.Texts, m.From, m.To));
 					col.Item().PaddingTop(10).Element(c => CertTable(c, m));
 					col.Item().PaddingTop(10).Element(c => CertDeclaration(c, m));
 					col.Item().PaddingTop(12).Element(c => CertSignature(c, m));
@@ -36,15 +37,18 @@ public partial class QuestPdfReportRenderer
 		return doc.GeneratePdf();
 	}
 
-	/// <summary>Emblem + letterhead (left), titles (centre), hand-filled labels (right).</summary>
-	private static void CertHead(IContainer c, OvertimeCertificateModel m) => c.Row(row =>
+	/// <summary>
+	/// Emblem + letterhead (left), titles (centre), hand-filled labels (right).
+	/// Shared with the collective certificate per contract, which has the same top.
+	/// </summary>
+	private static void CertHead(IContainer c, ReportTextSet texts, int year, int month) => c.Row(row =>
 	{
 		// Left: emblem above the letterhead.
 		row.ConstantItem(230).Column(left =>
 		{
-			left.Item().Width(46).Height(44).Image(AttendanceSheetTexts.Emblem).FitArea();
+			left.Item().Width(46).Height(44).Element(EmblemImage);
 			left.Item().Height(3);
-			var lh = AttendanceSheetTexts.Letterhead(m.Texts);
+			var lh = AttendanceSheetTexts.Letterhead(texts);
 			foreach (var (text, bold) in lh)
 			{
 				var line = left.Item().Text(text).FontSize(7.5f);
@@ -60,15 +64,15 @@ public partial class QuestPdfReportRenderer
 		// Centre: the two title lines, level with the bottom of the letterhead (as on the sheet).
 		row.RelativeItem().AlignBottom().Column(mid =>
 		{
-			mid.Item().AlignCenter().Text(OvertimeCertificateTexts.Title(m.Texts, m.Year, m.Month)).Bold().FontSize(10.5f);
-			mid.Item().AlignCenter().Text(OvertimeCertificateTexts.Subtitle(m.Texts)).Bold().FontSize(10.5f);
+			mid.Item().AlignCenter().Text(OvertimeCertificateTexts.Title(texts, year, month)).Bold().FontSize(10.5f);
+			mid.Item().AlignCenter().Text(OvertimeCertificateTexts.Subtitle(texts)).Bold().FontSize(10.5f);
 		});
 
 		// Right: labels filled in by hand. One line per letterhead row, in the same font size,
 		// so each label sits level with its letterhead row; the other rows stay empty.
 		row.ConstantItem(150).PaddingTop(47).Column(right =>
 		{
-			var labels = OvertimeCertificateTexts.HandFilled(m.Texts);
+			var labels = OvertimeCertificateTexts.HandFilled(texts);
 			for (var i = 0; i < OvertimeCertificateTexts.HandFilledRowCount; i++)
 			{
 				var label = labels.FirstOrDefault(h => h.Row == i).Text;
@@ -77,10 +81,10 @@ public partial class QuestPdfReportRenderer
 		});
 	});
 
-	/// <summary>Centred introduction lines.</summary>
-	private static void CertIntro(IContainer c, OvertimeCertificateModel m) => c.Column(col =>
+	/// <summary>Centred introduction lines (the period is added to the last one).</summary>
+	private static void CertIntro(IContainer c, ReportTextSet texts, DateOnly from, DateOnly to) => c.Column(col =>
 	{
-		foreach (var line in OvertimeCertificateTexts.Intro(m.Texts, m.From, m.To))
+		foreach (var line in OvertimeCertificateTexts.Intro(texts, from, to))
 			col.Item().AlignCenter().Text(line).FontSize(9.5f);
 	});
 

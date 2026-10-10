@@ -1,0 +1,3044 @@
+diff --git a/.gitignore b/.gitignore
+index aafc21b..f74ef39 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -490,6 +490,13 @@ $RECYCLE.BIN/
+ # Real employee data (personal). The committed employees.demo.json is the fallback.
+ **/employees.json
+ 
++# Real texts of the official forms (service details, phones, e-mails, signatories, director's
++# surname). The committed report-data.demo.json (same blocks, empty lines) is the fallback.
++**/report-data.json
++
++# Emblem printed on the official forms; without the file the forms print without it.
++**/emblem.png
++
+ # Startup crash log
+ startup-error.log
+ /installer-x64.iss
+diff --git a/README.md b/README.md
+index 80d65c7..46a3863 100644
+--- a/README.md
++++ b/README.md
+@@ -30,7 +30,8 @@ staff and producing the official attendance/shift reports.
+ - **Staff attendance report** (Πίνακας παρουσιών προσωπικού) — one mark per
+   employee per day (√ / status code), printed per fortnight on A4 landscape with
+   the emblem, letterhead and signatures on every page; a separate report for the
+-  head of the directorate (work position ΔΙΕΥΘΥΝΤΗΣ, or by surname as a fallback).
++  head of the directorate (work position ΔΙΕΥΘΥΝΤΗΣ; a surname fallback can be set in the
++  local data file, see [Data & seeding](#data--seeding)).
+   Excel and PDF (one file per report) and inline preview.
+ - **Official shift table** (Πίνακας βαρδιών εργασίας) — the "Σ.Ω." form on one A3
+   landscape page: codes per day (weekends / holidays shaded), counts per work code, paid
+@@ -40,8 +41,18 @@ staff and producing the official attendance/shift reports.
+   και λοιπής εργασίας») — one employee, one month, one A4 landscape page with the
+   emblem, letterhead, declaration and signature; the paid hours per pay category
+   (same numbers as the hours report). Excel, PDF and inline preview.
+-- **Report text parameters** (Παράμετροι → Αναφορών) — the fixed texts of five forms
+-  (shift table, staff attendance, directorate attendance, overtime certificate, Σ.Ω.) are
++- **Collective overtime certificate per contract** (ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι) — the same six hour
++  columns as the individual certificate, one row per employee, in two forms (one tab each):
++  permanent staff + open-ended contracts (ΙΔΑΧ), and fixed-term contracts (ΙΔΟΧ). Employees are
++  grouped by their contract under a coloured band, the running number continues from one group
++  to the next, every contract after the first starts on a new page, the table header repeats
++  on every page and the signatures are printed once at the end. Paid hours from the same
++  calculation as the individual certificate; a zero is left blank. The head of the directorate
++  is left out; employees without one of the three contracts are listed in a note. Excel, PDF
++  (A4 landscape) and inline preview; the page opens with the current month.
++- **Report text parameters** (Παράμετροι → Αναφορών) — the fixed texts of six forms
++  (shift table, staff attendance, directorate attendance, overtime certificate, certificate
++  per contract, Σ.Ω.) are
+   stored in the database and edited per form, header and footer separately: service details,
+   phones, e-mail, titles, decision numbers, declaration and signatories. Lines are only
+   updated (no add / delete); an empty line is not printed, and the last save of a form can be
+@@ -129,17 +140,20 @@ become fully editable at runtime from the Παράμετροι Βαρδιών sc
+ soft-delete) — the code-level seed values are only the installation defaults,
+ not a source of truth that gets re-applied over user edits on upgrade.
+ 
+-The texts of the official forms (letterhead, titles, signatories…) are seeded per line from
+-`SeedData.ReportTexts.cs`: a line that already exists is never overwritten, and a line added
+-in a later version is inserted on the next start. After that they are edited in
+-Παράμετροι → Αναφορών.
++**Personal and organisation data are kept out of this repository.** They live in files next
++to `Vardiologio.App.csproj` that are **git-ignored** (present only on the maintainer's machine
++and inside the installer); each has a committed fallback, so a fresh clone builds and runs:
+ 
+-**Employee names are personal data and are kept out of this repository:**
++| Git-ignored (real) | Committed fallback | What it holds |
++|---|---|---|
++| `employees.json` | `employees.demo.json` (fake sample data) | Employee names and specialities. |
++| `report-data.json` | `report-data.demo.json` (same blocks, every line empty) | Default texts of the official forms — service details, phones, e-mails, decisions, signatories — and, optionally, `directorLastName`: the surname that marks the head of the directorate while no employee has the work position ΔΙΕΥΘΥΝΤΗΣ. |
++| `emblem.png` | none — the forms print without an emblem | The emblem above the letterhead. |
+ 
+-- `employees.json` — real employee data, **git-ignored** (only on the maintainer's machine).
+-- `employees.demo.json` — fake sample data, **committed**. Used automatically as a
+-  fallback when `employees.json` is absent, so a fresh clone builds and runs with
+-  demo data.
++The texts are seeded per line from the data file (`Persistence/Seeding/ReportDataFile.cs`): a
++line that already exists is never overwritten, and a line added to the file in a later version
++is inserted on the next start. After that they are edited in Παράμετροι → Αναφορών. With the
++demo file every line starts empty (an empty line is not printed) and is filled in there.
+ 
+ Login credentials are hard-coded in `UserStore.cs` with PBKDF2 password hashes.
+ The committed values are **demo passwords** (`user1/1111`, `user2/2222`) and must
+@@ -150,7 +164,7 @@ be changed before any real use. Real passwords are never stored in plain text.
+ - **Database:** `%LOCALAPPDATA%\Vardiologio\vardiologio.db` (hidden, survives reinstalls).
+ - **Documents\Vardiologio** (Latin names only):
+   - `Logs\yyyy-MM-dd.log` — errors only (startup, unhandled, failed exports).
+-  - `Reports\<Monthly-Total | Monthly-Hours | Staff-Attendance | Overtime-Certificate | Shift-Table | Individual-Sheet>\yyyy-MM Month\` — exported reports.
++  - `Reports\<Monthly-Total | Monthly-Hours | Staff-Attendance | Overtime-Certificate | Contract-Certificate | Shift-Table | Individual-Sheet>\yyyy-MM Month\` — exported reports.
+ - **Version:** `<Version>` in `Vardiologio.App.csproj` is the only place to change it; the login
+   screen shows it and the installer reads it from the built exe.
+ 
+diff --git a/Vardiologio.App/App.xaml.cs b/Vardiologio.App/App.xaml.cs
+index 0c7e426..80cd975 100644
+--- a/Vardiologio.App/App.xaml.cs
++++ b/Vardiologio.App/App.xaml.cs
+@@ -72,6 +72,7 @@ public partial class App : System.Windows.Application
+ 			services.AddScoped<IHoursReportService, HoursReportService>();
+ 			services.AddScoped<IAttendanceReportService, AttendanceReportService>();
+ 			services.AddScoped<IOvertimeCertificateService, OvertimeCertificateService>();
++			services.AddScoped<IContractCertificateService, ContractCertificateService>();
+ 			services.AddScoped<IShiftTableService, ShiftTableService>();
+ 			services.AddScoped<IEmployeeService, EmployeeService>();
+ 			services.AddScoped<IShiftCodeService, ShiftCodeService>();
+diff --git a/Vardiologio.App/Components/Layout/MainLayout.razor b/Vardiologio.App/Components/Layout/MainLayout.razor
+index 43cf46f..96e9760 100644
+--- a/Vardiologio.App/Components/Layout/MainLayout.razor
++++ b/Vardiologio.App/Components/Layout/MainLayout.razor
+@@ -39,7 +39,7 @@
+                 @* Match.All so this is active only at "/", not on every route. *@
+                 <MudNavLink Href="" Match="NavLinkMatch.All">Προγράμματα</MudNavLink>
+ 
+-                @* Reports and forms together; a thin line separates the three official forms
++                @* Reports and forms together; a thin line separates the official forms
+                    (emblem + signatures) from the plain reports. *@
+                 <div class="nav-section">
+                     <MudIcon Icon="@Icons.Material.Rounded.Description" Size="Size.Small" />
+@@ -52,6 +52,7 @@
+                 <MudNavLink Href="shift-table">Πίνακας Βαρδιών Εργασίας</MudNavLink>
+                 <MudNavLink Href="attendance-report">Παρουσιών Προσωπικού</MudNavLink>
+                 <MudNavLink Href="overtime-certificate">Ατομικής Βεβαίωσης</MudNavLink>
++                <MudNavLink Href="contract-certificate">ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι</MudNavLink>
+ 
+                 <div class="nav-section">
+                     <MudIcon Icon="@Icons.Material.Rounded.Tune" Size="Size.Small" />
+diff --git a/Vardiologio.App/Components/Pages/AttendanceReport.razor b/Vardiologio.App/Components/Pages/AttendanceReport.razor
+index f4e7189..38856e5 100644
+--- a/Vardiologio.App/Components/Pages/AttendanceReport.razor
++++ b/Vardiologio.App/Components/Pages/AttendanceReport.razor
+@@ -50,8 +50,8 @@
+ @if (noDirector)
+ {
+     <p class="hint">
+-        Δεν βρέθηκε ο Διευθυντής (ενεργός εργαζόμενος με θέση «@PresenceRules.DirectorPosition»
+-        ή με επώνυμο «@PresenceRules.DirectorLastName»)· η αναφορά της Διεύθυνσης βγαίνει κενή.
++        Δεν βρέθηκε ο Διευθυντής (ενεργός εργαζόμενος με θέση «@PresenceRules.DirectorPosition»)·
++        η αναφορά της Διεύθυνσης βγαίνει κενή.
+     </p>
+ }
+ 
+diff --git a/Vardiologio.App/Components/Pages/ContractCertificate.razor b/Vardiologio.App/Components/Pages/ContractCertificate.razor
+new file mode 100644
+index 0000000..afd5a9a
+--- /dev/null
++++ b/Vardiologio.App/Components/Pages/ContractCertificate.razor
+@@ -0,0 +1,169 @@
++@page "/contract-certificate"
++@using System.Diagnostics
++@using System.IO
++@using Vardiologio.Application.Files
++@using Vardiologio.Application.Logging
++@using Vardiologio.Application.Reports
++@inject IContractCertificateService ContractCertificateService
++@inject IExcelReportRenderer Excel
++@inject IPdfReportRenderer Pdf
++@inject IReportFileStore FileStore
++@inject IErrorLog ErrorLog
++
++@* Collective "ΠΙΣΤΟΠΟΙΗΣΗ ΥΠΕΡΩΡΙΑΚΗΣ ΚΑΙ ΛΟΙΠΗΣ ΕΡΓΑΣΙΑΣ" per contract, in two forms (one tab each):
++   permanent staff + open-ended contracts, and fixed-term contracts. The preview is the PDF
++   itself (exactly what gets printed); an export writes the file of the open tab (Excel or PDF). *@
++<h1>Εξαγωγή Πιστοποίησης ανά Σύμβαση (ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι)</h1>
++
++<div class="filters">
++    <label>
++        Έτος
++        <select @bind="year">
++            @for (int y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
++            {
++                <option value="@y">@y</option>
++            }
++        </select>
++    </label>
++    <label>
++        Μήνας
++        <select @bind="month">
++            @for (int mo = 1; mo <= 12; mo++)
++            {
++                <option value="@mo">@Months[mo - 1]</option>
++            }
++        </select>
++    </label>
++    <button @onclick="PreviewAsync" disabled="@busy">Προεπισκόπηση</button>
++    <button @onclick="ExportExcelAsync" disabled="@busy">Εξαγωγή Excel</button>
++    <button @onclick="ExportPdfAsync" disabled="@busy">Εξαγωγή PDF</button>
++</div>
++
++@if (message is not null)
++{
++    <p class="ok">@message</p>
++}
++@if (error is not null)
++{
++    <p style="color:#c00">@error</p>
++}
++@if (withoutContract.Count > 0)
++{
++    <p class="hint">
++        Δεν περιλαμβάνονται σε κανένα έντυπο, επειδή δεν έχουν σύμβαση Μόνιμου, ΙΔΑΧ ή ΙΔΟΧ
++        (Εργαζόμενοι → Σύμβαση): @(string.Join(", ", withoutContract)).
++    </p>
++}
++
++@if (previews is not null)
++{
++    @* One tab per form; each shows its own PDF inline (WebView2 has a built-in PDF viewer). *@
++    <div class="tabs">
++        @foreach (var sheet in Sheets)
++        {
++            <button type="button"
++                    class="tab @(sheet == activeSheet ? "active" : "")"
++                    @onclick="() => activeSheet = sheet">
++                @TabTitle(sheet)
++            </button>
++        }
++    </div>
++
++    <object data="@previews[activeSheet]" type="application/pdf" style="width:100%;height:75vh;border:1px solid #ccc">
++        <p>
++            Δεν εμφανίζεται η προεπισκόπηση.
++            <a href="@previews[activeSheet]" target="_blank">Άνοιγμα PDF</a>
++        </p>
++    </object>
++}
++
++@code {
++    /// <summary>The two forms, in tab order.</summary>
++    private static readonly ContractCertificateSheet[] Sheets =
++        { ContractCertificateSheet.PermanentAndOpenEnded, ContractCertificateSheet.FixedTerm };
++
++    private int year = DateTime.Today.Year;
++    private int month = DateTime.Today.Month;
++    private bool busy;
++    private string? message, error;
++    private ContractCertificateSheet activeSheet = ContractCertificateSheet.PermanentAndOpenEnded;
++
++    /// <summary>PDF data-URI per form, after "Προεπισκόπηση".</summary>
++    private Dictionary<ContractCertificateSheet, string>? previews;
++
++    /// <summary>Employees left out of both forms (no contract of the three kinds); shown as a note.</summary>
++    private List<string> withoutContract = new();
++
++    /// <summary>
++    /// The page opens with the current month already shown. Done after the first render, so
++    /// the page appears at once and the report follows; for another month the user picks it
++    /// and presses the button.
++    /// </summary>
++    protected override async Task OnAfterRenderAsync(bool firstRender)
++    {
++        if (!firstRender) return;
++        await PreviewAsync();
++        StateHasChanged();
++    }
++
++    /// <summary>Renders both forms to PDF in memory and shows them inline (no file written).</summary>
++    private async Task PreviewAsync()
++    {
++        busy = true; message = null; error = null; previews = null;
++        try
++        {
++            var result = new Dictionary<ContractCertificateSheet, string>();
++            foreach (var sheet in Sheets)
++            {
++                var model = await ContractCertificateService.BuildAsync(year, month, sheet);
++                withoutContract = model.WithoutContract;   // the same list on both forms
++                result[sheet] = "data:application/pdf;base64," + Convert.ToBase64String(Pdf.Render(model));
++            }
++            previews = result;
++        }
++        catch (Exception ex) { Fail("Preview", ex); }
++        finally { busy = false; }
++    }
++
++    private Task ExportExcelAsync() => ExportAsync(m => Excel.Render(m), "xlsx");
++    private Task ExportPdfAsync() => ExportAsync(m => Pdf.Render(m), "pdf");
++
++    /// <summary>Writes the file of the open tab, then opens it with the default application.</summary>
++    private async Task ExportAsync(Func<ContractCertificateModel, byte[]> render, string ext)
++    {
++        busy = true; message = null; error = null;
++        try
++        {
++            var model = await ContractCertificateService.BuildAsync(year, month, activeSheet);
++            withoutContract = model.WithoutContract;
++            var path = await FileStore.SaveAsync(ReportFolder.ContractCertificate, year, month, FileName(activeSheet, ext), render(model));
++            Open(path);
++            message = "Δημιουργήθηκε: " + path;
++        }
++        catch (Exception ex) { Fail("Excel/PDF export", ex); }
++        finally { busy = false; }
++    }
++
++    /// <summary>Certificate_Permanent_IDAX_yyyy_MM or Certificate_IDOX_yyyy_MM (Latin characters only).</summary>
++    private string FileName(ContractCertificateSheet sheet, string ext) => sheet == ContractCertificateSheet.FixedTerm
++        ? $"Certificate_IDOX_{year}_{month:00}.{ext}"
++        : $"Certificate_Permanent_IDAX_{year}_{month:00}.{ext}";
++
++    /// <summary>Opens a file with its default application.</summary>
++    private static void Open(string path) => Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
++
++    /// <summary>Tab title of a form.</summary>
++    private static string TabTitle(ContractCertificateSheet sheet) =>
++        sheet == ContractCertificateSheet.FixedTerm ? "ΙΔΟΧ" : "Μόνιμοι / ΙΔΑΧ";
++
++    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows its message on the page.</summary>
++    private void Fail(string action, Exception ex)
++    {
++        ErrorLog.Error($"Contract certificate / {action}", ex);
++        error = ex.Message;
++    }
++
++    private static readonly string[] Months =
++        { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",
++          "Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος" };
++}
+diff --git a/Vardiologio.App/Components/Pages/ReportParameters.razor b/Vardiologio.App/Components/Pages/ReportParameters.razor
+index 5952760..e8c540a 100644
+--- a/Vardiologio.App/Components/Pages/ReportParameters.razor
++++ b/Vardiologio.App/Components/Pages/ReportParameters.razor
+@@ -37,6 +37,7 @@
+         ReportForm.AttendanceStaff,
+         ReportForm.AttendanceDirectorate,
+         ReportForm.OvertimeCertificate,
++        ReportForm.ContractCertificate,
+         ReportForm.MonthlyTotal
+     };
+ }
+diff --git a/Vardiologio.App/Components/Shared/HelpContent.razor b/Vardiologio.App/Components/Shared/HelpContent.razor
+index a391f71..9947091 100644
+--- a/Vardiologio.App/Components/Shared/HelpContent.razor
++++ b/Vardiologio.App/Components/Shared/HelpContent.razor
+@@ -92,7 +92,7 @@
+ 
+         <h3>Αρχεία</h3>
+         <ul>
+-            <li>Το αρχείο αποθηκεύεται στον φάκελο «Έγγραφα\Vardiologio\Reports\Individual-Sheet\έτος-μήνας» (π.χ. «2026-08 August») με όνομα Individual_ΕΠΩΝΥΜΟ_έτος_μήνας, με το επώνυμο σε λατινικούς χαρακτήρες (π.χ. Individual_VRYNAS_2026_08), και ανοίγει αυτόματα. Νέα εξαγωγή του ίδιου μήνα αντικαθιστά το προηγούμενο αρχείο.</li>
++            <li>Το αρχείο αποθηκεύεται στον φάκελο «Έγγραφα\Vardiologio\Reports\Individual-Sheet\έτος-μήνας» (π.χ. «2026-08 August») με όνομα Individual_ΕΠΩΝΥΜΟ_έτος_μήνας, με το επώνυμο σε λατινικούς χαρακτήρες (π.χ. Individual_PAPADOPOULOS_2026_08), και ανοίγει αυτόματα. Νέα εξαγωγή του ίδιου μήνα αντικαθιστά το προηγούμενο αρχείο.</li>
+             <li>Η οθόνη είναι μόνο για προβολή και εξαγωγή· οι αλλαγές γίνονται στην «Εισαγωγή προγραμμάτων».</li>
+         </ul>
+         break;
+@@ -132,7 +132,7 @@
+         <ul>
+             <li>Σε κάθε ημέρα εμφανίζεται <b>√</b> όταν έχει καταχωριστεί βάρδια εργασίας, ο <b>κωδικός</b> όταν έχει καταχωριστεί κατάσταση (π.χ. Κ, Ρ, Α) και <b>κενό</b> όταν δεν υπάρχει καταχώριση.</li>
+             <li>Ο μήνας εκτυπώνεται ανά δεκαπενθήμερο (1–15 και 16–τέλος μήνα). Κάθε σελίδα φέρει το σήμα, τα στοιχεία της υπηρεσίας, τον τίτλο και τις υπογραφές.</li>
+-            <li>Στην αναφορά της Διεύθυνσης περιλαμβάνεται ο Διευθυντής: ο εργαζόμενος με θέση εργασίας <b>ΔΙΕΥΘΥΝΤΗΣ</b> ή, εφόσον κανείς δεν έχει τη θέση αυτή, ο εργαζόμενος με επώνυμο Παπασταμάτης. Όλοι οι υπόλοιποι ενεργοί εργαζόμενοι περιλαμβάνονται στην αναφορά των υπαλλήλων.</li>
++            <li>Στην αναφορά της Διεύθυνσης περιλαμβάνεται ο Διευθυντής: ο εργαζόμενος με θέση εργασίας <b>ΔΙΕΥΘΥΝΤΗΣ</b> ή, εφόσον κανείς δεν έχει τη θέση αυτή, ο εργαζόμενος που έχει οριστεί ως Διευθυντής στα τοπικά στοιχεία της εγκατάστασης. Όλοι οι υπόλοιποι ενεργοί εργαζόμενοι περιλαμβάνονται στην αναφορά των υπαλλήλων.</li>
+             <li>Κάθε εξαγωγή (Excel ή PDF) δημιουργεί δύο χωριστά αρχεία, ένα για το προσωπικό και ένα για τη Διεύθυνση.</li>
+             <li>Τα αρχεία αποθηκεύονται στον φάκελο «Έγγραφα\Vardiologio\Reports\Staff-Attendance\έτος-μήνας» (π.χ. «2026-08 August») με όνομα Attendance_Staff_έτος_μήνας και Attendance_Directorate_έτος_μήνας και ανοίγουν αυτόματα.</li>
+         </ul>
+@@ -175,7 +175,29 @@
+             <li>Το ονοματεπώνυμο και η ειδικότητα τυπώνονται όπως είναι καταχωρισμένα στην καρτέλα του εργαζομένου (με κεφαλαία, χωρίς τόνους)· για το πλήρες όνομα, καταχωρίστε το ολόκληρο στο πεδίο «Όνομα».</li>
+             <li>Η ένδειξη «Ο/Η Βεβαιών Υπάλληλος» προκύπτει από το όνομα του εργαζομένου.</li>
+             <li>Τα πεδία «Αθήνα», «Αρ. Πρωτ.» και «Προς» συμπληρώνονται με το χέρι.</li>
+-            <li>Το αρχείο αποθηκεύεται στον φάκελο «Έγγραφα\Vardiologio\Reports\Overtime-Certificate\έτος-μήνας» (π.χ. «2026-08 August») με όνομα Certificate_ΕΠΩΝΥΜΟ_έτος_μήνας, με το επώνυμο σε λατινικούς χαρακτήρες (π.χ. Certificate_VRYNAS_2026_08), και ανοίγει αυτόματα.</li>
++            <li>Το αρχείο αποθηκεύεται στον φάκελο «Έγγραφα\Vardiologio\Reports\Overtime-Certificate\έτος-μήνας» (π.χ. «2026-08 August») με όνομα Certificate_ΕΠΩΝΥΜΟ_έτος_μήνας, με το επώνυμο σε λατινικούς χαρακτήρες (π.χ. Certificate_PAPADOPOULOS_2026_08), και ανοίγει αυτόματα.</li>
++        </ul>
++        break;
++
++    case "contract-certificate":
++        <p>Στην οθόνη αυτή εκδίδεται η συγκεντρωτική «Πιστοποίηση υπερωριακής και λοιπής εργασίας» του μήνα ανά σύμβαση, σε δύο έντυπα: ένα για Μόνιμους και Αορίστου χρόνου (ΙΔΑΧ) και ένα για Ορισμένου χρόνου (ΙΔΟΧ).</p>
++
++        <h3>Διαδικασία</h3>
++        <ol>
++            <li>Η οθόνη ανοίγει με τον τρέχοντα μήνα. Για άλλον μήνα επιλέξτε <b>έτος</b> και <b>μήνα</b> και πατήστε «Προεπισκόπηση».</li>
++            <li>Με τις καρτέλες «Μόνιμοι / ΙΔΑΧ» και «ΙΔΟΧ» εναλλάσσεται το έντυπο.</li>
++            <li>Πατήστε «Εξαγωγή Excel» ή «Εξαγωγή PDF» για τη δημιουργία του αρχείου της καρτέλας που είναι ανοικτή.</li>
++        </ol>
++
++        <h3>Τι ισχύει</h3>
++        <ul>
++            <li>Κάθε εργαζόμενος κατατάσσεται με βάση τη <b>σύμβασή</b> του (Εργαζόμενοι → Σύμβαση): Μόνιμος, ΙΔΑΧ ή ΙΔΟΧ. Εργαζόμενος χωρίς μία από τις τρεις συμβάσεις δεν περιλαμβάνεται σε κανένα έντυπο και αναφέρεται σε σημείωση πάνω από την προεπισκόπηση.</li>
++            <li>Περιλαμβάνονται όλοι οι ενεργοί εργαζόμενοι της σύμβασης, αλφαβητικά, ακόμη και χωρίς ώρες (κενή γραμμή). Ο Διευθυντής δεν περιλαμβάνεται.</li>
++            <li>Οι ώρες είναι οι <b>πληρωτέες</b> ώρες του μήνα, ίδιες με της Ατομικής Βεβαίωσης κάθε εργαζομένου. Μηδενικές ώρες εμφανίζονται ως κενό.</li>
++            <li>Ο αύξων αριθμός συνεχίζει από τους Μόνιμους στους Αορίστου χρόνου. Η ομάδα Αορίστου χρόνου αρχίζει σε νέα σελίδα· η επικεφαλίδα του πίνακα επαναλαμβάνεται σε κάθε σελίδα και οι υπογραφές τυπώνονται μία φορά, στο τέλος.</li>
++            <li>Τα κείμενα (στοιχεία υπηρεσίας, αποφάσεις, τμήμα, τίτλοι ομάδων, υπογράφοντες) ορίζονται στο «Παράμετροι → Αναφορών», καρτέλα «ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι», και είναι κοινά για τα δύο έντυπα. Το χρώμα των ζωνών ορίζεται στην καρτέλα «Χρώματα».</li>
++            <li>Τα πεδία «Αθήνα», «Αρ. Πρωτ.» και «Προς» συμπληρώνονται με το χέρι.</li>
++            <li>Το αρχείο αποθηκεύεται στον φάκελο «Έγγραφα\Vardiologio\Reports\Contract-Certificate\έτος-μήνας» (π.χ. «2026-09 September») με όνομα Certificate_Permanent_IDAX_έτος_μήνας ή Certificate_IDOX_έτος_μήνας και ανοίγει αυτόματα.</li>
+         </ul>
+         break;
+ 
+@@ -253,7 +275,7 @@
+ 
+         <h3>Διαδικασία</h3>
+         <ol>
+-            <li>Επιλέξτε την <b>καρτέλα</b> του εντύπου (Πίνακας βαρδιών, Παρουσίες προσωπικού, Παρουσίες Διεύθυνσης, Ατομική βεβαίωση, Συνολική μηνιαία Σ.Ω.).</li>
++            <li>Επιλέξτε την <b>καρτέλα</b> του εντύπου (Πίνακας βαρδιών, Παρουσίες προσωπικού, Παρουσίες Διεύθυνσης, Ατομική βεβαίωση, ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι, Συνολική μηνιαία Σ.Ω.).</li>
+             <li>Διορθώστε τις γραμμές στην «Κεφαλίδα» (πάνω από τον πίνακα) και στο «Υποσέλιδο» (κάτω από τον πίνακα).</li>
+             <li>Πατήστε «Αποθήκευση». Αποθηκεύονται όλες οι γραμμές της καρτέλας ταυτόχρονα.</li>
+         </ol>
+diff --git a/Vardiologio.App/Components/Shared/ReportTextsEditor.razor b/Vardiologio.App/Components/Shared/ReportTextsEditor.razor
+index af7a1b3..8113309 100644
+--- a/Vardiologio.App/Components/Shared/ReportTextsEditor.razor
++++ b/Vardiologio.App/Components/Shared/ReportTextsEditor.razor
+@@ -115,8 +115,10 @@
+     private string? Hint(string block) => (Form, block) switch
+     {
+         (ReportForm.ShiftTable or ReportForm.MonthlyTotal, ReportTextBlocks.Titles) => "Μετά τους τίτλους τυπώνεται αυτόματα η γραμμή «ΜΗΝΟΣ …».",
+-        (ReportForm.OvertimeCertificate, ReportTextBlocks.Titles) => "Στο τέλος της πρώτης γραμμής προστίθεται αυτόματα «ΜΗΝΟΣ …».",
+-        (ReportForm.OvertimeCertificate, ReportTextBlocks.Intro) => "Στο τέλος της τελευταίας γραμμής προστίθεται αυτόματα «από … έως …».",
++        (ReportForm.OvertimeCertificate or ReportForm.ContractCertificate, ReportTextBlocks.Titles) => "Στο τέλος της πρώτης γραμμής προστίθεται αυτόματα «ΜΗΝΟΣ …».",
++        (ReportForm.OvertimeCertificate or ReportForm.ContractCertificate, ReportTextBlocks.Intro) => "Στο τέλος της τελευταίας γραμμής προστίθεται αυτόματα «από … έως …».",
++        (ReportForm.ContractCertificate, ReportTextBlocks.Department) => "Τυπώνεται μία φορά, πάνω από την πρώτη ομάδα κάθε εντύπου.",
++        (ReportForm.ContractCertificate, ReportTextBlocks.ContractGroups) => "Με τη σειρά: Μόνιμοι, Αορίστου χρόνου (ΙΔΑΧ), Ορισμένου χρόνου (ΙΔΟΧ).",
+         (ReportForm.AttendanceStaff or ReportForm.AttendanceDirectorate, ReportTextBlocks.Titles) => "Κάτω από τους τίτλους τυπώνεται αυτόματα η περίοδος «Από … έως …».",
+         _ => null
+     };
+diff --git a/Vardiologio.App/Vardiologio.App.csproj b/Vardiologio.App/Vardiologio.App.csproj
+index e2b35e5..6fdeb30 100644
+--- a/Vardiologio.App/Vardiologio.App.csproj
++++ b/Vardiologio.App/Vardiologio.App.csproj
+@@ -16,6 +16,12 @@
+     <None Update="employees.demo.json" CopyToOutputDirectory="PreserveNewest" />
+     <!-- Real data: git-ignored; copied only when present on this machine. -->
+     <None Update="employees.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('employees.json')" />
++
++    <!-- Texts of the official forms: the committed file has every block with empty lines. -->
++    <None Update="report-data.demo.json" CopyToOutputDirectory="PreserveNewest" />
++    <!-- Real texts (service details, signatories) and the emblem: git-ignored; copied only when present. -->
++    <None Update="report-data.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('report-data.json')" />
++    <None Update="emblem.png" CopyToOutputDirectory="PreserveNewest" Condition="Exists('emblem.png')" />
+   </ItemGroup>
+ 
+   <PropertyGroup>
+diff --git a/Vardiologio.Infrastructure/Reports/Assets/emblem.png b/Vardiologio.App/emblem.png
+similarity index 100%
+rename from Vardiologio.Infrastructure/Reports/Assets/emblem.png
+rename to Vardiologio.App/emblem.png
+diff --git a/Vardiologio.App/report-data.demo.json b/Vardiologio.App/report-data.demo.json
+new file mode 100644
+index 0000000..84c58c4
+--- /dev/null
++++ b/Vardiologio.App/report-data.demo.json
+@@ -0,0 +1,439 @@
++{
++  "directorLastName": "",
++  "texts": [
++    {
++      "form": "ShiftTable",
++      "section": "Header",
++      "block": "Letterhead",
++      "lines": [
++        "",
++        "",
++        "",
++        "",
++        "",
++        "",
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "ShiftTable",
++      "section": "Header",
++      "block": "Titles",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "ShiftTable",
++      "section": "Header",
++      "block": "Addressee",
++      "lines": [
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "ShiftTable",
++      "section": "Footer",
++      "block": "Signature1Role",
++      "lines": [
++        ""
++      ]
++    },
++    {
++      "form": "ShiftTable",
++      "section": "Footer",
++      "block": "Signature1Name",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "ShiftTable",
++      "section": "Footer",
++      "block": "Signature2Role",
++      "lines": [
++        ""
++      ]
++    },
++    {
++      "form": "ShiftTable",
++      "section": "Footer",
++      "block": "Signature2Name",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceStaff",
++      "section": "Header",
++      "block": "Letterhead",
++      "lines": [
++        "",
++        "",
++        "",
++        "",
++        "",
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceStaff",
++      "section": "Header",
++      "block": "Titles",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceStaff",
++      "section": "Footer",
++      "block": "Signature1Role",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceStaff",
++      "section": "Footer",
++      "block": "Signature1Name",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceStaff",
++      "section": "Footer",
++      "block": "Signature2Role",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceStaff",
++      "section": "Footer",
++      "block": "Signature2Name",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceDirectorate",
++      "section": "Header",
++      "block": "Addressee",
++      "lines": [
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceDirectorate",
++      "section": "Header",
++      "block": "Letterhead",
++      "lines": [
++        "",
++        "",
++        "",
++        "",
++        "",
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceDirectorate",
++      "section": "Header",
++      "block": "Titles",
++      "lines": [
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceDirectorate",
++      "section": "Footer",
++      "block": "Signature1Role",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceDirectorate",
++      "section": "Footer",
++      "block": "Signature1Name",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "OvertimeCertificate",
++      "section": "Header",
++      "block": "Letterhead",
++      "lines": [
++        "",
++        "",
++        "",
++        "",
++        "",
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "OvertimeCertificate",
++      "section": "Header",
++      "block": "HandFilled",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "OvertimeCertificate",
++      "section": "Header",
++      "block": "Titles",
++      "lines": [
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "OvertimeCertificate",
++      "section": "Header",
++      "block": "Intro",
++      "lines": [
++        "",
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "OvertimeCertificate",
++      "section": "Footer",
++      "block": "DeclarationTitle",
++      "lines": [
++        ""
++      ]
++    },
++    {
++      "form": "OvertimeCertificate",
++      "section": "Footer",
++      "block": "Declarations",
++      "lines": [
++        "",
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "OvertimeCertificate",
++      "section": "Footer",
++      "block": "Certification",
++      "lines": [
++        ""
++      ]
++    },
++    {
++      "form": "MonthlyTotal",
++      "section": "Header",
++      "block": "Letterhead",
++      "lines": [
++        "",
++        "",
++        "",
++        "",
++        "",
++        "",
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "MonthlyTotal",
++      "section": "Header",
++      "block": "Titles",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "MonthlyTotal",
++      "section": "Header",
++      "block": "Addressee",
++      "lines": [
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "MonthlyTotal",
++      "section": "Footer",
++      "block": "Signature1Role",
++      "lines": [
++        ""
++      ]
++    },
++    {
++      "form": "MonthlyTotal",
++      "section": "Footer",
++      "block": "Signature1Name",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "MonthlyTotal",
++      "section": "Footer",
++      "block": "Signature2Role",
++      "lines": [
++        ""
++      ]
++    },
++    {
++      "form": "MonthlyTotal",
++      "section": "Footer",
++      "block": "Signature2Name",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Header",
++      "block": "Letterhead",
++      "lines": [
++        "",
++        "",
++        "",
++        "",
++        "",
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Header",
++      "block": "HandFilled",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Header",
++      "block": "Titles",
++      "lines": [
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Header",
++      "block": "Intro",
++      "lines": [
++        "",
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Header",
++      "block": "Department",
++      "lines": [
++        ""
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Header",
++      "block": "ContractGroups",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Footer",
++      "block": "Signature1Role",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Footer",
++      "block": "Signature1Name",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Footer",
++      "block": "Signature2Role",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Footer",
++      "block": "Signature2Name",
++      "lines": [
++        "",
++        "",
++        ""
++      ]
++    }
++  ]
++}
+diff --git a/Vardiologio.App/report-data.json b/Vardiologio.App/report-data.json
+new file mode 100644
+index 0000000..a645cbb
+--- /dev/null
++++ b/Vardiologio.App/report-data.json
+@@ -0,0 +1,439 @@
++{
++  "directorLastName": "ΠΑΠΑΣΤΑΜΑΤΗΣ",
++  "texts": [
++    {
++      "form": "ShiftTable",
++      "section": "Header",
++      "block": "Letterhead",
++      "lines": [
++        "ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ",
++        "ΠΕΡΙΦΕΡΕΙΑ ΑΤΤΙΚΗΣ",
++        "ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ",
++        "ΝΟΜΟΥ ΑΤΤΙΚΗΣ",
++        "ΕΔΡΑ: Άντερσεν 6 και Μωραΐτη 90, 115 25,",
++        "τηλ.: 213 214 8 478-479",
++        "Δ/ΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡΡΙΜΜΑΤΩΝ",
++        "Τηλ: 210 43 20 581",
++        "E-mail: iona@edsna.gr"
++      ]
++    },
++    {
++      "form": "ShiftTable",
++      "section": "Header",
++      "block": "Titles",
++      "lines": [
++        "ΔΙΕΥΘΥΝΣΗ  ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ",
++        "ΠΙΝΑΚΑΣ   ΒΑΡΔΙΩΝ   ΕΡΓΑΣΙΑΣ  ΠΡΟΣΩΠΙΚΟΥ",
++        "ΤΜΗΜΑΤΟΣ ΚΕΝΤΡΙΚΩΝ ΣΜΑ"
++      ]
++    },
++    {
++      "form": "ShiftTable",
++      "section": "Header",
++      "block": "Addressee",
++      "lines": [
++        "ΠΡΟΣ: Αν. Προϊσταμένη Τμ. Λογιστηρίου",
++        "κ. Αγιανίδου Δέσποινα"
++      ]
++    },
++    {
++      "form": "ShiftTable",
++      "section": "Footer",
++      "block": "Signature1Role",
++      "lines": [
++        "Ο συντάξας"
++      ]
++    },
++    {
++      "form": "ShiftTable",
++      "section": "Footer",
++      "block": "Signature1Name",
++      "lines": [
++        "ΒΡΥΝΑΣ ΓΕΩΡΓΙΟΣ",
++        "ΠΕ ΔΙΟΙΚΗΤΙΚΟΥ-ΟΙΚΟΝΟΜΙΚΟΥ",
++        ""
++      ]
++    },
++    {
++      "form": "ShiftTable",
++      "section": "Footer",
++      "block": "Signature2Role",
++      "lines": [
++        "Ο  Αν. Προϊστάμενος Δ/νσης Σ.Μ.Α."
++      ]
++    },
++    {
++      "form": "ShiftTable",
++      "section": "Footer",
++      "block": "Signature2Name",
++      "lines": [
++        "ΠΑΠΑΣΤΑΜΑΤΗΣ ΑΘΑΝΑΣΙΟΣ",
++        "ΠΕ Χημικών Μηχανικών, MSc / Α'",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceStaff",
++      "section": "Header",
++      "block": "Letterhead",
++      "lines": [
++        "ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ",
++        "ΠΕΡΙΦΕΡΕΙΑ ΑΤΤΙΚΗΣ",
++        "ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ",
++        "Δ/ΝΣΗ: ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡΡΙΜΜΑΤΩΝ",
++        "ΕΔΡΑ: Άντερσεν 6 και Μωραΐτη 90, 11525 Αθήνα",
++        "Πληρ.: Βρύνας Γεώργιος",
++        "Τηλ.: 210 4015080, 210 4320581",
++        "e-mail: vrinas@edsna.gr"
++      ]
++    },
++    {
++      "form": "AttendanceStaff",
++      "section": "Header",
++      "block": "Titles",
++      "lines": [
++        "ΔΙΕΥΘΥΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ",
++        "ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΠΡΟΣΩΠΙΚΟΥ",
++        "ΤΜΗΜΑΤΟΣ ΚΕΝΤΡΙΚΩΝ ΣΜΑ"
++      ]
++    },
++    {
++      "form": "AttendanceStaff",
++      "section": "Footer",
++      "block": "Signature1Role",
++      "lines": [
++        "Ο Συντάξας",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceStaff",
++      "section": "Footer",
++      "block": "Signature1Name",
++      "lines": [
++        "Βρύνας Γεώργιος",
++        "ΠΕ Διοικητικού - Οικονομικού",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceStaff",
++      "section": "Footer",
++      "block": "Signature2Role",
++      "lines": [
++        "Ο Αν. Προϊστάμενος",
++        "Διεύθυνσης",
++        "Σταθμών Μεταφόρτωσης"
++      ]
++    },
++    {
++      "form": "AttendanceStaff",
++      "section": "Footer",
++      "block": "Signature2Name",
++      "lines": [
++        "Αθανάσιος Παπασταμάτης",
++        "ΠΕ Χημικών Μηχανικών MSc / Α΄",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceDirectorate",
++      "section": "Header",
++      "block": "Addressee",
++      "lines": [
++        "Προς τη Δ/νση Διοικητικών Υπηρεσιών/Τμήμα Προσωπικού"
++      ]
++    },
++    {
++      "form": "AttendanceDirectorate",
++      "section": "Header",
++      "block": "Letterhead",
++      "lines": [
++        "ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ",
++        "ΠΕΡΙΦΕΡΕΙΑ ΑΤΤΙΚΗΣ",
++        "ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ",
++        "Δ/ΝΣΗ: ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡΡΙΜΜΑΤΩΝ",
++        "ΕΔΡΑ: Άντερσεν 6 και Μωραΐτη 90, 11525 Αθήνα",
++        "Πληρ.: Βρύνας Γεώργιος",
++        "Τηλ.: 210 4015080, 210 4320581",
++        "e-mail: vrinas@edsna.gr"
++      ]
++    },
++    {
++      "form": "AttendanceDirectorate",
++      "section": "Header",
++      "block": "Titles",
++      "lines": [
++        "Δ/ΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡ/ΤΩΝ ΣΜΑ",
++        "ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΥΠΑΛΛΗΛΟΥ Δ/ΝΣΗΣ ΣΜΑ ΠΑΠΑΣΤΑΜΑΤΗ ΑΘΑΝΑΣΙΟΥ"
++      ]
++    },
++    {
++      "form": "AttendanceDirectorate",
++      "section": "Footer",
++      "block": "Signature1Role",
++      "lines": [
++        "Με εντολή Προέδρου",
++        "Ο Γενικός Γραμματέας του Ε.Δ.Σ.Ν.Α.",
++        ""
++      ]
++    },
++    {
++      "form": "AttendanceDirectorate",
++      "section": "Footer",
++      "block": "Signature1Name",
++      "lines": [
++        "Γεώργιος Αποστολόπουλος",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "OvertimeCertificate",
++      "section": "Header",
++      "block": "Letterhead",
++      "lines": [
++        "ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ",
++        "ΠΕΡΙΦΕΡΕΙΑ ΑΤΤΙΚΗΣ",
++        "ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ",
++        "Δ/ΝΣΗ: ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡΡΙΜΜΑΤΩΝ",
++        "ΕΔΡΑ: Άντερσεν 6 και Μωραΐτη 90, 11525 Αθήνα",
++        "Πληρ.: Βρύνας Γεώργιος",
++        "Τηλ.: 210 4015080, 210 4320581",
++        "e-mail: vrinas@edsna.gr"
++      ]
++    },
++    {
++      "form": "OvertimeCertificate",
++      "section": "Header",
++      "block": "HandFilled",
++      "lines": [
++        "Αθήνα  :",
++        "Αρ. Πρωτ.  :",
++        "Προς :"
++      ]
++    },
++    {
++      "form": "OvertimeCertificate",
++      "section": "Header",
++      "block": "Titles",
++      "lines": [
++        "Δ/ΝΣΗΣ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ",
++        "ΠΙΣΤΟΠΟΙΗΣΗ ΥΠΕΡΩΡΙΑΚΗΣ ΚΑΙ ΛΟΙΠΗΣ ΕΡΓΑΣΙΑΣ"
++      ]
++    },
++    {
++      "form": "OvertimeCertificate",
++      "section": "Header",
++      "block": "Intro",
++      "lines": [
++        "Βεβαιώνεται ότι ο παρακάτω υπάλληλος εργάστηκε υπερωριακά κατά τις απογευματινές ώρες",
++        "και κατά τις Κυριακές, τις αντίστοιχες ώρες που αναφέρονται, για την αντιμετώπιση υπηρεσικών αναγκών της",
++        "της Δ/νσης Σταθμών Μεταφόρτωσης , σύμφωνα με την αριθμ πρωτ. 15373/12-12-25 Απόφασης Προέδρου και της υπ'",
++        "αριθμ.8247/23-07-2026 Απόφασης Σύστασης Συνεργείου, κατά το χρονικό διάστημα"
++      ]
++    },
++    {
++      "form": "OvertimeCertificate",
++      "section": "Footer",
++      "block": "DeclarationTitle",
++      "lines": [
++        "Υπεύθυνη Δήλωση"
++      ]
++    },
++    {
++      "form": "OvertimeCertificate",
++      "section": "Footer",
++      "block": "Declarations",
++      "lines": [
++        "Ο υπάλληλος που υπογράφει την κατάσταση αυτή, δηλώνει ότι εργάστηκε υπερωριακά κατά το χρονικό διάστημα που αναγράφεται στην κατάσταση, τις ώρες που αναγράφονται και το ωρομίσθιο του κλιμακίου.",
++        "Δεν συμμετέχω σε άλλο συνεργείο υπερωριακής εργασίας στον ανωτέρω μήνα.",
++        "Οι πάσης φύσεως πρόσθετες μηνιαίες αποδοχές μου δεν είναι ανώτερες του συνόλου των μηνιαίων αποδοχών της οργανικής μου θέσης, κατά τον ανωτέρω μήνα, σύμφωνα με την παρ. 2 του αριθ. 104 του Συντάγματος.",
++        "Οι πάσης φύσεως μεικτές αποδοχές, αποζημιώσεις και πρόσθετες αμοιβές ή απολαβές μου εν γένει μηνιαίως δεν υπερβαίνουν το ποσό της παρ. 1 του αρ. 2 του Ν 3833/2010."
++      ]
++    },
++    {
++      "form": "OvertimeCertificate",
++      "section": "Footer",
++      "block": "Certification",
++      "lines": [
++        "ΒΕΒΑΙΩΣΗ: Βεβαιώνεται ότι ο ανωτέρω αναφερόμενος υπάλληλος εργάστηκε κατά το ως άνω χρονικό διάστημα, για τι ώρες που αναφέρονται πλάι στο ονοματεπώνυμο μου και δεν έχω υπερβεί το συνολικό αριθμό ωρών που προβλέπεται από την απόφαση στην επικεφαλίδα. Επίσης βεβαιούται το γνήσιο της υπογραφής."
++      ]
++    },
++    {
++      "form": "MonthlyTotal",
++      "section": "Header",
++      "block": "Letterhead",
++      "lines": [
++        "ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ",
++        "ΠΕΡΙΦΕΡΕΙΑ ΑΤΤΙΚΗΣ",
++        "ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ",
++        "ΝΟΜΟΥ ΑΤΤΙΚΗΣ",
++        "ΕΔΡΑ: Άντερσεν 6 και Μωραΐτη 90, 115 25,",
++        "τηλ.: 213 214 8 478-479",
++        "Δ/ΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡΡΙΜΜΑΤΩΝ",
++        "Τηλ: 210 43 20 581",
++        "E-mail: iona@edsna.gr"
++      ]
++    },
++    {
++      "form": "MonthlyTotal",
++      "section": "Header",
++      "block": "Titles",
++      "lines": [
++        "ΔΙΕΥΘΥΝΣΗ  ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ",
++        "ΠΙΝΑΚΑΣ   ΒΑΡΔΙΩΝ   ΕΡΓΑΣΙΑΣ  ΠΡΟΣΩΠΙΚΟΥ",
++        "ΤΜΗΜΑΤΟΣ ΚΕΝΤΡΙΚΩΝ ΣΜΑ"
++      ]
++    },
++    {
++      "form": "MonthlyTotal",
++      "section": "Header",
++      "block": "Addressee",
++      "lines": [
++        "ΠΡΟΣ: Αν. Προϊσταμένη Τμ. Λογιστηρίου",
++        "κ. Αγιανίδου Δέσποινα"
++      ]
++    },
++    {
++      "form": "MonthlyTotal",
++      "section": "Footer",
++      "block": "Signature1Role",
++      "lines": [
++        "Ο συντάξας"
++      ]
++    },
++    {
++      "form": "MonthlyTotal",
++      "section": "Footer",
++      "block": "Signature1Name",
++      "lines": [
++        "ΒΡΥΝΑΣ ΓΕΩΡΓΙΟΣ",
++        "ΠΕ ΔΙΟΙΚΗΤΙΚΟΥ-ΟΙΚΟΝΟΜΙΚΟΥ",
++        ""
++      ]
++    },
++    {
++      "form": "MonthlyTotal",
++      "section": "Footer",
++      "block": "Signature2Role",
++      "lines": [
++        "Ο  Αν. Προϊστάμενος Δ/νσης Σ.Μ.Α."
++      ]
++    },
++    {
++      "form": "MonthlyTotal",
++      "section": "Footer",
++      "block": "Signature2Name",
++      "lines": [
++        "ΠΑΠΑΣΤΑΜΑΤΗΣ ΑΘΑΝΑΣΙΟΣ",
++        "ΠΕ Χημικών Μηχανικών, MSc / Α'",
++        ""
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Header",
++      "block": "Letterhead",
++      "lines": [
++        "ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ",
++        "ΠΕΡΙΦΕΡΕΙΑ ΑΤΤΙΚΗΣ",
++        "ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ",
++        "Δ/ΝΣΗ: ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡΡΙΜΜΑΤΩΝ",
++        "ΕΔΡΑ: Άντερσεν 6 και Μωραΐτη 90, 11525 Αθήνα",
++        "Πληρ.: Κασσιανή Μακρή",
++        "Τηλ.: 210 4015080, 210 4320581",
++        "e-mail: makri@edsna.gr"
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Header",
++      "block": "HandFilled",
++      "lines": [
++        "Αθήνα  :",
++        "Αρ. Πρωτ.  :",
++        "Προς :"
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Header",
++      "block": "Titles",
++      "lines": [
++        "Δ/ΝΣΗΣ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ",
++        "ΠΙΣΤΟΠΟΙΗΣΗ ΥΠΕΡΩΡΙΑΚΗΣ ΚΑΙ ΛΟΙΠΗΣ ΕΡΓΑΣΙΑΣ"
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Header",
++      "block": "Intro",
++      "lines": [
++        "Βεβαιώνεται ότι οι παρακάτω υπάλληλοι εργάστηκαν υπερωριακά κατά τις απογευματινές ώρες",
++        "και κατά τις Κυριακές, τις αντίστοιχες ώρες που αναφέρονται, για την αντιμετώπιση υπηρεσιακών αναγκών",
++        "της Δ/νσης Σταθμών Μεταφόρτωσης , σύμφωνα με την αριθμ πρωτ. 15373/12-12-25 Απόφασης Προέδρου και της υπ'",
++        "αριθμ.9096/19-08-2026 Απόφασης Σύστασης Συνεργείου, κατά το χρονικό διάστημα"
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Header",
++      "block": "Department",
++      "lines": [
++        "ΤΜΗΜΑ: ΚΕΝΤΡΙΚΩΝ ΣΜΑ"
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Header",
++      "block": "ContractGroups",
++      "lines": [
++        "ΜΟΝΙΜΟΙ",
++        "ΑΟΡΙΣΤΟΥ ΧΡΟΝΟΥ",
++        "ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ"
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Footer",
++      "block": "Signature1Role",
++      "lines": [
++        "Η Συντάξας",
++        "",
++        ""
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Footer",
++      "block": "Signature1Name",
++      "lines": [
++        "Κασσιανή Μακρή",
++        "ΔΕ Πληροφορικής /Α΄",
++        ""
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Footer",
++      "block": "Signature2Role",
++      "lines": [
++        "Ο Αν. Προϊστάμενος",
++        "Διεύθυνσης",
++        "Σταθμών Μεταφόρτωσης"
++      ]
++    },
++    {
++      "form": "ContractCertificate",
++      "section": "Footer",
++      "block": "Signature2Name",
++      "lines": [
++        "Αθανάσιος Παπασταμάτης",
++        "ΠΕ Χημικών Μηχανικών MSc / Α΄",
++        ""
++      ]
++    }
++  ]
++}
+diff --git a/Vardiologio.Application/Files/ReportFolder.cs b/Vardiologio.Application/Files/ReportFolder.cs
+index 04577d7..7eb55b9 100644
+--- a/Vardiologio.Application/Files/ReportFolder.cs
++++ b/Vardiologio.Application/Files/ReportFolder.cs
+@@ -22,5 +22,8 @@ public enum ReportFolder
+ 	ShiftTable,
+ 
+ 	/// <summary>Ατομική μηνιαία (individual analytical sheet of one employee).</summary>
+-	IndividualSheet
++	IndividualSheet,
++
++	/// <summary>ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι (collective overtime certificate per contract).</summary>
++	ContractCertificate
+ }
+diff --git a/Vardiologio.Application/ReportColors/ReportColorCatalog.cs b/Vardiologio.Application/ReportColors/ReportColorCatalog.cs
+index 989a7bf..f115fa2 100644
+--- a/Vardiologio.Application/ReportColors/ReportColorCatalog.cs
++++ b/Vardiologio.Application/ReportColors/ReportColorCatalog.cs
+@@ -24,6 +24,9 @@ public static class ReportColorCatalog
+ 	// Ατομική μηνιαία
+ 	public const string IndividualSunday = "Individual.Sunday";
+ 
++	// ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι (συγκεντρωτική πιστοποίηση ανά σύμβαση)
++	public const string ContractCertificateBand = "ContractCertificate.Band";
++
+ 	/// <summary>One colour of the catalogue.</summary>
+ 	/// <param name="Key">Key stored in the database.</param>
+ 	/// <param name="Report">Greek name of the report (group title on the settings page).</param>
+@@ -45,7 +48,9 @@ public static class ReportColorCatalog
+ 
+ 		new(ShiftTableWeekend, "Πίνακας βαρδιών εργασίας", "Στήλες Σαββάτου, Κυριακής και αργιών", "#D6DCE4"),
+ 
+-		new(IndividualSunday, "Ατομική μηνιαία", "Γραμμές Κυριακής", "#FCE4D6")
++		new(IndividualSunday, "Ατομική μηνιαία", "Γραμμές Κυριακής", "#FCE4D6"),
++
++		new(ContractCertificateBand, "ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι", "Ζώνες τμήματος και σύμβασης", "#92D050")
+ 	};
+ 
+ 	/// <summary>The catalogue entry of a key, or null for an unknown key.</summary>
+diff --git a/Vardiologio.Application/ReportTexts/ReportTextBlocks.cs b/Vardiologio.Application/ReportTexts/ReportTextBlocks.cs
+index b8e2329..14794c2 100644
+--- a/Vardiologio.Application/ReportTexts/ReportTextBlocks.cs
++++ b/Vardiologio.Application/ReportTexts/ReportTextBlocks.cs
+@@ -24,6 +24,15 @@ public static class ReportTextBlocks
+ 	/// <summary>Certificate only: introduction under the titles (the period dates are added automatically).</summary>
+ 	public const string Intro = "Intro";
+ 
++	/// <summary>Contract certificate only: band above the first group of the table ("ΤΜΗΜΑ: …").</summary>
++	public const string Department = "Department";
++
++	/// <summary>
++	/// Contract certificate only: title of each contract group, one line per contract in the
++	/// order of the ContractKind enum (permanent, open-ended, fixed-term).
++	/// </summary>
++	public const string ContractGroups = "ContractGroups";
++
+ 	/// <summary>Certificate only: heading of the declaration.</summary>
+ 	public const string DeclarationTitle = "DeclarationTitle";
+ 
+@@ -42,7 +51,8 @@ public static class ReportTextBlocks
+ 	/// <summary>Blocks in the order they are listed on the settings page (signatures come after them).</summary>
+ 	private static readonly string[] DisplayOrder =
+ 	{
+-		Letterhead, HandFilled, Titles, Addressee, Intro, DeclarationTitle, Declarations, Certification
++		Letterhead, HandFilled, Titles, Addressee, Intro, Department, ContractGroups,
++		DeclarationTitle, Declarations, Certification
+ 	};
+ 
+ 	/// <summary>
+@@ -72,6 +82,8 @@ public static class ReportTextBlocks
+ 			case Titles: return "Τίτλοι";
+ 			case HandFilled: return "Πεδία που συμπληρώνονται με το χέρι";
+ 			case Intro: return "Εισαγωγικό κείμενο";
++			case Department: return "Τμήμα (ζώνη πάνω από τον πίνακα)";
++			case ContractGroups: return "Τίτλοι ομάδων σύμβασης (ζώνες του πίνακα)";
+ 			case DeclarationTitle: return "Τίτλος δήλωσης";
+ 			case Declarations: return "Σημεία δήλωσης";
+ 			case Certification: return "Βεβαίωση";
+@@ -99,6 +111,7 @@ public static class ReportTextBlocks
+ 		ReportForm.AttendanceDirectorate => "Παρουσίες Διεύθυνσης",
+ 		ReportForm.OvertimeCertificate => "Ατομική βεβαίωση",
+ 		ReportForm.MonthlyTotal => "Συνολική μηνιαία Σ.Ω.",
++		ReportForm.ContractCertificate => "ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι",
+ 		_ => form.ToString()
+ 	};
+ 
+diff --git a/Vardiologio.Application/Reports/ContractCertificateModel.cs b/Vardiologio.Application/Reports/ContractCertificateModel.cs
+new file mode 100644
+index 0000000..a9f4361
+--- /dev/null
++++ b/Vardiologio.Application/Reports/ContractCertificateModel.cs
+@@ -0,0 +1,91 @@
++using Vardiologio.Application.ReportColors;
++using Vardiologio.Application.ReportTexts;
++
++namespace Vardiologio.Application.Reports;
++
++/// <summary>Which of the two collective certificates a model holds (one printed form each).</summary>
++public enum ContractCertificateSheet
++{
++	/// <summary>Permanent staff, then open-ended contracts (ΙΔΑΧ) — one form, two groups.</summary>
++	PermanentAndOpenEnded,
++
++	/// <summary>Fixed-term contracts (ΙΔΟΧ) — one form, one group.</summary>
++	FixedTerm
++}
++
++/// <summary>
++/// Data for one collective "ΠΙΣΤΟΠΟΙΗΣΗ ΥΠΕΡΩΡΙΑΚΗΣ ΚΑΙ ΛΟΙΠΗΣ ΕΡΓΑΣΙΑΣ" per contract: the same six
++/// hour columns as the individual certificate, one row per employee, grouped by contract.
++/// The hours are the <b>paid</b> hours, so every row agrees with that employee's own certificate.
++/// </summary>
++public class ContractCertificateModel
++{
++	/// <summary>Certificate year.</summary>
++	public int Year { get; set; }
++
++	/// <summary>Certificate month (1–12).</summary>
++	public int Month { get; set; }
++
++	/// <summary>Which of the two forms this is.</summary>
++	public ContractCertificateSheet Sheet { get; set; }
++
++	/// <summary>The contract groups of the form, in print order (a group may have no rows).</summary>
++	public List<ContractCertificateGroup> Groups { get; set; } = new();
++
++	/// <summary>
++	/// Active employees left out of both forms because their contract is missing or is not one
++	/// of the three kinds ("Επώνυμο Όνομα"). The page lists them so the user can fix the contract.
++	/// </summary>
++	public List<string> WithoutContract { get; set; } = new();
++
++	/// <summary>The form's editable texts (letterhead, titles, bands, signatures…), as set in Παράμετροι → Αναφορών.</summary>
++	public ReportTextSet Texts { get; set; } = ReportTextSet.Empty;
++
++	/// <summary>The reports' colours (Παράμετροι → Αναφορών → Χρώματα).</summary>
++	public ReportColorSet Colors { get; set; } = ReportColorSet.Default;
++
++	/// <summary>First day of the month (start of the certified period).</summary>
++	public DateOnly From => new(Year, Month, 1);
++
++	/// <summary>Last day of the month (end of the certified period).</summary>
++	public DateOnly To => new(Year, Month, DateTime.DaysInMonth(Year, Month));
++}
++
++/// <summary>The employees of one kind of contract on a collective certificate.</summary>
++public class ContractCertificateGroup
++{
++	/// <summary>The kind of contract (picks the group's title among the editable texts).</summary>
++	public ContractKind Kind { get; set; }
++
++	/// <summary>One row per employee, ordered by name.</summary>
++	public List<ContractCertificateRow> Rows { get; set; } = new();
++}
++
++/// <summary>One employee's row on a collective certificate.</summary>
++public class ContractCertificateRow
++{
++	/// <summary>Α/Α: runs on from one group to the next inside a form.</summary>
++	public int Index { get; set; }
++
++	public string LastName { get; set; } = "";
++	public string FirstName { get; set; } = "";
++	public string Speciality { get; set; } = "";
++
++	/// <summary>Υπερωριακή εργασία — Απογευματινή έως 22:00 (paid Απλή hours).</summary>
++	public decimal AfternoonOvertime { get; set; }
++
++	/// <summary>Υπερωριακή εργασία — Νυχτερινή 22:00–06:00 (paid Νυχτερινή hours).</summary>
++	public decimal NightOvertime { get; set; }
++
++	/// <summary>Υπερωριακή εργασία Κυριακές και εξαιρέσιμες — Ημερήσιες 6:00–22:00 (paid Κυριακής hours).</summary>
++	public decimal SundayDayOvertime { get; set; }
++
++	/// <summary>Υπερωριακή εργασία Κυριακές και εξαιρέσιμες — Νυχτερινή 22:00–06:00 (no pay category feeds it yet).</summary>
++	public decimal SundayNightOvertime { get; set; }
++
++	/// <summary>Εργασία προς Συμπλήρωση — Νυχτερινή εργασίμων ημερών (paid Προς συμπλήρωση hours).</summary>
++	public decimal WeekdayNightToComplete { get; set; }
++
++	/// <summary>Εργασία προς Συμπλήρωση — Κυριακών και εξαιρέσιμων ημερών (paid Αργίας hours).</summary>
++	public decimal SundayHolidayToComplete { get; set; }
++}
+diff --git a/Vardiologio.Application/Reports/ContractRules.cs b/Vardiologio.Application/Reports/ContractRules.cs
+new file mode 100644
+index 0000000..2dfc6d7
+--- /dev/null
++++ b/Vardiologio.Application/Reports/ContractRules.cs
+@@ -0,0 +1,58 @@
++namespace Vardiologio.Application.Reports;
++
++/// <summary>The three kinds of contract the collective certificate groups employees by.</summary>
++public enum ContractKind
++{
++	/// <summary>Μόνιμοι (permanent staff).</summary>
++	Permanent = 0,
++
++	/// <summary>Ιδιωτικού δικαίου αορίστου χρόνου (ΙΔΑΧ).</summary>
++	OpenEnded = 1,
++
++	/// <summary>Ιδιωτικού δικαίου ορισμένου χρόνου (ΙΔΟΧ).</summary>
++	FixedTerm = 2
++}
++
++/// <summary>
++/// Tells which kind of contract an employee's contract (Παράμετροι → Εργαζομένων → Συμβάσεις)
++/// is. The contracts are a list the user edits, so the kind is recognised from the contract's
++/// name first and from its code second, without accents, case, dots or spaces.
++/// </summary>
++public static class ContractRules
++{
++	/// <summary>
++	/// The kind of a contract, or null when it is not one of the three (or the employee has none).
++	/// Recognised names: "Μόνιμος…", "ΙΔΑΧ" / "…αορίστου…", "ΙΔΟΧ" / "…ορισμένου…".
++	/// Recognised codes (the ones the application ships with): "Μ", "Α.Χ", "Ο.Χ".
++	/// </summary>
++	/// <param name="code">Short code of the contract, or null when the employee has no contract.</param>
++	/// <param name="name">Name of the contract, or null when the employee has no contract.</param>
++	public static ContractKind? Resolve(string? code, string? name)
++	{
++		var n = Fold(name);
++		if (n.StartsWith("ΜΟΝΙΜ", StringComparison.Ordinal)) return ContractKind.Permanent;
++		if (n.Contains("ΙΔΑΧ", StringComparison.Ordinal) || n.Contains("ΑΟΡΙΣΤ", StringComparison.Ordinal)) return ContractKind.OpenEnded;
++		if (n.Contains("ΙΔΟΧ", StringComparison.Ordinal) || n.Contains("ΟΡΙΣΜΕΝ", StringComparison.Ordinal)) return ContractKind.FixedTerm;
++
++		return Fold(code) switch
++		{
++			"Μ" => ContractKind.Permanent,
++			"ΑΧ" => ContractKind.OpenEnded,
++			"ΟΧ" => ContractKind.FixedTerm,
++			_ => null
++		};
++	}
++
++	/// <summary>
++	/// The kinds of contract printed on each of the two forms, in print order:
++	/// permanent then open-ended on the first, fixed-term alone on the second.
++	/// </summary>
++	public static ContractKind[] KindsOf(ContractCertificateSheet sheet) =>
++		sheet == ContractCertificateSheet.FixedTerm
++			? [ContractKind.FixedTerm]
++			: [ContractKind.Permanent, ContractKind.OpenEnded];
++
++	/// <summary>Upper case without accents, dots or spaces ("Α.Χ" → "ΑΧ"); "" for null.</summary>
++	private static string Fold(string? text) =>
++		text is null ? "" : GreekText.Upper(text).Replace(".", "").Replace(" ", "");
++}
+diff --git a/Vardiologio.Application/Reports/GreekText.cs b/Vardiologio.Application/Reports/GreekText.cs
+index ecabb16..411fe85 100644
+--- a/Vardiologio.Application/Reports/GreekText.cs
++++ b/Vardiologio.Application/Reports/GreekText.cs
+@@ -12,7 +12,7 @@ public static class GreekText
+ 	private const string Vowels = "ΑΕΗΙΟΥΩ";
+ 
+ 	/// <summary>
+-	/// Upper case without accents, as official forms print names ("Βρύνας" → "ΒΡΥΝΑΣ").
++	/// Upper case without accents, as official forms print names ("Γεωργίου" → "ΓΕΩΡΓΙΟΥ").
+ 	/// Surrounding spaces are removed; inner spaces are kept.
+ 	/// </summary>
+ 	public static string Upper(string text)
+@@ -29,8 +29,8 @@ public static class GreekText
+ 	/// <summary>
+ 	/// True when the name is a woman's, for "Ο"/"Η" on the forms. Greek men's first names end
+ 	/// in a consonant (Γεώργιος, Ηλίας, and foreign ones such as Ίον), women's in a vowel
+-	/// (Μαρία, Κασσιανή, Όλγα). When the first name is only an initial ("Γ."), the same rule is
+-	/// applied to the surname (Μακρή, Τόλιου → woman; Βρύνας → man).
++	/// (Μαρία, Ελένη, Όλγα). When the first name is only an initial ("Γ."), the same rule is
++	/// applied to the surname (Ιωάννου, Παππά → woman; Παπαδόπουλος → man).
+ 	/// </summary>
+ 	/// <param name="firstName">First name as stored (may be an initial).</param>
+ 	/// <param name="lastName">Surname as stored.</param>
+@@ -53,8 +53,8 @@ public static class GreekText
+ 	};
+ 
+ 	/// <summary>
+-	/// Upper-case Latin transliteration for file names ("Βρύνας" → "VRYNAS",
+-	/// "Κοτσεκίδου - Κουτσούκου" → "KOTSEKIDOU_KOUTSOUKOU"). Latin letters and digits are kept,
++	/// Upper-case Latin transliteration for file names ("Γεωργίου" → "GEORGIOU",
++	/// "Παππά - Ιωάννου" → "PAPPA_IOANNOU"). Latin letters and digits are kept,
+ 	/// anything else becomes a single "_", so the result is always a safe Windows file-name part.
+ 	/// </summary>
+ 	public static string ToLatin(string text)
+diff --git a/Vardiologio.Application/Reports/IContractCertificateService.cs b/Vardiologio.Application/Reports/IContractCertificateService.cs
+new file mode 100644
+index 0000000..dba4bbb
+--- /dev/null
++++ b/Vardiologio.Application/Reports/IContractCertificateService.cs
+@@ -0,0 +1,15 @@
++namespace Vardiologio.Application.Reports;
++
++/// <summary>Builds the collective overtime certificates per contract ("ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι").</summary>
++public interface IContractCertificateService
++{
++	/// <summary>
++	/// Calculates the paid hours of the month for every active employee of the form's contracts
++	/// (same calculation and limits as the hours report and the individual certificate).
++	/// The head of the directorate is left out (see <see cref="PresenceRules.IsDirector"/>).
++	/// </summary>
++	/// <param name="year">Certificate year.</param>
++	/// <param name="month">Certificate month (1–12).</param>
++	/// <param name="sheet">Which of the two forms to build.</param>
++	Task<ContractCertificateModel> BuildAsync(int year, int month, ContractCertificateSheet sheet);
++}
+diff --git a/Vardiologio.Application/Reports/IExcelReportRenderer.cs b/Vardiologio.Application/Reports/IExcelReportRenderer.cs
+index 279b9ef..502adae 100644
+--- a/Vardiologio.Application/Reports/IExcelReportRenderer.cs
++++ b/Vardiologio.Application/Reports/IExcelReportRenderer.cs
+@@ -20,4 +20,7 @@ public interface IExcelReportRenderer
+ 
+ 	/// <summary>Produces the Excel file bytes for one employee's individual analytical sheet (one A4 landscape page).</summary>
+ 	byte[] Render(IndividualReportModel model);
++
++	/// <summary>Produces the Excel file bytes for one collective overtime certificate per contract (A4 landscape, as many pages as needed).</summary>
++	byte[] Render(ContractCertificateModel model);
+ }
+\ No newline at end of file
+diff --git a/Vardiologio.Application/Reports/IPdfReportRenderer.cs b/Vardiologio.Application/Reports/IPdfReportRenderer.cs
+index 8644fc7..400a67c 100644
+--- a/Vardiologio.Application/Reports/IPdfReportRenderer.cs
++++ b/Vardiologio.Application/Reports/IPdfReportRenderer.cs
+@@ -20,4 +20,7 @@ public interface IPdfReportRenderer
+ 
+ 	/// <summary>Produces the PDF file bytes for one employee's individual analytical sheet (one A4 landscape page).</summary>
+ 	byte[] Render(IndividualReportModel model);
++
++	/// <summary>Produces the PDF file bytes for one collective overtime certificate per contract (A4 landscape, as many pages as needed).</summary>
++	byte[] Render(ContractCertificateModel model);
+ }
+\ No newline at end of file
+diff --git a/Vardiologio.Application/Reports/IndividualSheetLayout.cs b/Vardiologio.Application/Reports/IndividualSheetLayout.cs
+index 55f76c1..769a609 100644
+--- a/Vardiologio.Application/Reports/IndividualSheetLayout.cs
++++ b/Vardiologio.Application/Reports/IndividualSheetLayout.cs
+@@ -17,7 +17,7 @@ public static class IndividualSheetLayout
+ 		{ "ΙΑΝΟΥΑΡΙΟΥ","ΦΕΒΡΟΥΑΡΙΟΥ","ΜΑΡΤΙΟΥ","ΑΠΡΙΛΙΟΥ","ΜΑΪΟΥ","ΙΟΥΝΙΟΥ",
+ 		  "ΙΟΥΛΙΟΥ","ΑΥΓΟΥΣΤΟΥ","ΣΕΠΤΕΜΒΡΙΟΥ","ΟΚΤΩΒΡΙΟΥ","ΝΟΕΜΒΡΙΟΥ","ΔΕΚΕΜΒΡΙΟΥ" };
+ 
+-	/// <summary>Line under the title: employee, contract and month ("ΒΡΥΝΑΣ ΓΕΩΡΓΙΟΣ (Μ) — ΜΗΝΟΣ ΑΥΓΟΥΣΤΟΥ 2026").</summary>
++	/// <summary>Line under the title: employee, contract and month ("ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΕΩΡΓΙΟΣ (Μ) — ΜΗΝΟΣ ΑΥΓΟΥΣΤΟΥ 2026").</summary>
+ 	public static string Subtitle(IndividualReportModel m)
+ 	{
+ 		var contract = m.WorkType.Length > 0 ? $" ({m.WorkType})" : "";
+diff --git a/Vardiologio.Application/Reports/PresenceRules.cs b/Vardiologio.Application/Reports/PresenceRules.cs
+index f8781f2..97130ae 100644
+--- a/Vardiologio.Application/Reports/PresenceRules.cs
++++ b/Vardiologio.Application/Reports/PresenceRules.cs
+@@ -19,8 +19,10 @@ public static class PresenceRules
+ 	/// <summary>
+ 	/// Fallback when nobody has the director's position (e.g. right after a fresh install,
+ 	/// where seeded employees have no position): the head of the directorate by surname.
++	/// The surname is personal data, so it is not in the source: it is read at startup from the
++	/// git-ignored "report-data.json" (see ReportDataFile). Empty = no fallback.
+ 	/// </summary>
+-	public const string DirectorLastName = "ΠΑΠΑΣΤΑΜΑΤΗΣ";
++	public static string DirectorLastName { get; set; } = "";
+ 
+ 	/// <summary>"√" for a work shift; the code itself for a status (leave, rest, holiday…).</summary>
+ 	public static string Mark(string code, bool isWorkShift) => isWorkShift ? Worked : code;
+@@ -28,7 +30,7 @@ public static class PresenceRules
+ 	/// <summary>
+ 	/// True when the employee belongs to the directorate report: the work position is
+ 	/// <see cref="DirectorPosition"/>, or — only when nobody in the list has that position —
+-	/// the surname is <see cref="DirectorLastName"/>. Compared without accents / case.
++	/// the surname is <see cref="DirectorLastName"/> (when one is set). Compared without accents / case.
+ 	/// </summary>
+ 	/// <param name="lastName">The employee's surname.</param>
+ 	/// <param name="positionName">The employee's work position name, or null when not set.</param>
+@@ -36,12 +38,12 @@ public static class PresenceRules
+ 	public static bool IsDirector(string lastName, string? positionName, bool anyoneHasPosition) =>
+ 		anyoneHasPosition
+ 			? IsDirectorPosition(positionName)
+-			: Normalize(lastName) == Normalize(DirectorLastName);
++			: DirectorLastName.Trim().Length > 0 && Normalize(lastName) == Normalize(DirectorLastName);
+ 
+ 	/// <summary>True when the work position is the director's (accent / case insensitive).</summary>
+ 	public static bool IsDirectorPosition(string? positionName) =>
+ 		positionName is not null && Normalize(positionName) == Normalize(DirectorPosition);
+ 
+-	/// <summary>Upper case without accents or surrounding spaces ("Παπασταμάτης " → "ΠΑΠΑΣΤΑΜΑΤΗΣ").</summary>
++	/// <summary>Upper case without accents or surrounding spaces ("Παπαδόπουλος " → "ΠΑΠΑΔΟΠΟΥΛΟΣ").</summary>
+ 	private static string Normalize(string text) => GreekText.Upper(text);
+ }
+diff --git a/Vardiologio.Application/ShiftEntry/EmployeeSearch.cs b/Vardiologio.Application/ShiftEntry/EmployeeSearch.cs
+index 5909a87..ba9fbfb 100644
+--- a/Vardiologio.Application/ShiftEntry/EmployeeSearch.cs
++++ b/Vardiologio.Application/ShiftEntry/EmployeeSearch.cs
+@@ -13,7 +13,7 @@ public static class EmployeeSearch
+ 	/// <summary>Separator between the name and the speciality in <see cref="EmployeeListItem.Display"/>.</summary>
+ 	private const string NameSeparator = " — ";
+ 
+-	/// <summary>The name part of an option ("Βρύνας Γεώργιος"), without the speciality.</summary>
++	/// <summary>The name part of an option ("Βρεττός Γεώργιος"), without the speciality.</summary>
+ 	public static string Name(EmployeeListItem item)
+ 	{
+ 		var cut = item.Display.IndexOf(NameSeparator, StringComparison.Ordinal);
+@@ -29,7 +29,7 @@ public static class EmployeeSearch
+ 
+ 	/// <summary>
+ 	/// The employees whose name contains every typed word. Names where a typed word starts a
+-	/// name word come first ("βρ" → Βρύνας before Λάμπρου); inside each group the given order
++	/// name word come first ("βρ" → Βρεττός before Λάμπρου); inside each group the given order
+ 	/// (alphabetical) is kept. An empty text returns everyone.
+ 	/// </summary>
+ 	/// <param name="items">All employees, already in alphabetical order.</param>
+@@ -50,7 +50,7 @@ public static class EmployeeSearch
+ 
+ 	/// <summary>
+ 	/// Splits a name into pieces, marking the letters that match a typed word, e.g.
+-	/// "Βρύνας" with "ρυν" → ("Β", false), ("ρύν", true), ("ας", false). The pieces put together
++	/// "Βρεττός" with "ρετ" → ("Β", false), ("ρετ", true), ("τός", false). The pieces put together
+ 	/// give the name back exactly (accents and case as stored).
+ 	/// </summary>
+ 	public static IReadOnlyList<(string Text, bool Hit)> Highlight(string name, string? text)
+@@ -81,7 +81,7 @@ public static class EmployeeSearch
+ 		return pieces;
+ 	}
+ 
+-	/// <summary>The typed text as folded words ("βρύνας γε" → "ΒΡΥΝΑΣ", "ΓΕ").</summary>
++	/// <summary>The typed text as folded words ("βρεττός γε" → "ΒΡΕΤΤΟΣ", "ΓΕ").</summary>
+ 	private static string[] Words(string? text) =>
+ 		Fold(text ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+ 
+@@ -98,7 +98,7 @@ public static class EmployeeSearch
+ 
+ 	/// <summary>
+ 	/// Upper case without accents, letter by letter, so the result has exactly one character
+-	/// per character of the input ("Βρύνας" → "ΒΡΥΝΑΣ") and positions in the two strings match.
++	/// per character of the input ("Βρεττός" → "ΒΡΕΤΤΟΣ") and positions in the two strings match.
+ 	/// </summary>
+ 	private static string Fold(string text)
+ 	{
+diff --git a/Vardiologio.Domain/Enums/ReportForm.cs b/Vardiologio.Domain/Enums/ReportForm.cs
+index 3fdd10b..2cc710f 100644
+--- a/Vardiologio.Domain/Enums/ReportForm.cs
++++ b/Vardiologio.Domain/Enums/ReportForm.cs
+@@ -19,5 +19,11 @@ public enum ReportForm
+ 	OvertimeCertificate = 4,
+ 
+ 	/// <summary>Συνολική μηνιαία Σ.Ω. (monthly roster; same header / footer layout as the shift table).</summary>
+-	MonthlyTotal = 5
++	MonthlyTotal = 5,
++
++	/// <summary>
++	/// Συγκεντρωτική πιστοποίηση υπερωριακής εργασίας ανά σύμβαση (ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι):
++	/// one row per employee, grouped by contract. Both printed forms share these texts.
++	/// </summary>
++	ContractCertificate = 6
+ }
+diff --git a/Vardiologio.Infrastructure/Files/AppFolders.cs b/Vardiologio.Infrastructure/Files/AppFolders.cs
+index 5d3e180..39fc7ba 100644
+--- a/Vardiologio.Infrastructure/Files/AppFolders.cs
++++ b/Vardiologio.Infrastructure/Files/AppFolders.cs
+@@ -44,6 +44,7 @@ public static class AppFolders
+ 		ReportFolder.OvertimeCertificate => "Overtime-Certificate",
+ 		ReportFolder.ShiftTable => "Shift-Table",
+ 		ReportFolder.IndividualSheet => "Individual-Sheet",
++		ReportFolder.ContractCertificate => "Contract-Certificate",
+ 		_ => throw new ArgumentOutOfRangeException(nameof(folder), folder, null)
+ 	};
+ 
+diff --git a/Vardiologio.Infrastructure/Persistence/DbInitializer.cs b/Vardiologio.Infrastructure/Persistence/DbInitializer.cs
+index 2bc5740..d03bead 100644
+--- a/Vardiologio.Infrastructure/Persistence/DbInitializer.cs
++++ b/Vardiologio.Infrastructure/Persistence/DbInitializer.cs
+@@ -1,4 +1,5 @@
+ ﻿using Microsoft.EntityFrameworkCore;
++using Vardiologio.Application.Reports;
+ using Vardiologio.Infrastructure.Persistence.Seeding;
+ 
+ namespace Vardiologio.Infrastructure.Persistence;
+@@ -6,6 +7,7 @@ namespace Vardiologio.Infrastructure.Persistence;
+ /// <summary>
+ /// Prepares the local SQLite database at application startup:
+ /// creates it if missing, applies any pending migrations, and seeds base data.
++/// Also loads the report data file (see <see cref="ReportDataFile"/>).
+ /// Runs before the DI container is built, so it constructs its own DbContext.
+ /// </summary>
+ public static class DbInitializer
+@@ -21,6 +23,12 @@ public static class DbInitializer
+ 
+ 		using var db = new AppDbContext(options);
+ 		db.Database.Migrate();      // create DB if needed and apply any pending migrations
+-		DatabaseSeeder.Seed(db);    // insert base data (idempotent: skips if already present)
++
++		// The organisation's own report data (form texts, director's surname) is read from a file
++		// next to the executable, never from the source code.
++		var reportData = ReportDataFile.Load();
++		PresenceRules.DirectorLastName = reportData.DirectorLastName ?? "";
++
++		DatabaseSeeder.Seed(db, reportData);    // insert base data (idempotent: skips if already present)
+ 	}
+ }
+\ No newline at end of file
+diff --git a/Vardiologio.Infrastructure/Persistence/Seeding/DatabaseSeeder.cs b/Vardiologio.Infrastructure/Persistence/Seeding/DatabaseSeeder.cs
+index 5420bee..abaaccf 100644
+--- a/Vardiologio.Infrastructure/Persistence/Seeding/DatabaseSeeder.cs
++++ b/Vardiologio.Infrastructure/Persistence/Seeding/DatabaseSeeder.cs
+@@ -7,7 +7,8 @@ namespace Vardiologio.Infrastructure.Persistence.Seeding;
+ /// <summary>
+ /// Populates the database with base data on first run. Every step is idempotent
+ /// (skips if its table already has rows), so it is safe to run at every startup.
+-/// Reads the actual values from <see cref="SeedData"/>.
++/// Reads the reference values from <see cref="SeedData"/>; the employees and the texts of the
++/// official forms come from JSON files, so no personal or organisation data is in the source.
+ /// </summary>
+ public static class DatabaseSeeder
+ {
+@@ -15,7 +16,9 @@ public static class DatabaseSeeder
+ 	/// Runs all seed steps in dependency order: lookups first, then employees
+ 	/// (which need existing Speciality ids).
+ 	/// </summary>
+-	public static void Seed(AppDbContext db)
++	/// <param name="db">The database to seed.</param>
++	/// <param name="reportData">The organisation's report data, read from its file (see <see cref="ReportDataFile"/>).</param>
++	public static void Seed(AppDbContext db, ReportDataSeed reportData)
+ 	{
+ 		SeedSpecialities(db);
+ 		SeedEmploymentTypes(db);   
+@@ -24,7 +27,7 @@ public static class DatabaseSeeder
+ 		SeedShiftCodeRules(db); // after codes: fixes/adds codes once, then their hour split
+ 		SeedHolidays(db);
+ 		SeedHourLimits(db);
+-		SeedReportTexts(db);
++		SeedReportTexts(db, reportData.Texts ?? []);
+ 		SeedReportColors(db);
+ 		SeedEmployees(db);      // last: resolves each employee's SpecialityId by name
+ 	}
+@@ -152,9 +155,9 @@ public static class DatabaseSeeder
+ 	/// <summary>
+ 	/// Adds the default texts of the official forms. Works per line, not per table: a line
+ 	/// that already exists is never touched (the user may have edited it), and a line that a
+-	/// later version adds to <see cref="SeedData.ReportTexts"/> is inserted on the next start.
++	/// later version adds to the report data file is inserted on the next start.
+ 	/// </summary>
+-	private static void SeedReportTexts(AppDbContext db)
++	private static void SeedReportTexts(AppDbContext db, IReadOnlyList<ReportTextBlockSeed> blocks)
+ 	{
+ 		// Lines already stored, by their natural key (form + block + position).
+ 		var existing = db.ReportTexts
+@@ -163,8 +166,10 @@ public static class DatabaseSeeder
+ 			.Select(t => (t.Form, t.Block, t.Line))
+ 			.ToHashSet();
+ 
+-		foreach (var block in SeedData.ReportTexts)
++		foreach (var block in blocks)
+ 		{
++			if (block.Lines is null) continue;   // a block without lines in the file: nothing to add
++
+ 			for (var line = 0; line < block.Lines.Length; line++)
+ 			{
+ 				if (existing.Contains((block.Form, block.Block, line))) continue;
+diff --git a/Vardiologio.Infrastructure/Persistence/Seeding/ReportDataFile.cs b/Vardiologio.Infrastructure/Persistence/Seeding/ReportDataFile.cs
+new file mode 100644
+index 0000000..768accf
+--- /dev/null
++++ b/Vardiologio.Infrastructure/Persistence/Seeding/ReportDataFile.cs
+@@ -0,0 +1,63 @@
++using System.Text.Json;
++using System.Text.Json.Serialization;
++using Vardiologio.Domain.Enums;
++
++namespace Vardiologio.Infrastructure.Persistence.Seeding;
++
++/// <summary>
++/// One block of lines of a form, as read from the report data file. The number of lines is
++/// fixed: an empty string is a spare line the user can fill in later (an empty line is not printed).
++/// </summary>
++/// <param name="Form">Form the block belongs to.</param>
++/// <param name="Section">Above or below the table.</param>
++/// <param name="Block">Block key (see ReportTextBlocks).</param>
++/// <param name="Lines">The default text of each line, in order.</param>
++public sealed record ReportTextBlockSeed(ReportForm Form, ReportSection Section, string Block, string[] Lines);
++
++/// <summary>Content of the report data file.</summary>
++/// <param name="DirectorLastName">
++/// Surname of the head of the directorate, used only while no employee has the director's
++/// work position (see PresenceRules); null or empty = no fallback.
++/// </param>
++/// <param name="Texts">Default texts of the official forms, one entry per block.</param>
++public sealed record ReportDataSeed(string? DirectorLastName, ReportTextBlockSeed[]? Texts);
++
++/// <summary>
++/// Reads the organisation's own report data — the default texts of the official forms
++/// (service details, phones, e-mails, decisions, signatories) and the director's surname —
++/// from a JSON file next to the executable, so none of it lives in the source code.
++/// Prefers the real file "report-data.json"; when it is not present (e.g. a fresh clone from
++/// GitHub, where the real data is git-ignored) it falls back to the committed
++/// "report-data.demo.json", which has the same blocks with empty lines.
++/// The texts only fill the ReportTexts table the first time; after that the user edits them in
++/// Παράμετροι → Αναφορών.
++/// </summary>
++internal static class ReportDataFile
++{
++	/// <summary>Real data: git-ignored, present only on the maintainer's machine and in the installer.</summary>
++	public const string RealFileName = "report-data.json";
++
++	/// <summary>Committed fallback: every block of every form, all lines empty.</summary>
++	public const string DemoFileName = "report-data.demo.json";
++
++	/// <summary>Reads the real file, or the demo file when the real one is absent.</summary>
++	public static ReportDataSeed Load()
++	{
++		// JSON files are copied next to the executable (see the copy rules in Vardiologio.App.csproj).
++		var dir = AppContext.BaseDirectory;
++		var realPath = Path.Combine(dir, RealFileName);
++		var demoPath = Path.Combine(dir, DemoFileName);
++		var path = File.Exists(realPath) ? realPath : demoPath;
++
++		if (!File.Exists(path))
++			throw new FileNotFoundException(
++				$"No report data file found ({RealFileName} or {DemoFileName}) next to the app.");
++
++		// Case-insensitive so camelCase JSON maps to the PascalCase records; enums are written by name.
++		var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
++		options.Converters.Add(new JsonStringEnumConverter());
++
++		return JsonSerializer.Deserialize<ReportDataSeed>(File.ReadAllText(path), options)
++			?? new ReportDataSeed(null, null);
++	}
++}
+diff --git a/Vardiologio.Infrastructure/Persistence/Seeding/SeedData.ReportTexts.cs b/Vardiologio.Infrastructure/Persistence/Seeding/SeedData.ReportTexts.cs
+deleted file mode 100644
+index a9b5759..0000000
+--- a/Vardiologio.Infrastructure/Persistence/Seeding/SeedData.ReportTexts.cs
++++ /dev/null
+@@ -1,149 +0,0 @@
+-using Vardiologio.Application.ReportTexts;
+-using Vardiologio.Domain.Enums;
+-
+-namespace Vardiologio.Infrastructure.Persistence.Seeding;
+-
+-/// <summary>
+-/// Default texts of the official forms, copied as they are from the organisation's sheets
+-/// (wording, spacing and capitals included). They only fill the ReportTexts table the first
+-/// time; after that the user edits them in Παράμετροι → Αναφορές.
+-/// </summary>
+-public static partial class SeedData
+-{
+-	/// <summary>
+-	/// One block of lines of a form. The number of lines is fixed: an empty string is a spare
+-	/// line the user can fill in later (an empty line is not printed).
+-	/// </summary>
+-	public sealed record ReportTextBlockSeed(ReportForm Form, ReportSection Section, string Block, string[] Lines);
+-
+-	private const ReportSection Header = ReportSection.Header, Footer = ReportSection.Footer;
+-
+-	/// <summary>Letterhead shared by the two attendance reports and the certificate (each form gets its own copy).</summary>
+-	private static readonly string[] CommonLetterhead =
+-	{
+-		"ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ",
+-		"ΠΕΡΙΦΕΡΕΙΑ ΑΤΤΙΚΗΣ",
+-		"ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ",
+-		"Δ/ΝΣΗ: ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡΡΙΜΜΑΤΩΝ",
+-		"ΕΔΡΑ: Άντερσεν 6 και Μωραΐτη 90, 11525 Αθήνα",
+-		"Πληρ.: Βρύνας Γεώργιος",
+-		"Τηλ.: 210 4015080, 210 4320581",
+-		"e-mail: vrinas@edsna.gr"
+-	};
+-
+-	/// <summary>Every block of every form.</summary>
+-	public static readonly ReportTextBlockSeed[] ReportTexts =
+-	{
+-		// ---- Πίνακας βαρδιών εργασίας (its letterhead differs from the other forms) ----
+-		new(ReportForm.ShiftTable, Header, ReportTextBlocks.Letterhead, new[]
+-		{
+-			"ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ",
+-			"ΠΕΡΙΦΕΡΕΙΑ ΑΤΤΙΚΗΣ",
+-			"ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ",
+-			"ΝΟΜΟΥ ΑΤΤΙΚΗΣ",
+-			"ΕΔΡΑ: Άντερσεν 6 και Μωραΐτη 90, 115 25,",
+-			"τηλ.: 213 214 8 478-479",
+-			"Δ/ΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡΡΙΜΜΑΤΩΝ",
+-			"Τηλ: 210 43 20 581",
+-			"E-mail: iona@edsna.gr"
+-		}),
+-		new(ReportForm.ShiftTable, Header, ReportTextBlocks.Titles, new[]
+-		{
+-			"ΔΙΕΥΘΥΝΣΗ  ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ",
+-			"ΠΙΝΑΚΑΣ   ΒΑΡΔΙΩΝ   ΕΡΓΑΣΙΑΣ  ΠΡΟΣΩΠΙΚΟΥ",
+-			"ΤΜΗΜΑΤΟΣ ΚΕΝΤΡΙΚΩΝ ΣΜΑ"
+-		}),
+-		new(ReportForm.ShiftTable, Header, ReportTextBlocks.Addressee, new[]
+-		{
+-			"ΠΡΟΣ: Αν. Προϊσταμένη Τμ. Λογιστηρίου",
+-			"κ. Αγιανίδου Δέσποινα"
+-		}),
+-		new(ReportForm.ShiftTable, Footer, ReportTextBlocks.SignatureRole(1), new[] { "Ο συντάξας" }),
+-		new(ReportForm.ShiftTable, Footer, ReportTextBlocks.SignatureName(1), new[] { "ΒΡΥΝΑΣ ΓΕΩΡΓΙΟΣ", "ΠΕ ΔΙΟΙΚΗΤΙΚΟΥ-ΟΙΚΟΝΟΜΙΚΟΥ", "" }),
+-		new(ReportForm.ShiftTable, Footer, ReportTextBlocks.SignatureRole(2), new[] { "Ο  Αν. Προϊστάμενος Δ/νσης Σ.Μ.Α." }),
+-		new(ReportForm.ShiftTable, Footer, ReportTextBlocks.SignatureName(2), new[] { "ΠΑΠΑΣΤΑΜΑΤΗΣ ΑΘΑΝΑΣΙΟΣ", "ΠΕ Χημικών Μηχανικών, MSc / Α'", "" }),
+-
+-		// ---- Παρουσίες προσωπικού ----
+-		new(ReportForm.AttendanceStaff, Header, ReportTextBlocks.Letterhead, CommonLetterhead),
+-		new(ReportForm.AttendanceStaff, Header, ReportTextBlocks.Titles, new[]
+-		{
+-			"ΔΙΕΥΘΥΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ",
+-			"ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΠΡΟΣΩΠΙΚΟΥ",
+-			"ΤΜΗΜΑΤΟΣ ΚΕΝΤΡΙΚΩΝ ΣΜΑ"
+-		}),
+-		new(ReportForm.AttendanceStaff, Footer, ReportTextBlocks.SignatureRole(1), new[] { "Ο Συντάξας", "", "" }),
+-		new(ReportForm.AttendanceStaff, Footer, ReportTextBlocks.SignatureName(1), new[] { "Βρύνας Γεώργιος", "ΠΕ Διοικητικού - Οικονομικού", "" }),
+-		new(ReportForm.AttendanceStaff, Footer, ReportTextBlocks.SignatureRole(2), new[] { "Ο Αν. Προϊστάμενος", "Διεύθυνσης", "Σταθμών Μεταφόρτωσης" }),
+-		new(ReportForm.AttendanceStaff, Footer, ReportTextBlocks.SignatureName(2), new[] { "Αθανάσιος Παπασταμάτης", "ΠΕ Χημικών Μηχανικών MSc / Α΄", "" }),
+-
+-		// ---- Παρουσίες Διεύθυνσης (addressed to HR, signed by the Secretary General) ----
+-		new(ReportForm.AttendanceDirectorate, Header, ReportTextBlocks.Addressee, new[] { "Προς τη Δ/νση Διοικητικών Υπηρεσιών/Τμήμα Προσωπικού" }),
+-		new(ReportForm.AttendanceDirectorate, Header, ReportTextBlocks.Letterhead, CommonLetterhead),
+-		new(ReportForm.AttendanceDirectorate, Header, ReportTextBlocks.Titles, new[]
+-		{
+-			"Δ/ΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡ/ΤΩΝ ΣΜΑ",
+-			"ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΥΠΑΛΛΗΛΟΥ Δ/ΝΣΗΣ ΣΜΑ ΠΑΠΑΣΤΑΜΑΤΗ ΑΘΑΝΑΣΙΟΥ"
+-		}),
+-		new(ReportForm.AttendanceDirectorate, Footer, ReportTextBlocks.SignatureRole(1), new[] { "Με εντολή Προέδρου", "Ο Γενικός Γραμματέας του Ε.Δ.Σ.Ν.Α.", "" }),
+-		new(ReportForm.AttendanceDirectorate, Footer, ReportTextBlocks.SignatureName(1), new[] { "Γεώργιος Αποστολόπουλος", "", "" }),
+-
+-		// ---- Ατομική βεβαίωση ----
+-		new(ReportForm.OvertimeCertificate, Header, ReportTextBlocks.Letterhead, CommonLetterhead),
+-		new(ReportForm.OvertimeCertificate, Header, ReportTextBlocks.HandFilled, new[] { "Αθήνα  :", "Αρ. Πρωτ.  :", "Προς :" }),
+-		// First title line: the month ("ΜΗΝΟΣ ΑΥΓΟΥΣΤΟΥ 2026") is added after it automatically.
+-		new(ReportForm.OvertimeCertificate, Header, ReportTextBlocks.Titles, new[]
+-		{
+-			"Δ/ΝΣΗΣ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ",
+-			"ΠΙΣΤΟΠΟΙΗΣΗ ΥΠΕΡΩΡΙΑΚΗΣ ΚΑΙ ΛΟΙΠΗΣ ΕΡΓΑΣΙΑΣ"
+-		}),
+-		// The period ("από 01/08/2026 έως 31/08/2026") is added after the last line automatically.
+-		new(ReportForm.OvertimeCertificate, Header, ReportTextBlocks.Intro, new[]
+-		{
+-			"Βεβαιώνεται ότι ο παρακάτω υπάλληλος εργάστηκε υπερωριακά κατά τις απογευματινές ώρες",
+-			"και κατά τις Κυριακές, τις αντίστοιχες ώρες που αναφέρονται, για την αντιμετώπιση υπηρεσικών αναγκών της",
+-			"της Δ/νσης Σταθμών Μεταφόρτωσης , σύμφωνα με την αριθμ πρωτ. 15373/12-12-25 Απόφασης Προέδρου και της υπ'",
+-			"αριθμ.8247/23-07-2026 Απόφασης Σύστασης Συνεργείου, κατά το χρονικό διάστημα"
+-		}),
+-		new(ReportForm.OvertimeCertificate, Footer, ReportTextBlocks.DeclarationTitle, new[] { "Υπεύθυνη Δήλωση" }),
+-		new(ReportForm.OvertimeCertificate, Footer, ReportTextBlocks.Declarations, new[]
+-		{
+-			"Ο υπάλληλος που υπογράφει την κατάσταση αυτή, δηλώνει ότι εργάστηκε υπερωριακά κατά το χρονικό διάστημα που αναγράφεται στην κατάσταση, τις ώρες που αναγράφονται και το ωρομίσθιο του κλιμακίου.",
+-			"Δεν συμμετέχω σε άλλο συνεργείο υπερωριακής εργασίας στον ανωτέρω μήνα.",
+-			"Οι πάσης φύσεως πρόσθετες μηνιαίες αποδοχές μου δεν είναι ανώτερες του συνόλου των μηνιαίων αποδοχών της οργανικής μου θέσης, κατά τον ανωτέρω μήνα, σύμφωνα με την παρ. 2 του αριθ. 104 του Συντάγματος.",
+-			"Οι πάσης φύσεως μεικτές αποδοχές, αποζημιώσεις και πρόσθετες αμοιβές ή απολαβές μου εν γένει μηνιαίως δεν υπερβαίνουν το ποσό της παρ. 1 του αρ. 2 του Ν 3833/2010."
+-		}),
+-		new(ReportForm.OvertimeCertificate, Footer, ReportTextBlocks.Certification, new[]
+-		{
+-			"ΒΕΒΑΙΩΣΗ: Βεβαιώνεται ότι ο ανωτέρω αναφερόμενος υπάλληλος εργάστηκε κατά το ως άνω χρονικό διάστημα, για τι ώρες που αναφέρονται πλάι στο ονοματεπώνυμο μου και δεν έχω υπερβεί το συνολικό αριθμό ωρών που προβλέπεται από την απόφαση στην επικεφαλίδα. Επίσης βεβαιούται το γνήσιο της υπογραφής."
+-		}),
+-
+-		// ---- Συνολική μηνιαία Σ.Ω.: starts with the same texts as the shift table (its own copy) ----
+-		new(ReportForm.MonthlyTotal, Header, ReportTextBlocks.Letterhead, new[]
+-		{
+-			"ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ",
+-			"ΠΕΡΙΦΕΡΕΙΑ ΑΤΤΙΚΗΣ",
+-			"ΕΙΔΙΚΟΣ ΔΙΑΒΑΘΜΙΔΙΚΟΣ ΣΥΝΔΕΣΜΟΣ",
+-			"ΝΟΜΟΥ ΑΤΤΙΚΗΣ",
+-			"ΕΔΡΑ: Άντερσεν 6 και Μωραΐτη 90, 115 25,",
+-			"τηλ.: 213 214 8 478-479",
+-			"Δ/ΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ ΑΠΟΡΡΙΜΜΑΤΩΝ",
+-			"Τηλ: 210 43 20 581",
+-			"E-mail: iona@edsna.gr"
+-		}),
+-		new(ReportForm.MonthlyTotal, Header, ReportTextBlocks.Titles, new[]
+-		{
+-			"ΔΙΕΥΘΥΝΣΗ  ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ",
+-			"ΠΙΝΑΚΑΣ   ΒΑΡΔΙΩΝ   ΕΡΓΑΣΙΑΣ  ΠΡΟΣΩΠΙΚΟΥ",
+-			"ΤΜΗΜΑΤΟΣ ΚΕΝΤΡΙΚΩΝ ΣΜΑ"
+-		}),
+-		new(ReportForm.MonthlyTotal, Header, ReportTextBlocks.Addressee, new[]
+-		{
+-			"ΠΡΟΣ: Αν. Προϊσταμένη Τμ. Λογιστηρίου",
+-			"κ. Αγιανίδου Δέσποινα"
+-		}),
+-		new(ReportForm.MonthlyTotal, Footer, ReportTextBlocks.SignatureRole(1), new[] { "Ο συντάξας" }),
+-		new(ReportForm.MonthlyTotal, Footer, ReportTextBlocks.SignatureName(1), new[] { "ΒΡΥΝΑΣ ΓΕΩΡΓΙΟΣ", "ΠΕ ΔΙΟΙΚΗΤΙΚΟΥ-ΟΙΚΟΝΟΜΙΚΟΥ", "" }),
+-		new(ReportForm.MonthlyTotal, Footer, ReportTextBlocks.SignatureRole(2), new[] { "Ο  Αν. Προϊστάμενος Δ/νσης Σ.Μ.Α." }),
+-		new(ReportForm.MonthlyTotal, Footer, ReportTextBlocks.SignatureName(2), new[] { "ΠΑΠΑΣΤΑΜΑΤΗΣ ΑΘΑΝΑΣΙΟΣ", "ΠΕ Χημικών Μηχανικών, MSc / Α'", "" })
+-	};
+-}
+diff --git a/Vardiologio.Infrastructure/Persistence/Seeding/SeedData.cs b/Vardiologio.Infrastructure/Persistence/Seeding/SeedData.cs
+index aefe0b5..7b05eb6 100644
+--- a/Vardiologio.Infrastructure/Persistence/Seeding/SeedData.cs
++++ b/Vardiologio.Infrastructure/Persistence/Seeding/SeedData.cs
+@@ -4,7 +4,8 @@ namespace Vardiologio.Infrastructure.Persistence.Seeding;
+ 
+ /// <summary>
+ /// Static, hard-coded seed data (dictionaries). This half holds the reference
+-/// lists; the employees (personal data) live in the SeedData.Employees.cs partial.
++/// lists only. The employees (employees.json) and the texts of the official forms
++/// (report-data.json) are read from JSON files that are kept out of the repository.
+ /// </summary>
+ public static partial class SeedData   
+ {
+diff --git a/Vardiologio.Infrastructure/Reports/AttendanceSheetTexts.cs b/Vardiologio.Infrastructure/Reports/AttendanceSheetTexts.cs
+index c946651..73ef680 100644
+--- a/Vardiologio.Infrastructure/Reports/AttendanceSheetTexts.cs
++++ b/Vardiologio.Infrastructure/Reports/AttendanceSheetTexts.cs
+@@ -65,18 +65,19 @@ internal static class AttendanceSheetTexts
+ 	/// </summary>
+ 	public static (string[] Role, string[] Name)[] Signatures(ReportTextSet texts) => texts.Signatures();
+ 
+-	/// <summary>Name of the emblem resource (see LogicalName in Vardiologio.Infrastructure.csproj).</summary>
+-	private const string EmblemResource = "Vardiologio.Reports.Emblem.png";
++	/// <summary>File name of the emblem, next to the executable (see the copy rule in Vardiologio.App.csproj).</summary>
++	public const string EmblemFileName = "emblem.png";
+ 
+-	/// <summary>The Hellenic Republic emblem (PNG), read once from the embedded resource.</summary>
+-	public static byte[] Emblem => _emblem.Value;
++	/// <summary>
++	/// The emblem printed above the letterhead (PNG), read once from "emblem.png" next to the
++	/// executable; null when the file is absent. The image is kept out of the repository
++	/// (git-ignored), so a fresh clone prints the forms without it.
++	/// </summary>
++	public static byte[]? Emblem => _emblem.Value;
+ 
+-	private static readonly Lazy<byte[]> _emblem = new(() =>
++	private static readonly Lazy<byte[]?> _emblem = new(() =>
+ 	{
+-		using var stream = typeof(AttendanceSheetTexts).Assembly.GetManifestResourceStream(EmblemResource)
+-			?? throw new InvalidOperationException($"Embedded resource {EmblemResource} not found.");
+-		using var ms = new MemoryStream();
+-		stream.CopyTo(ms);
+-		return ms.ToArray();
++		var path = Path.Combine(AppContext.BaseDirectory, EmblemFileName);
++		return File.Exists(path) ? File.ReadAllBytes(path) : null;
+ 	});
+ }
+diff --git a/Vardiologio.Infrastructure/Reports/CertificateHours.cs b/Vardiologio.Infrastructure/Reports/CertificateHours.cs
+new file mode 100644
+index 0000000..4932ec5
+--- /dev/null
++++ b/Vardiologio.Infrastructure/Reports/CertificateHours.cs
+@@ -0,0 +1,41 @@
++using Vardiologio.Application.Hours;
++using Vardiologio.Domain.Enums;
++
++namespace Vardiologio.Infrastructure.Reports;
++
++/// <summary>
++/// The six hour columns of the overtime certificate, taken from an employee's monthly
++/// calculation. One mapping for the individual certificate and for the collective one per
++/// contract, so a row of the collective form always agrees with the employee's own certificate.
++/// </summary>
++/// <param name="AfternoonOvertime">Υπερωριακή — Απογευματινή έως 22:00 (paid Απλή hours).</param>
++/// <param name="NightOvertime">Υπερωριακή — Νυχτερινή 22:00–06:00 (paid Νυχτερινή hours).</param>
++/// <param name="SundayDayOvertime">Κυριακές και εξαιρέσιμες — Ημερήσιες (paid Κυριακής hours).</param>
++/// <param name="SundayNightOvertime">Κυριακές και εξαιρέσιμες — Νυχτερινή (no pay category feeds it yet).</param>
++/// <param name="WeekdayNightToComplete">Προς συμπλήρωση — Νυχτερινή εργασίμων (paid Προς συμπλήρωση hours).</param>
++/// <param name="SundayHolidayToComplete">Προς συμπλήρωση — Κυριακών και εξαιρέσιμων (paid Αργίας hours).</param>
++internal readonly record struct CertificateHours(
++	decimal AfternoonOvertime,
++	decimal NightOvertime,
++	decimal SundayDayOvertime,
++	decimal SundayNightOvertime,
++	decimal WeekdayNightToComplete,
++	decimal SundayHolidayToComplete)
++{
++	/// <summary>
++	/// Reads the columns from the result of <see cref="MonthlyHoursCalculator.Calculate"/>:
++	/// always the <b>paid</b> hours, i.e. the "Πληρ." column of the monthly hours report.
++	/// </summary>
++	public static CertificateHours FromPaid(IReadOnlyList<CategoryHours> calc)
++	{
++		decimal Paid(HourCategory c) => calc.Single(h => h.Category == c).Paid;
++
++		return new CertificateHours(
++			AfternoonOvertime: Paid(HourCategory.Simple),
++			NightOvertime: Paid(HourCategory.Night),
++			SundayDayOvertime: Paid(HourCategory.Sunday),
++			SundayNightOvertime: 0,   // no pay category feeds this column yet
++			WeekdayNightToComplete: Paid(HourCategory.ToComplete),
++			SundayHolidayToComplete: Paid(HourCategory.Holiday));
++	}
++}
+diff --git a/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.Attendance.cs b/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.Attendance.cs
+index 680c52b..c862856 100644
+--- a/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.Attendance.cs
++++ b/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.Attendance.cs
+@@ -72,10 +72,7 @@ public partial class ClosedXmlReportRenderer
+ 
+ 		// Emblem: three rows high, top left, above the letterhead (as on the original sheet).
+ 		for (var i = 0; i < 3; i++) ws.Row(r + i).Height = 15;
+-		using var emblem = new MemoryStream(AttendanceSheetTexts.Emblem);   // ClosedXML copies the image
+-		ws.AddPicture(emblem, $"Emblem{pageNo}")
+-			.MoveTo(ws.Cell(r, AttName), 6, 2)
+-			.WithSize(58, 56);
++		AddEmblem(ws, $"Emblem{pageNo}", r, AttName, 6, 2, 58, 56);
+ 		r += 3;
+ 
+ 		// Letterhead (left) and centre titles + period, on the same rows.
+diff --git a/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.Certificate.cs b/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.Certificate.cs
+index 601c90e..c6bf64c 100644
+--- a/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.Certificate.cs
++++ b/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.Certificate.cs
+@@ -1,5 +1,6 @@
+ using ClosedXML.Excel;
+ using Vardiologio.Application.Reports;
++using Vardiologio.Application.ReportTexts;
+ 
+ namespace Vardiologio.Infrastructure.Reports;
+ 
+@@ -21,41 +22,10 @@ public partial class ClosedXmlReportRenderer
+ 		var left = XLAlignmentHorizontalValues.Left;
+ 		var center = XLAlignmentHorizontalValues.Center;
+ 
+-		// Emblem: three rows high, top left, above the letterhead.
+-		for (var r = 1; r <= 3; r++) ws.Row(r).Height = 15;
+-		using (var emblem = new MemoryStream(AttendanceSheetTexts.Emblem))   // ClosedXML copies the image
+-			ws.AddPicture(emblem, "Emblem").MoveTo(ws.Cell(1, CertIndex), 6, 2).WithSize(58, 56);
+-
+-		// Letterhead (left) with the hand-filled labels on the right of some of its lines.
+-		const int lh0 = 4;
+-		var lh = AttendanceSheetTexts.Letterhead(m.Texts);
+-		for (var i = 0; i < lh.Length; i++)
+-			Merge(ws, lh0 + i, CertIndex, lh0 + i, CertFirst, lh[i].Text, 9, lh[i].Bold, left, null);
+-
+-		// The letterhead area is never shorter than the rows of the hand-filled labels plus one,
+-		// so the titles below can never land on a label's row.
+-		var lhRows = Math.Max(lh.Length, OvertimeCertificateTexts.HandFilledRowCount + 1);
+-		for (var i = 0; i < lhRows; i++) ws.Row(lh0 + i).Height = 13;
+-		foreach (var (line, text) in OvertimeCertificateTexts.HandFilled(m.Texts))
+-			Merge(ws, lh0 + line, CertLastCol - 1, lh0 + line, CertLastCol, text, 10, true, left, null);
+-
+-		// Titles on the last letterhead line and the one after it (as on the sheet).
+-		var rTitle = lh0 + lhRows - 1;
+-		Merge(ws, rTitle, CertSpec, rTitle, CertLastCol, OvertimeCertificateTexts.Title(m.Texts, m.Year, m.Month), 11, true, center, null);
+-		Merge(ws, rTitle + 1, CertSpec, rTitle + 1, CertLastCol, OvertimeCertificateTexts.Subtitle(m.Texts), 11, true, center, null);
+-		ws.Row(rTitle + 1).Height = 15;
+-
+-		// Introduction: centred lines.
+-		var r0 = rTitle + 3;
+-		var intro = OvertimeCertificateTexts.Intro(m.Texts, m.From, m.To);
+-		for (var i = 0; i < intro.Length; i++)
+-		{
+-			Merge(ws, r0 + i, CertIndex, r0 + i, CertLastCol, intro[i], 10, false, center, null);
+-			ws.Row(r0 + i).Height = 14;
+-		}
++		// Emblem, letterhead, titles and introduction (shared with the collective certificate).
++		var rHead = CertificateHead(ws, m.Texts, m.Year, m.Month, m.From, m.To);
+ 
+ 		// Table: two header rows, one data row.
+-		var rHead = r0 + intro.Length + 1;
+ 		Merge(ws, rHead, CertIndex, rHead + 1, CertIndex, OvertimeCertificateTexts.HeadIndex, 10, true, center, null);
+ 		Merge(ws, rHead, CertLast, rHead + 1, CertLast, OvertimeCertificateTexts.HeadLastName, 10, true, center, null);
+ 		Merge(ws, rHead, CertFirst, rHead + 1, CertFirst, OvertimeCertificateTexts.HeadFirstName, 10, true, center, null);
+@@ -134,4 +104,56 @@ public partial class ClosedXmlReportRenderer
+ 		wb.SaveAs(ms);
+ 		return ms.ToArray();
+ 	}
++
++	/// <summary>
++	/// Writes the top of a certificate — emblem, letterhead with the hand-filled labels, the two
++	/// title lines and the introduction — and returns the row where the table header starts.
++	/// Used by the individual certificate and by the collective certificate per contract.
++	/// </summary>
++	/// <param name="ws">The worksheet.</param>
++	/// <param name="texts">The form's editable texts.</param>
++	/// <param name="year">Certificate year (printed in the title).</param>
++	/// <param name="month">Certificate month (printed in the title).</param>
++	/// <param name="from">First day of the certified period.</param>
++	/// <param name="to">Last day of the certified period.</param>
++	private static int CertificateHead(IXLWorksheet ws, ReportTextSet texts, int year, int month, DateOnly from, DateOnly to)
++	{
++		var left = XLAlignmentHorizontalValues.Left;
++		var center = XLAlignmentHorizontalValues.Center;
++
++		// Emblem: three rows high, top left, above the letterhead.
++		for (var r = 1; r <= 3; r++) ws.Row(r).Height = 15;
++		AddEmblem(ws, "Emblem", 1, CertIndex, 6, 2, 58, 56);
++
++		// Letterhead (left) with the hand-filled labels on the right of some of its lines.
++		const int lh0 = 4;
++		var lh = AttendanceSheetTexts.Letterhead(texts);
++		for (var i = 0; i < lh.Length; i++)
++			Merge(ws, lh0 + i, CertIndex, lh0 + i, CertFirst, lh[i].Text, 9, lh[i].Bold, left, null);
++
++		// The letterhead area is never shorter than the rows of the hand-filled labels plus one,
++		// so the titles below can never land on a label's row.
++		var lhRows = Math.Max(lh.Length, OvertimeCertificateTexts.HandFilledRowCount + 1);
++		for (var i = 0; i < lhRows; i++) ws.Row(lh0 + i).Height = 13;
++		foreach (var (line, text) in OvertimeCertificateTexts.HandFilled(texts))
++			Merge(ws, lh0 + line, CertLastCol - 1, lh0 + line, CertLastCol, text, 10, true, left, null);
++
++		// Titles on the last letterhead line and the one after it (as on the sheet).
++		var rTitle = lh0 + lhRows - 1;
++		Merge(ws, rTitle, CertSpec, rTitle, CertLastCol, OvertimeCertificateTexts.Title(texts, year, month), 11, true, center, null);
++		Merge(ws, rTitle + 1, CertSpec, rTitle + 1, CertLastCol, OvertimeCertificateTexts.Subtitle(texts), 11, true, center, null);
++		ws.Row(rTitle + 1).Height = 15;
++
++		// Introduction: centred lines.
++		var r0 = rTitle + 3;
++		var intro = OvertimeCertificateTexts.Intro(texts, from, to);
++		for (var i = 0; i < intro.Length; i++)
++		{
++			Merge(ws, r0 + i, CertIndex, r0 + i, CertLastCol, intro[i], 10, false, center, null);
++			ws.Row(r0 + i).Height = 14;
++		}
++
++		// One empty row, then the table header.
++		return r0 + intro.Length + 1;
++	}
+ }
+diff --git a/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.ContractCertificate.cs b/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.ContractCertificate.cs
+new file mode 100644
+index 0000000..0df42ab
+--- /dev/null
++++ b/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.ContractCertificate.cs
+@@ -0,0 +1,158 @@
++using ClosedXML.Excel;
++using Vardiologio.Application.ReportColors;
++using Vardiologio.Application.Reports;
++
++namespace Vardiologio.Infrastructure.Reports;
++
++/// <summary>
++/// Collective overtime certificate per contract ("ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι") — A4 landscape, as many
++/// pages as the employees need. Same top and same columns as the individual certificate
++/// (reuses its column constants and <see cref="CertificateHead"/>); the table has one row per
++/// employee under a coloured band per contract, each contract after the first starting on a
++/// new page, and the table header is repeated at the top of every printed page.
++/// </summary>
++public partial class ClosedXmlReportRenderer
++{
++	/// <inheritdoc/>
++	public byte[] Render(ContractCertificateModel m)
++	{
++		using var wb = new XLWorkbook();
++		var ws = wb.AddWorksheet(ContractCertificateTexts.SheetName(m.Sheet));
++		var center = XLAlignmentHorizontalValues.Center;
++		var bandFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.ContractCertificateBand]);
++
++		// Emblem, letterhead, titles and introduction: as on the individual certificate.
++		var rHead = CertificateHead(ws, m.Texts, m.Year, m.Month, m.From, m.To);
++
++		// Table header: four single columns (two rows high), then three groups of two sub-columns.
++		Merge(ws, rHead, CertIndex, rHead + 1, CertIndex, OvertimeCertificateTexts.HeadIndex, 9, true, center, null);
++		Merge(ws, rHead, CertLast, rHead + 1, CertLast, OvertimeCertificateTexts.HeadLastName, 10, true, center, null);
++		Merge(ws, rHead, CertFirst, rHead + 1, CertFirst, OvertimeCertificateTexts.HeadFirstName, 10, true, center, null);
++		Merge(ws, rHead, CertSpec, rHead + 1, CertSpec, ContractCertificateTexts.HeadSpeciality, 10, true, center, null);
++		for (var g = 0; g < OvertimeCertificateTexts.Groups.Length; g++)
++		{
++			var c = CertValue0 + g * 2;
++			Merge(ws, rHead, c, rHead, c + 1, OvertimeCertificateTexts.Groups[g], 8, true, center, null);
++		}
++		ws.Cell(rHead, CertValue0).Style.Font.Underline = XLFontUnderlineValues.Single;   // underlined on the form
++		for (var k = 0; k < OvertimeCertificateTexts.SubHeads.Length; k++)
++			Merge(ws, rHead + 1, CertValue0 + k, rHead + 1, CertValue0 + k, OvertimeCertificateTexts.SubHeads[k], 7, true, center, null);
++		ws.Row(rHead).Height = 30;
++		ws.Row(rHead + 1).Height = 30;
++
++		// Groups one under the other: bands, then one row per employee.
++		var r = rHead + 2;
++		for (var g = 0; g < m.Groups.Count; g++)
++		{
++			var group = m.Groups[g];
++
++			if (g == 0)
++			{
++				// The department band is printed once, above the first group.
++				var department = ContractCertificateTexts.Department(m.Texts);
++				if (department.Length > 0) r = ContractBand(ws, r, department, bandFill);
++			}
++			else
++			{
++				// Every next contract starts on a new page (the header rows repeat there).
++				ws.PageSetup.AddHorizontalPageBreak(r - 1);
++			}
++
++			var title = ContractCertificateTexts.GroupTitle(m.Texts, group.Kind);
++			if (title.Length > 0) r = ContractBand(ws, r, title, bandFill);
++
++			foreach (var row in group.Rows)
++			{
++				var speciality = GreekText.Upper(row.Speciality);
++
++				Put(ws, r, CertIndex, row.Index, 8, false, null);
++				Put(ws, r, CertLast, GreekText.Upper(row.LastName), 10, true, null);
++				Put(ws, r, CertFirst, GreekText.Upper(row.FirstName), 10, true, null);
++				// Merge of a single cell: the helper that also turns on text wrapping.
++				Merge(ws, r, CertSpec, r, CertSpec, speciality, 8, true, center, null);
++
++				var values = ContractCertificateTexts.Values(row);
++				for (var k = 0; k < values.Length; k++)
++					Put(ws, r, CertValue0 + k, values[k], 11, true, null);
++
++				// A long speciality wraps onto a second (or third) line.
++				ws.Row(r).Height = speciality.Length > 44 ? 34 : speciality.Length > 22 ? 25 : 18;
++				r++;
++			}
++		}
++		var lastTableRow = r - 1;
++
++		// Thin grid around the header, the bands and every row.
++		var table = ws.Range(rHead, CertIndex, lastTableRow, CertLastCol);
++		table.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
++		table.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
++
++		// Signatures, once, under the last group.
++		ws.Row(r).Height = 10;
++		var lastRow = ContractSignatures(ws, r + 1, m);
++
++		// Widths as on the individual certificate, so the page is one A4 landscape wide.
++		ws.Column(CertIndex).Width = 7;
++		ws.Column(CertLast).Width = 22;
++		ws.Column(CertFirst).Width = 18;
++		ws.Column(CertSpec).Width = 22;
++		for (var c = CertValue0; c <= CertLastCol; c++) ws.Column(c).Width = 13;
++
++		ws.PageSetup.PageOrientation = XLPageOrientation.Landscape;
++		ws.PageSetup.PaperSize = XLPaperSize.A4Paper;
++		ws.PageSetup.PagesWide = 1;                             // one page wide, as many pages tall as needed
++		ws.PageSetup.SetRowsToRepeatAtTop(rHead, rHead + 1);    // table header on every printed page
++		ws.PageSetup.CenterHorizontally = true;
++		ws.PageSetup.PrintAreas.Add(1, 1, lastRow, CertLastCol);
++		ws.PageSetup.Margins.Left = 0.4; ws.PageSetup.Margins.Right = 0.4;
++		ws.PageSetup.Margins.Top = 0.4; ws.PageSetup.Margins.Bottom = 0.4;
++
++		using var ms = new MemoryStream();
++		wb.SaveAs(ms);
++		return ms.ToArray();
++	}
++
++	/// <summary>
++	/// Writes one coloured band across the whole table ("ΤΜΗΜΑ: …" or a contract title) and
++	/// returns the next free row.
++	/// </summary>
++	private static int ContractBand(IXLWorksheet ws, int row, string text, XLColor fill)
++	{
++		Merge(ws, row, CertIndex, row, CertLastCol, text, 9, true, XLAlignmentHorizontalValues.Center, fill);
++		ws.Row(row).Height = 15;
++		return row + 1;
++	}
++
++	/// <summary>
++	/// Writes the signature blocks starting at <paramref name="top"/> — role lines, blank rows to
++	/// sign, then name / title lines — and returns the last row used. With two blocks the first
++	/// sits on the left and the second on the right; a single block sits on the right.
++	/// </summary>
++	private static int ContractSignatures(IXLWorksheet ws, int top, ContractCertificateModel m)
++	{
++		const int gapRows = 4;   // blank rows left for the handwritten signatures
++		var center = XLAlignmentHorizontalValues.Center;
++
++		var signatures = m.Texts.Signatures();
++		var roleRows = signatures.Select(s => s.Role.Length).DefaultIfEmpty(0).Max();
++		var nameRows = signatures.Select(s => s.Name.Length).DefaultIfEmpty(0).Max();
++
++		for (var k = 0; k < signatures.Length; k++)
++		{
++			// Left block under surname / first name, right block under the last hour columns.
++			var (c1, c2) = signatures.Length > 1 && k == 0
++				? (CertLast, CertFirst)
++				: (CertLastCol - 3, CertLastCol);
++
++			for (var i = 0; i < signatures[k].Role.Length; i++)
++				Merge(ws, top + i, c1, top + i, c2, signatures[k].Role[i], 10, true, center, null);
++			for (var i = 0; i < signatures[k].Name.Length; i++)
++				Merge(ws, top + roleRows + gapRows + i, c1, top + roleRows + gapRows + i, c2,
++					signatures[k].Name[i], 10, true, center, null);
++		}
++
++		var rows = roleRows + gapRows + nameRows;
++		for (var i = 0; i < rows; i++) ws.Row(top + i).Height = 14;
++		return top + Math.Max(rows, 1) - 1;
++	}
++}
+diff --git a/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.ShiftTable.cs b/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.ShiftTable.cs
+index e6073b7..42e4242 100644
+--- a/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.ShiftTable.cs
++++ b/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.ShiftTable.cs
+@@ -34,8 +34,7 @@ public partial class ClosedXmlReportRenderer
+ 
+ 		// ---- Header: emblem + letterhead (left), titles (centre), addressee (right) ----
+ 		for (var r = 1; r <= 3; r++) ws.Row(r).Height = 16;
+-		using (var emblem = new MemoryStream(AttendanceSheetTexts.Emblem))   // ClosedXML copies the image
+-			ws.AddPicture(emblem, "Emblem").MoveTo(ws.Cell(1, cName), 30, 2).WithSize(62, 60);
++		AddEmblem(ws, "Emblem", 1, cName, 30, 2, 62, 60);
+ 
+ 		const int lh0 = 4;
+ 		var letterhead = ShiftTableTexts.Letterhead(m.Texts);
+diff --git a/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.cs b/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.cs
+index 3b1ade8..55470d4 100644
+--- a/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.cs
++++ b/Vardiologio.Infrastructure/Reports/ClosedXmlReportRenderer.cs
+@@ -43,8 +43,7 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
+ 		// ---- Header: emblem + letterhead (left), titles (centre), addressee (right) ----
+ 		// Same arrangement and the same position-based formatting as the official shift table.
+ 		for (var i = 1; i <= 3; i++) ws.Row(i).Height = 16;
+-		using (var emblem = new MemoryStream(AttendanceSheetTexts.Emblem))   // ClosedXML copies the image
+-			ws.AddPicture(emblem, "Emblem").MoveTo(ws.Cell(1, cName), 30, 2).WithSize(62, 60);
++		AddEmblem(ws, "Emblem", 1, cName, 30, 2, 62, 60);
+ 
+ 		const int lh0 = 4;
+ 		var letterhead = ShiftTableTexts.Letterhead(m.Texts);
+@@ -198,6 +197,28 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
+ 	}
+ 
+ 	/// <summary>Writes a merged, styled cell (used for headers/titles).</summary>
++	/// <summary>
++	/// Puts the emblem on the sheet, its top-left corner at an offset inside a cell.
++	/// Does nothing when there is no emblem file (see <see cref="AttendanceSheetTexts.Emblem"/>).
++	/// </summary>
++	/// <param name="ws">The worksheet.</param>
++	/// <param name="name">Picture name, unique in the worksheet.</param>
++	/// <param name="row">Row of the anchor cell.</param>
++	/// <param name="column">Column of the anchor cell.</param>
++	/// <param name="offsetX">Horizontal offset inside the anchor cell, in pixels.</param>
++	/// <param name="offsetY">Vertical offset inside the anchor cell, in pixels.</param>
++	/// <param name="width">Picture width in pixels.</param>
++	/// <param name="height">Picture height in pixels.</param>
++	private static void AddEmblem(IXLWorksheet ws, string name, int row, int column,
++		int offsetX, int offsetY, int width, int height)
++	{
++		var bytes = AttendanceSheetTexts.Emblem;
++		if (bytes is null) return;   // no emblem file: the form prints without it
++
++		using var emblem = new MemoryStream(bytes);   // ClosedXML copies the image
++		ws.AddPicture(emblem, name).MoveTo(ws.Cell(row, column), offsetX, offsetY).WithSize(width, height);
++	}
++
+ 	private static void Merge(IXLWorksheet ws, int r1, int c1, int r2, int c2,
+ 		string text, double size, bool bold, XLAlignmentHorizontalValues h, XLColor? fill)
+ 	{
+diff --git a/Vardiologio.Infrastructure/Reports/ContractCertificateService.cs b/Vardiologio.Infrastructure/Reports/ContractCertificateService.cs
+new file mode 100644
+index 0000000..4c51f94
+--- /dev/null
++++ b/Vardiologio.Infrastructure/Reports/ContractCertificateService.cs
+@@ -0,0 +1,109 @@
++using Microsoft.EntityFrameworkCore;
++using Vardiologio.Application.Hours;
++using Vardiologio.Application.Reports;
++using Vardiologio.Domain.Enums;
++using Vardiologio.Infrastructure.Persistence;
++using Vardiologio.Infrastructure.ReportColors;
++using Vardiologio.Infrastructure.ReportTexts;
++
++namespace Vardiologio.Infrastructure.Reports;
++
++/// <summary>EF Core implementation of <see cref="IContractCertificateService"/>.</summary>
++public class ContractCertificateService : IContractCertificateService
++{
++	private readonly IDbContextFactory<AppDbContext> _factory;
++	public ContractCertificateService(IDbContextFactory<AppDbContext> factory) => _factory = factory;
++
++	/// <inheritdoc/>
++	public async Task<ContractCertificateModel> BuildAsync(int year, int month, ContractCertificateSheet sheet)
++	{
++		var first = new DateOnly(year, month, 1);
++		var last = new DateOnly(year, month, DateTime.DaysInMonth(year, month));
++
++		await using var db = await _factory.CreateDbContextAsync();
++
++		// Active employees only (global filter), in the order of the other reports, each with
++		// the contract and the work position the grouping rules need.
++		var all = await db.Employees
++			.OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
++			.Select(e => new
++			{
++				e.Id,
++				e.LastName,
++				e.FirstName,
++				Speciality = e.Speciality.Name,
++				Position = e.WorkPosition != null ? e.WorkPosition.Name : null,
++				ContractCode = e.EmploymentType != null ? e.EmploymentType.Code : null,
++				ContractName = e.EmploymentType != null ? e.EmploymentType.Name : null
++			})
++			.ToListAsync();
++
++		// The head of the directorate is not on these forms (same rule as the attendance report).
++		var anyoneHasPosition = all.Any(e => PresenceRules.IsDirectorPosition(e.Position));
++		var staff = all
++			.Where(e => !PresenceRules.IsDirector(e.LastName, e.Position, anyoneHasPosition))
++			.Select(e => new { Employee = e, Kind = ContractRules.Resolve(e.ContractCode, e.ContractName) })
++			.ToList();
++
++		// The month's entries, grouped per employee in memory (one query for everyone).
++		var entries = await db.ShiftDays
++			.AsNoTracking()
++			.Where(s => s.Date >= first && s.Date <= last)
++			.ToListAsync();
++		var byEmployee = entries.ToLookup(s => s.EmployeeId);
++
++		// Rule data shared by every employee — same inputs as the hours report.
++		var hours = await db.ShiftCodeHours.AsNoTracking().ToListAsync();
++		var holidays = (await db.Holidays
++			.Where(h => h.Date >= first && h.Date <= last)
++			.Select(h => h.Date)
++			.ToListAsync())
++			.ToHashSet();
++		var limits = await db.HourLimits.AsNoTracking().OrderBy(l => l.Id).FirstOrDefaultAsync()
++			?? throw new InvalidOperationException("HourLimits row not found.");
++
++		var model = new ContractCertificateModel
++		{
++			Year = year,
++			Month = month,
++			Sheet = sheet,
++			Texts = await ReportTextService.LoadSetAsync(db, ReportForm.ContractCertificate),
++			Colors = await ReportColorService.LoadSetAsync(db),
++			// Employees whose contract is missing or not recognised appear on neither form.
++			WithoutContract = staff
++				.Where(x => x.Kind is null)
++				.Select(x => $"{x.Employee.LastName.Trim()} {x.Employee.FirstName.Trim()}".Trim())
++				.ToList()
++		};
++
++		// One group per kind of contract of this form; the Α/Α runs on from group to group.
++		var index = 1;
++		foreach (var kind in ContractRules.KindsOf(sheet))
++		{
++			var group = new ContractCertificateGroup { Kind = kind };
++			foreach (var e in staff.Where(x => x.Kind == kind).Select(x => x.Employee))
++			{
++				// Same calculation as the hours report, so the row matches its "Πληρ." column.
++				var paid = CertificateHours.FromPaid(
++					MonthlyHoursCalculator.Calculate(year, month, byEmployee[e.Id], hours, holidays, limits));
++
++				group.Rows.Add(new ContractCertificateRow
++				{
++					Index = index++,
++					LastName = e.LastName,
++					FirstName = e.FirstName,
++					Speciality = e.Speciality,
++					AfternoonOvertime = paid.AfternoonOvertime,
++					NightOvertime = paid.NightOvertime,
++					SundayDayOvertime = paid.SundayDayOvertime,
++					SundayNightOvertime = paid.SundayNightOvertime,
++					WeekdayNightToComplete = paid.WeekdayNightToComplete,
++					SundayHolidayToComplete = paid.SundayHolidayToComplete
++				});
++			}
++			model.Groups.Add(group);
++		}
++
++		return model;
++	}
++}
+diff --git a/Vardiologio.Infrastructure/Reports/ContractCertificateTexts.cs b/Vardiologio.Infrastructure/Reports/ContractCertificateTexts.cs
+new file mode 100644
+index 0000000..6c554bb
+--- /dev/null
++++ b/Vardiologio.Infrastructure/Reports/ContractCertificateTexts.cs
+@@ -0,0 +1,53 @@
++using Vardiologio.Application.Reports;
++using Vardiologio.Application.ReportTexts;
++
++namespace Vardiologio.Infrastructure.Reports;
++
++/// <summary>
++/// Texts of the collective overtime certificate per contract ("ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι"). Its top
++/// (letterhead, titles, introduction) and its hour columns are those of the individual
++/// certificate, read through <see cref="OvertimeCertificateTexts"/> with this form's own
++/// editable texts; this class adds what only the collective form has: the bands of the table
++/// and the way a row's hours are printed. Read through here so the Excel and the PDF renderer
++/// always print the same wording.
++/// </summary>
++internal static class ContractCertificateTexts
++{
++	/// <summary>Header of the speciality column, as on the collective form.</summary>
++	public const string HeadSpeciality = "Ειδικότητα";
++
++	/// <summary>Worksheet name of each form.</summary>
++	public static string SheetName(ContractCertificateSheet sheet) =>
++		sheet == ContractCertificateSheet.FixedTerm ? "ΙΔΟΧ" : "ΜΟΝΙΜΟΙ - ΙΔΑΧ";
++
++	/// <summary>Band above the first group ("ΤΜΗΜΑ: …"); "" when it was left empty (then it is not printed).</summary>
++	public static string Department(ReportTextSet texts) => texts.Line(ReportTextBlocks.Department, 0);
++
++	/// <summary>
++	/// Band above a group's rows ("ΜΟΝΙΜΟΙ", "ΑΟΡΙΣΤΟΥ ΧΡΟΝΟΥ", "ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ"): the line of the
++	/// "ContractGroups" block at the position of the contract kind; "" when it was left empty.
++	/// </summary>
++	public static string GroupTitle(ReportTextSet texts, ContractKind kind) =>
++		texts.Line(ReportTextBlocks.ContractGroups, (int)kind);
++
++	/// <summary>
++	/// The six values of a row in column order, formatted as on the individual certificate
++	/// (clock value for the four overtime columns, number for the two "προς συμπλήρωση" ones),
++	/// except that a zero is left blank, as on the printed form.
++	/// </summary>
++	public static string[] Values(ContractCertificateRow r) => new[]
++	{
++		Clock(r.AfternoonOvertime),
++		Clock(r.NightOvertime),
++		Clock(r.SundayDayOvertime),
++		Clock(r.SundayNightOvertime),
++		Number(r.WeekdayNightToComplete),
++		Number(r.SundayHolidayToComplete)
++	};
++
++	/// <summary>Hours as a clock value ("20:00", "25:30"); "" for zero.</summary>
++	private static string Clock(decimal hours) => hours == 0 ? "" : OvertimeCertificateTexts.Clock(hours);
++
++	/// <summary>Hours as a number ("36", "119,5"); "" for zero.</summary>
++	private static string Number(decimal hours) => hours == 0 ? "" : OvertimeCertificateTexts.Number(hours);
++}
+diff --git a/Vardiologio.Infrastructure/Reports/OvertimeCertificateService.cs b/Vardiologio.Infrastructure/Reports/OvertimeCertificateService.cs
+index 0454e3f..2e311e9 100644
+--- a/Vardiologio.Infrastructure/Reports/OvertimeCertificateService.cs
++++ b/Vardiologio.Infrastructure/Reports/OvertimeCertificateService.cs
+@@ -45,8 +45,9 @@ public class OvertimeCertificateService : IOvertimeCertificateService
+ 			?? throw new InvalidOperationException("HourLimits row not found.");
+ 
+ 		// Same calculation as the hours report, so the certificate always matches its "Πληρ." column.
+-		var calc = MonthlyHoursCalculator.Calculate(year, month, entries, hours, holidays, limits);
+-		decimal Paid(HourCategory c) => calc.Single(h => h.Category == c).Paid;
++		// The six columns come from one shared mapping (also used by the certificate per contract).
++		var paid = CertificateHours.FromPaid(
++			MonthlyHoursCalculator.Calculate(year, month, entries, hours, holidays, limits));
+ 
+ 		return new OvertimeCertificateModel
+ 		{
+@@ -57,12 +58,12 @@ public class OvertimeCertificateService : IOvertimeCertificateService
+ 			FirstName = emp.FirstName,
+ 			Speciality = emp.Speciality,
+ 			IsFemale = GreekText.IsFemaleName(emp.FirstName, emp.LastName),
+-			AfternoonOvertime = Paid(HourCategory.Simple),
+-			NightOvertime = Paid(HourCategory.Night),
+-			SundayDayOvertime = Paid(HourCategory.Sunday),
+-			SundayNightOvertime = 0,   // no pay category feeds this column yet
+-			WeekdayNightToComplete = Paid(HourCategory.ToComplete),
+-			SundayHolidayToComplete = Paid(HourCategory.Holiday),
++			AfternoonOvertime = paid.AfternoonOvertime,
++			NightOvertime = paid.NightOvertime,
++			SundayDayOvertime = paid.SundayDayOvertime,
++			SundayNightOvertime = paid.SundayNightOvertime,
++			WeekdayNightToComplete = paid.WeekdayNightToComplete,
++			SundayHolidayToComplete = paid.SundayHolidayToComplete,
+ 			Texts = await ReportTextService.LoadSetAsync(db, ReportForm.OvertimeCertificate)
+ 		};
+ 	}
+diff --git a/Vardiologio.Infrastructure/Reports/OvertimeCertificateTexts.cs b/Vardiologio.Infrastructure/Reports/OvertimeCertificateTexts.cs
+index 6badb26..a95b118 100644
+--- a/Vardiologio.Infrastructure/Reports/OvertimeCertificateTexts.cs
++++ b/Vardiologio.Infrastructure/Reports/OvertimeCertificateTexts.cs
+@@ -93,7 +93,7 @@ internal static class OvertimeCertificateTexts
+ 	/// <summary>Signature role: "Ο" for men, "Η" for women.</summary>
+ 	public static string SignatureRole(bool isFemale) => isFemale ? "Η Βεβαιών Υπάλληλος" : "Ο Βεβαιών Υπάλληλος";
+ 
+-	/// <summary>Name under the signature ("ΒΡΥΝΑΣ      ΓΕΩΡΓΙΟΣ"), as on the form.</summary>
++	/// <summary>Name under the signature ("ΠΑΠΑΔΟΠΟΥΛΟΣ      ΓΕΩΡΓΙΟΣ"), as on the form.</summary>
+ 	public static string SignatureName(OvertimeCertificateModel m) => $"{GreekText.Upper(m.LastName)}      {GreekText.Upper(m.FirstName)}";
+ 
+ 	/// <summary>A date as printed in the introduction ("01/08/2026").</summary>
+diff --git a/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.Attendance.cs b/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.Attendance.cs
+index 60154a2..de627e2 100644
+--- a/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.Attendance.cs
++++ b/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.Attendance.cs
+@@ -54,7 +54,7 @@ public partial class QuestPdfReportRenderer
+ 			// Emblem above the letterhead, as on the original sheet.
+ 			row.ConstantItem(AttSideWidth).Column(left =>
+ 			{
+-				left.Item().Width(46).Height(44).Image(AttendanceSheetTexts.Emblem).FitArea();
++				left.Item().Width(46).Height(44).Element(EmblemImage);
+ 				left.Item().Height(3);
+ 
+ 				foreach (var (text, bold) in AttendanceSheetTexts.Letterhead(texts))
+diff --git a/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.Certificate.cs b/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.Certificate.cs
+index 4683bc2..bf9e27d 100644
+--- a/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.Certificate.cs
++++ b/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.Certificate.cs
+@@ -2,6 +2,7 @@ using QuestPDF.Fluent;
+ using QuestPDF.Helpers;
+ using QuestPDF.Infrastructure;
+ using Vardiologio.Application.Reports;
++using Vardiologio.Application.ReportTexts;
+ 
+ namespace Vardiologio.Infrastructure.Reports;
+ 
+@@ -24,8 +25,8 @@ public partial class QuestPdfReportRenderer
+ 
+ 				page.Content().Column(col =>
+ 				{
+-					col.Item().Element(c => CertHead(c, m));
+-					col.Item().PaddingTop(10).Element(c => CertIntro(c, m));
++					col.Item().Element(c => CertHead(c, m.Texts, m.Year, m.Month));
++					col.Item().PaddingTop(10).Element(c => CertIntro(c, m.Texts, m.From, m.To));
+ 					col.Item().PaddingTop(10).Element(c => CertTable(c, m));
+ 					col.Item().PaddingTop(10).Element(c => CertDeclaration(c, m));
+ 					col.Item().PaddingTop(12).Element(c => CertSignature(c, m));
+@@ -36,15 +37,18 @@ public partial class QuestPdfReportRenderer
+ 		return doc.GeneratePdf();
+ 	}
+ 
+-	/// <summary>Emblem + letterhead (left), titles (centre), hand-filled labels (right).</summary>
+-	private static void CertHead(IContainer c, OvertimeCertificateModel m) => c.Row(row =>
++	/// <summary>
++	/// Emblem + letterhead (left), titles (centre), hand-filled labels (right).
++	/// Shared with the collective certificate per contract, which has the same top.
++	/// </summary>
++	private static void CertHead(IContainer c, ReportTextSet texts, int year, int month) => c.Row(row =>
+ 	{
+ 		// Left: emblem above the letterhead.
+ 		row.ConstantItem(230).Column(left =>
+ 		{
+-			left.Item().Width(46).Height(44).Image(AttendanceSheetTexts.Emblem).FitArea();
++			left.Item().Width(46).Height(44).Element(EmblemImage);
+ 			left.Item().Height(3);
+-			var lh = AttendanceSheetTexts.Letterhead(m.Texts);
++			var lh = AttendanceSheetTexts.Letterhead(texts);
+ 			foreach (var (text, bold) in lh)
+ 			{
+ 				var line = left.Item().Text(text).FontSize(7.5f);
+@@ -60,15 +64,15 @@ public partial class QuestPdfReportRenderer
+ 		// Centre: the two title lines, level with the bottom of the letterhead (as on the sheet).
+ 		row.RelativeItem().AlignBottom().Column(mid =>
+ 		{
+-			mid.Item().AlignCenter().Text(OvertimeCertificateTexts.Title(m.Texts, m.Year, m.Month)).Bold().FontSize(10.5f);
+-			mid.Item().AlignCenter().Text(OvertimeCertificateTexts.Subtitle(m.Texts)).Bold().FontSize(10.5f);
++			mid.Item().AlignCenter().Text(OvertimeCertificateTexts.Title(texts, year, month)).Bold().FontSize(10.5f);
++			mid.Item().AlignCenter().Text(OvertimeCertificateTexts.Subtitle(texts)).Bold().FontSize(10.5f);
+ 		});
+ 
+ 		// Right: labels filled in by hand. One line per letterhead row, in the same font size,
+ 		// so each label sits level with its letterhead row; the other rows stay empty.
+ 		row.ConstantItem(150).PaddingTop(47).Column(right =>
+ 		{
+-			var labels = OvertimeCertificateTexts.HandFilled(m.Texts);
++			var labels = OvertimeCertificateTexts.HandFilled(texts);
+ 			for (var i = 0; i < OvertimeCertificateTexts.HandFilledRowCount; i++)
+ 			{
+ 				var label = labels.FirstOrDefault(h => h.Row == i).Text;
+@@ -77,10 +81,10 @@ public partial class QuestPdfReportRenderer
+ 		});
+ 	});
+ 
+-	/// <summary>Centred introduction lines.</summary>
+-	private static void CertIntro(IContainer c, OvertimeCertificateModel m) => c.Column(col =>
++	/// <summary>Centred introduction lines (the period is added to the last one).</summary>
++	private static void CertIntro(IContainer c, ReportTextSet texts, DateOnly from, DateOnly to) => c.Column(col =>
+ 	{
+-		foreach (var line in OvertimeCertificateTexts.Intro(m.Texts, m.From, m.To))
++		foreach (var line in OvertimeCertificateTexts.Intro(texts, from, to))
+ 			col.Item().AlignCenter().Text(line).FontSize(9.5f);
+ 	});
+ 
+diff --git a/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.ContractCertificate.cs b/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.ContractCertificate.cs
+new file mode 100644
+index 0000000..c7b0ed9
+--- /dev/null
++++ b/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.ContractCertificate.cs
+@@ -0,0 +1,116 @@
++using QuestPDF.Fluent;
++using QuestPDF.Helpers;
++using QuestPDF.Infrastructure;
++using Vardiologio.Application.ReportColors;
++using Vardiologio.Application.Reports;
++
++namespace Vardiologio.Infrastructure.Reports;
++
++/// <summary>
++/// Collective overtime certificate per contract ("ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι") — A4 landscape, as many
++/// pages as the employees need. Same top as the individual certificate (reuses CertHead /
++/// CertIntro); one table per contract under a coloured band, each contract after the first on
++/// a new page, the table header repeated on every page, and the signatures once at the end.
++/// </summary>
++public partial class QuestPdfReportRenderer
++{
++	/// <summary>Number of columns of the table: A/A, surname, first name, speciality, six hour columns.</summary>
++	private const int ContractColumns = 10;
++
++	/// <inheritdoc/>
++	public byte[] Render(ContractCertificateModel m)
++	{
++		var doc = Document.Create(container =>
++		{
++			container.Page(page =>
++			{
++				page.Size(PageSizes.A4.Landscape());
++				page.Margin(30);
++				page.DefaultTextStyle(x => x.FontFamily("Lato").FontSize(9));
++
++				page.Content().Column(col =>
++				{
++					col.Item().Element(c => CertHead(c, m.Texts, m.Year, m.Month));
++					col.Item().PaddingTop(10).Element(c => CertIntro(c, m.Texts, m.From, m.To));
++
++					for (var g = 0; g < m.Groups.Count; g++)
++					{
++						// Copied out of the loop variable before the lambda below captures them.
++						var group = m.Groups[g];
++						var isFirst = g == 0;
++
++						// Every contract after the first starts on a new page.
++						if (!isFirst) col.Item().PageBreak();
++						col.Item().PaddingTop(isFirst ? 10 : 0).Element(c => ContractTable(c, m, group, isFirst));
++					}
++
++					// Signatures once, kept together (they move to a new page when they do not fit).
++					col.Item().PaddingTop(14).ShowEntire().Element(c => AttSignatures(c, AttendanceSheet.Staff, m.Texts));
++				});
++			});
++		});
++
++		return doc.GeneratePdf();
++	}
++
++	/// <summary>
++	/// The table of one contract: header (repeated on every page it runs onto), the department
++	/// band (first group only), the contract band, then one row per employee.
++	/// </summary>
++	private static void ContractTable(IContainer c, ContractCertificateModel m, ContractCertificateGroup group, bool isFirst) => c.Table(t =>
++	{
++		var bandColor = m.Colors[ReportColorCatalog.ContractCertificateBand];
++
++		t.ColumnsDefinition(cols =>
++		{
++			cols.ConstantColumn(26);                           // A/A
++			cols.RelativeColumn(1.7f);                         // Επίθετο
++			cols.RelativeColumn(1.3f);                         // Όνομα
++			cols.RelativeColumn(1.5f);                         // Ειδικότητα
++			for (var k = 0; k < 6; k++) cols.RelativeColumn(); // hour columns
++		});
++
++		t.Header(h =>
++		{
++			// Row 1 — single headers (two rows high) + group headers (two columns wide).
++			h.Cell().RowSpan(2).Element(CertH).Text(OvertimeCertificateTexts.HeadIndex).Bold().FontSize(8);
++			h.Cell().RowSpan(2).Element(CertH).Text(OvertimeCertificateTexts.HeadLastName).Bold().FontSize(9);
++			h.Cell().RowSpan(2).Element(CertH).Text(OvertimeCertificateTexts.HeadFirstName).Bold().FontSize(9);
++			h.Cell().RowSpan(2).Element(CertH).Text(ContractCertificateTexts.HeadSpeciality).Bold().FontSize(9);
++			for (var g = 0; g < OvertimeCertificateTexts.Groups.Length; g++)
++			{
++				var text = h.Cell().ColumnSpan(2).Element(CertH).Text(OvertimeCertificateTexts.Groups[g]).Bold().FontSize(7);
++				if (g == 0) text.Underline();   // underlined on the form
++			}
++
++			// Row 2 — sub-column headers.
++			foreach (var sub in OvertimeCertificateTexts.SubHeads)
++				h.Cell().Element(CertH).Text(sub).Bold().FontSize(6.5f);
++		});
++
++		// Bands across the whole table; a band whose text was left empty is not printed.
++		var department = isFirst ? ContractCertificateTexts.Department(m.Texts) : "";
++		if (department.Length > 0)
++			t.Cell().ColumnSpan(ContractColumns).Element(x => ContractBandCell(x, bandColor)).Text(department).Bold().FontSize(8);
++
++		var title = ContractCertificateTexts.GroupTitle(m.Texts, group.Kind);
++		if (title.Length > 0)
++			t.Cell().ColumnSpan(ContractColumns).Element(x => ContractBandCell(x, bandColor)).Text(title).Bold().FontSize(8);
++
++		// One row per employee.
++		foreach (var row in group.Rows)
++		{
++			t.Cell().Element(ContractD).Text(row.Index.ToString()).FontSize(7);
++			t.Cell().Element(ContractD).Text(GreekText.Upper(row.LastName)).Bold().FontSize(8.5f);
++			t.Cell().Element(ContractD).Text(GreekText.Upper(row.FirstName)).Bold().FontSize(8.5f);
++			t.Cell().Element(ContractD).Text(GreekText.Upper(row.Speciality)).Bold().FontSize(6.5f);
++			foreach (var v in ContractCertificateTexts.Values(row))
++				t.Cell().Element(ContractD).Text(v).Bold().FontSize(9.5f);
++		}
++	});
++
++	// Contract certificate cell styles.
++	private static IContainer ContractD(IContainer c) => c.Border(0.75f).MinHeight(17).Padding(1).AlignCenter().AlignMiddle();   // data cell
++	private static IContainer ContractBandCell(IContainer c, string color) =>
++		c.Border(0.75f).Background(color).PaddingVertical(1.5f).AlignCenter().AlignMiddle();                                   // coloured band
++}
+diff --git a/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.ShiftTable.cs b/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.ShiftTable.cs
+index 274aea5..88e5d35 100644
+--- a/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.ShiftTable.cs
++++ b/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.ShiftTable.cs
+@@ -45,7 +45,7 @@ public partial class QuestPdfReportRenderer
+ 	{
+ 		row.ConstantItem(260).Column(left =>
+ 		{
+-			left.Item().PaddingLeft(20).Width(48).Height(46).Image(AttendanceSheetTexts.Emblem).FitArea();
++			left.Item().PaddingLeft(20).Width(48).Height(46).Element(EmblemImage);
+ 			left.Item().Height(4);
+ 			foreach (var (plain, bold) in ShiftTableTexts.Letterhead(m.Texts))
+ 			{
+diff --git a/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.cs b/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.cs
+index c34a58f..f2969d9 100644
+--- a/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.cs
++++ b/Vardiologio.Infrastructure/Reports/QuestPdfReportRenderer.cs
+@@ -48,6 +48,16 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
+ 		return doc.GeneratePdf();
+ 	}
+ 
++	/// <summary>
++	/// Fills a box with the emblem. Without an emblem file the box stays empty but keeps its
++	/// size, so the layout of the form does not move (see <see cref="AttendanceSheetTexts.Emblem"/>).
++	/// </summary>
++	private static void EmblemImage(IContainer box)
++	{
++		var bytes = AttendanceSheetTexts.Emblem;
++		if (bytes is not null) box.Image(bytes).FitArea();
++	}
++
+ 	/// <summary>
+ 	/// Header of the sheet: emblem + letterhead (left), titles (centre), addressee (right).
+ 	/// Same arrangement and position-based formatting as the official shift table.
+@@ -56,7 +66,7 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
+ 	{
+ 		row.ConstantItem(215).Column(left =>
+ 		{
+-			left.Item().PaddingLeft(20).Width(44).Height(42).Image(AttendanceSheetTexts.Emblem).FitArea();
++			left.Item().PaddingLeft(20).Width(44).Height(42).Element(EmblemImage);
+ 			left.Item().Height(3);
+ 			foreach (var (plain, bold) in ShiftTableTexts.Letterhead(m.Texts))
+ 			{
+diff --git a/Vardiologio.Infrastructure/Reports/ShiftTableTexts.cs b/Vardiologio.Infrastructure/Reports/ShiftTableTexts.cs
+index 59fe3ad..0a1e426 100644
+--- a/Vardiologio.Infrastructure/Reports/ShiftTableTexts.cs
++++ b/Vardiologio.Infrastructure/Reports/ShiftTableTexts.cs
+@@ -37,7 +37,7 @@ internal static class ShiftTableTexts
+ 			if (part == BoldPart.All) return ("", l.Text);
+ 			if (part == BoldPart.None) return (l.Text, "");
+ 
+-			// "E-mail: iona@edsna.gr" -> plain "E-mail: ", bold "iona@edsna.gr"; no colon -> all plain.
++			// "E-mail: name@example.gr" -> plain "E-mail: ", bold "name@example.gr"; no colon -> all plain.
+ 			var colon = l.Text.IndexOf(':');
+ 			if (colon < 0) return (l.Text, "");
+ 			var start = colon + 1;
+diff --git a/Vardiologio.Infrastructure/Vardiologio.Infrastructure.csproj b/Vardiologio.Infrastructure/Vardiologio.Infrastructure.csproj
+index ca15421..6d8f817 100644
+--- a/Vardiologio.Infrastructure/Vardiologio.Infrastructure.csproj
++++ b/Vardiologio.Infrastructure/Vardiologio.Infrastructure.csproj
+@@ -15,11 +15,6 @@
+     <PackageReference Include="QuestPDF" Version="2026.9.0" />
+   </ItemGroup>
+ 
+-  <ItemGroup>
+-    <!-- Emblem printed on the attendance report (read by AttendanceSheetTexts.Emblem). -->
+-    <EmbeddedResource Include="Reports\Assets\emblem.png" LogicalName="Vardiologio.Reports.Emblem.png" />
+-  </ItemGroup>
+-
+   <PropertyGroup>
+     <TargetFramework>net10.0</TargetFramework>
+     <ImplicitUsings>enable</ImplicitUsings>

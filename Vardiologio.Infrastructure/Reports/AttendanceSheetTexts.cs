@@ -65,18 +65,19 @@ internal static class AttendanceSheetTexts
 	/// </summary>
 	public static (string[] Role, string[] Name)[] Signatures(ReportTextSet texts) => texts.Signatures();
 
-	/// <summary>Name of the emblem resource (see LogicalName in Vardiologio.Infrastructure.csproj).</summary>
-	private const string EmblemResource = "Vardiologio.Reports.Emblem.png";
+	/// <summary>File name of the emblem, next to the executable (see the copy rule in Vardiologio.App.csproj).</summary>
+	public const string EmblemFileName = "emblem.png";
 
-	/// <summary>The Hellenic Republic emblem (PNG), read once from the embedded resource.</summary>
-	public static byte[] Emblem => _emblem.Value;
+	/// <summary>
+	/// The emblem printed above the letterhead (PNG), read once from "emblem.png" next to the
+	/// executable; null when the file is absent. The image is kept out of the repository
+	/// (git-ignored), so a fresh clone prints the forms without it.
+	/// </summary>
+	public static byte[]? Emblem => _emblem.Value;
 
-	private static readonly Lazy<byte[]> _emblem = new(() =>
+	private static readonly Lazy<byte[]?> _emblem = new(() =>
 	{
-		using var stream = typeof(AttendanceSheetTexts).Assembly.GetManifestResourceStream(EmblemResource)
-			?? throw new InvalidOperationException($"Embedded resource {EmblemResource} not found.");
-		using var ms = new MemoryStream();
-		stream.CopyTo(ms);
-		return ms.ToArray();
+		var path = Path.Combine(AppContext.BaseDirectory, EmblemFileName);
+		return File.Exists(path) ? File.ReadAllBytes(path) : null;
 	});
 }

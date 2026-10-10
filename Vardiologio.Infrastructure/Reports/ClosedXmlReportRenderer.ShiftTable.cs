@@ -34,8 +34,7 @@ public partial class ClosedXmlReportRenderer
 
 		// ---- Header: emblem + letterhead (left), titles (centre), addressee (right) ----
 		for (var r = 1; r <= 3; r++) ws.Row(r).Height = 16;
-		using (var emblem = new MemoryStream(AttendanceSheetTexts.Emblem))   // ClosedXML copies the image
-			ws.AddPicture(emblem, "Emblem").MoveTo(ws.Cell(1, cName), 30, 2).WithSize(62, 60);
+		AddEmblem(ws, "Emblem", 1, cName, 30, 2, 62, 60);
 
 		const int lh0 = 4;
 		var letterhead = ShiftTableTexts.Letterhead(m.Texts);

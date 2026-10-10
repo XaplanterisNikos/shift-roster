@@ -16,6 +16,12 @@
     <None Update="employees.demo.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- Real data: git-ignored; copied only when present on this machine. -->
     <None Update="employees.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('employees.json')" />
+
+    <!-- Texts of the official forms: the committed file has every block with empty lines. -->
+    <None Update="report-data.demo.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Real texts (service details, signatories) and the emblem: git-ignored; copied only when present. -->
+    <None Update="report-data.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('report-data.json')" />
+    <None Update="emblem.png" CopyToOutputDirectory="PreserveNewest" Condition="Exists('emblem.png')" />
   </ItemGroup>
 
   <PropertyGroup>

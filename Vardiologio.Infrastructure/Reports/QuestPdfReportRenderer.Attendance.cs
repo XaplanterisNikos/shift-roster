@@ -54,7 +54,7 @@ public partial class QuestPdfReportRenderer
 			// Emblem above the letterhead, as on the original sheet.
 			row.ConstantItem(AttSideWidth).Column(left =>
 			{
-				left.Item().Width(46).Height(44).Image(AttendanceSheetTexts.Emblem).FitArea();
+				left.Item().Width(46).Height(44).Element(EmblemImage);
 				left.Item().Height(3);
 
 				foreach (var (text, bold) in AttendanceSheetTexts.Letterhead(texts))

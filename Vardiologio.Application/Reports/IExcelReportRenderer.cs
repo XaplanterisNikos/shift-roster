@@ -20,4 +20,7 @@ public interface IExcelReportRenderer
 
 	/// <summary>Produces the Excel file bytes for one employee's individual analytical sheet (one A4 landscape page).</summary>
 	byte[] Render(IndividualReportModel model);
+
+	/// <summary>Produces the Excel file bytes for one collective overtime certificate per contract (A4 landscape, as many pages as needed).</summary>
+	byte[] Render(ContractCertificateModel model);
 }

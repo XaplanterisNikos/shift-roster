@@ -1,0 +1,169 @@
+@page "/contract-certificate"
+@using System.Diagnostics
+@using System.IO
+@using Vardiologio.Application.Files
+@using Vardiologio.Application.Logging
+@using Vardiologio.Application.Reports
+@inject IContractCertificateService ContractCertificateService
+@inject IExcelReportRenderer Excel
+@inject IPdfReportRenderer Pdf
+@inject IReportFileStore FileStore
+@inject IErrorLog ErrorLog
+
+@* Collective "ΠΙΣΤΟΠΟΙΗΣΗ ΥΠΕΡΩΡΙΑΚΗΣ ΚΑΙ ΛΟΙΠΗΣ ΕΡΓΑΣΙΑΣ" per contract, in two forms (one tab each):
+   permanent staff + open-ended contracts, and fixed-term contracts. The preview is the PDF
+   itself (exactly what gets printed); an export writes the file of the open tab (Excel or PDF). *@
+<h1>Εξαγωγή Πιστοποίησης ανά Σύμβαση (ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι)</h1>
+
+<div class="filters">
+    <label>
+        Έτος
+        <select @bind="year">
+            @for (int y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+    </label>
+    <label>
+        Μήνας
+        <select @bind="month">
+            @for (int mo = 1; mo <= 12; mo++)
+            {
+                <option value="@mo">@Months[mo - 1]</option>
+            }
+        </select>
+    </label>
+    <button @onclick="PreviewAsync" disabled="@busy">Προεπισκόπηση</button>
+    <button @onclick="ExportExcelAsync" disabled="@busy">Εξαγωγή Excel</button>
+    <button @onclick="ExportPdfAsync" disabled="@busy">Εξαγωγή PDF</button>
+</div>
+
+@if (message is not null)
+{
+    <p class="ok">@message</p>
+}
+@if (error is not null)
+{
+    <p style="color:#c00">@error</p>
+}
+@if (withoutContract.Count > 0)
+{
+    <p class="hint">
+        Δεν περιλαμβάνονται σε κανένα έντυπο, επειδή δεν έχουν σύμβαση Μόνιμου, ΙΔΑΧ ή ΙΔΟΧ
+        (Εργαζόμενοι → Σύμβαση): @(string.Join(", ", withoutContract)).
+    </p>
+}
+
+@if (previews is not null)
+{
+    @* One tab per form; each shows its own PDF inline (WebView2 has a built-in PDF viewer). *@
+    <div class="tabs">
+        @foreach (var sheet in Sheets)
+        {
+            <button type="button"
+                    class="tab @(sheet == activeSheet ? "active" : "")"
+                    @onclick="() => activeSheet = sheet">
+                @TabTitle(sheet)
+            </button>
+        }
+    </div>
+
+    <object data="@previews[activeSheet]" type="application/pdf" style="width:100%;height:75vh;border:1px solid #ccc">
+        <p>
+            Δεν εμφανίζεται η προεπισκόπηση.
+            <a href="@previews[activeSheet]" target="_blank">Άνοιγμα PDF</a>
+        </p>
+    </object>
+}
+
+@code {
+    /// <summary>The two forms, in tab order.</summary>
+    private static readonly ContractCertificateSheet[] Sheets =
+        { ContractCertificateSheet.PermanentAndOpenEnded, ContractCertificateSheet.FixedTerm };
+
+    private int year = DateTime.Today.Year;
+    private int month = DateTime.Today.Month;
+    private bool busy;
+    private string? message, error;
+    private ContractCertificateSheet activeSheet = ContractCertificateSheet.PermanentAndOpenEnded;
+
+    /// <summary>PDF data-URI per form, after "Προεπισκόπηση".</summary>
+    private Dictionary<ContractCertificateSheet, string>? previews;
+
+    /// <summary>Employees left out of both forms (no contract of the three kinds); shown as a note.</summary>
+    private List<string> withoutContract = new();
+
+    /// <summary>
+    /// The page opens with the current month already shown. Done after the first render, so
+    /// the page appears at once and the report follows; for another month the user picks it
+    /// and presses the button.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await PreviewAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>Renders both forms to PDF in memory and shows them inline (no file written).</summary>
+    private async Task PreviewAsync()
+    {
+        busy = true; message = null; error = null; previews = null;
+        try
+        {
+            var result = new Dictionary<ContractCertificateSheet, string>();
+            foreach (var sheet in Sheets)
+            {
+                var model = await ContractCertificateService.BuildAsync(year, month, sheet);
+                withoutContract = model.WithoutContract;   // the same list on both forms
+                result[sheet] = "data:application/pdf;base64," + Convert.ToBase64String(Pdf.Render(model));
+            }
+            previews = result;
+        }
+        catch (Exception ex) { Fail("Preview", ex); }
+        finally { busy = false; }
+    }
+
+    private Task ExportExcelAsync() => ExportAsync(m => Excel.Render(m), "xlsx");
+    private Task ExportPdfAsync() => ExportAsync(m => Pdf.Render(m), "pdf");
+
+    /// <summary>Writes the file of the open tab, then opens it with the default application.</summary>
+    private async Task ExportAsync(Func<ContractCertificateModel, byte[]> render, string ext)
+    {
+        busy = true; message = null; error = null;
+        try
+        {
+            var model = await ContractCertificateService.BuildAsync(year, month, activeSheet);
+            withoutContract = model.WithoutContract;
+            var path = await FileStore.SaveAsync(ReportFolder.ContractCertificate, year, month, FileName(activeSheet, ext), render(model));
+            Open(path);
+            message = "Δημιουργήθηκε: " + path;
+        }
+        catch (Exception ex) { Fail("Excel/PDF export", ex); }
+        finally { busy = false; }
+    }
+
+    /// <summary>Certificate_Permanent_IDAX_yyyy_MM or Certificate_IDOX_yyyy_MM (Latin characters only).</summary>
+    private string FileName(ContractCertificateSheet sheet, string ext) => sheet == ContractCertificateSheet.FixedTerm
+        ? $"Certificate_IDOX_{year}_{month:00}.{ext}"
+        : $"Certificate_Permanent_IDAX_{year}_{month:00}.{ext}";
+
+    /// <summary>Opens a file with its default application.</summary>
+    private static void Open(string path) => Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+
+    /// <summary>Tab title of a form.</summary>
+    private static string TabTitle(ContractCertificateSheet sheet) =>
+        sheet == ContractCertificateSheet.FixedTerm ? "ΙΔΟΧ" : "Μόνιμοι / ΙΔΑΧ";
+
+    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows its message on the page.</summary>
+    private void Fail(string action, Exception ex)
+    {
+        ErrorLog.Error($"Contract certificate / {action}", ex);
+        error = ex.Message;
+    }
+
+    private static readonly string[] Months =
+        { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",
+          "Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος" };
+}

@@ -19,5 +19,11 @@ public enum ReportForm
 	OvertimeCertificate = 4,
 
 	/// <summary>Συνολική μηνιαία Σ.Ω. (monthly roster; same header / footer layout as the shift table).</summary>
-	MonthlyTotal = 5
+	MonthlyTotal = 5,
+
+	/// <summary>
+	/// Συγκεντρωτική πιστοποίηση υπερωριακής εργασίας ανά σύμβαση (ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι):
+	/// one row per employee, grouped by contract. Both printed forms share these texts.
+	/// </summary>
+	ContractCertificate = 6
 }

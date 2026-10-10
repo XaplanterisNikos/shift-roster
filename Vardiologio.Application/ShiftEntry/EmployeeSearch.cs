@@ -13,7 +13,7 @@ public static class EmployeeSearch
 	/// <summary>Separator between the name and the speciality in <see cref="EmployeeListItem.Display"/>.</summary>
 	private const string NameSeparator = " — ";
 
-	/// <summary>The name part of an option ("Βρύνας Γεώργιος"), without the speciality.</summary>
+	/// <summary>The name part of an option ("Βρεττός Γεώργιος"), without the speciality.</summary>
 	public static string Name(EmployeeListItem item)
 	{
 		var cut = item.Display.IndexOf(NameSeparator, StringComparison.Ordinal);
@@ -29,7 +29,7 @@ public static class EmployeeSearch
 
 	/// <summary>
 	/// The employees whose name contains every typed word. Names where a typed word starts a
-	/// name word come first ("βρ" → Βρύνας before Λάμπρου); inside each group the given order
+	/// name word come first ("βρ" → Βρεττός before Λάμπρου); inside each group the given order
 	/// (alphabetical) is kept. An empty text returns everyone.
 	/// </summary>
 	/// <param name="items">All employees, already in alphabetical order.</param>
@@ -50,7 +50,7 @@ public static class EmployeeSearch
 
 	/// <summary>
 	/// Splits a name into pieces, marking the letters that match a typed word, e.g.
-	/// "Βρύνας" with "ρυν" → ("Β", false), ("ρύν", true), ("ας", false). The pieces put together
+	/// "Βρεττός" with "ρετ" → ("Β", false), ("ρετ", true), ("τός", false). The pieces put together
 	/// give the name back exactly (accents and case as stored).
 	/// </summary>
 	public static IReadOnlyList<(string Text, bool Hit)> Highlight(string name, string? text)
@@ -81,7 +81,7 @@ public static class EmployeeSearch
 		return pieces;
 	}
 
-	/// <summary>The typed text as folded words ("βρύνας γε" → "ΒΡΥΝΑΣ", "ΓΕ").</summary>
+	/// <summary>The typed text as folded words ("βρεττός γε" → "ΒΡΕΤΤΟΣ", "ΓΕ").</summary>
 	private static string[] Words(string? text) =>
 		Fold(text ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
@@ -98,7 +98,7 @@ public static class EmployeeSearch
 
 	/// <summary>
 	/// Upper case without accents, letter by letter, so the result has exactly one character
-	/// per character of the input ("Βρύνας" → "ΒΡΥΝΑΣ") and positions in the two strings match.
+	/// per character of the input ("Βρεττός" → "ΒΡΕΤΤΟΣ") and positions in the two strings match.
 	/// </summary>
 	private static string Fold(string text)
 	{

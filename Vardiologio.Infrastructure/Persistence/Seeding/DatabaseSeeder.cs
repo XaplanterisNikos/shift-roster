@@ -7,7 +7,8 @@ namespace Vardiologio.Infrastructure.Persistence.Seeding;
 /// <summary>
 /// Populates the database with base data on first run. Every step is idempotent
 /// (skips if its table already has rows), so it is safe to run at every startup.
-/// Reads the actual values from <see cref="SeedData"/>.
+/// Reads the reference values from <see cref="SeedData"/>; the employees and the texts of the
+/// official forms come from JSON files, so no personal or organisation data is in the source.
 /// </summary>
 public static class DatabaseSeeder
 {
@@ -15,7 +16,9 @@ public static class DatabaseSeeder
 	/// Runs all seed steps in dependency order: lookups first, then employees
 	/// (which need existing Speciality ids).
 	/// </summary>
-	public static void Seed(AppDbContext db)
+	/// <param name="db">The database to seed.</param>
+	/// <param name="reportData">The organisation's report data, read from its file (see <see cref="ReportDataFile"/>).</param>
+	public static void Seed(AppDbContext db, ReportDataSeed reportData)
 	{
 		SeedSpecialities(db);
 		SeedEmploymentTypes(db);   
@@ -24,7 +27,7 @@ public static class DatabaseSeeder
 		SeedShiftCodeRules(db); // after codes: fixes/adds codes once, then their hour split
 		SeedHolidays(db);
 		SeedHourLimits(db);
-		SeedReportTexts(db);
+		SeedReportTexts(db, reportData.Texts ?? []);
 		SeedReportColors(db);
 		SeedEmployees(db);      // last: resolves each employee's SpecialityId by name
 	}
@@ -152,9 +155,9 @@ public static class DatabaseSeeder
 	/// <summary>
 	/// Adds the default texts of the official forms. Works per line, not per table: a line
 	/// that already exists is never touched (the user may have edited it), and a line that a
-	/// later version adds to <see cref="SeedData.ReportTexts"/> is inserted on the next start.
+	/// later version adds to the report data file is inserted on the next start.
 	/// </summary>
-	private static void SeedReportTexts(AppDbContext db)
+	private static void SeedReportTexts(AppDbContext db, IReadOnlyList<ReportTextBlockSeed> blocks)
 	{
 		// Lines already stored, by their natural key (form + block + position).
 		var existing = db.ReportTexts
@@ -163,8 +166,10 @@ public static class DatabaseSeeder
 			.Select(t => (t.Form, t.Block, t.Line))
 			.ToHashSet();
 
-		foreach (var block in SeedData.ReportTexts)
+		foreach (var block in blocks)
 		{
+			if (block.Lines is null) continue;   // a block without lines in the file: nothing to add
+
 			for (var line = 0; line < block.Lines.Length; line++)
 			{
 				if (existing.Contains((block.Form, block.Block, line))) continue;

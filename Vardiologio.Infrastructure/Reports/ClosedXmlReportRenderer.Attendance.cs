@@ -72,10 +72,7 @@ public partial class ClosedXmlReportRenderer
 
 		// Emblem: three rows high, top left, above the letterhead (as on the original sheet).
 		for (var i = 0; i < 3; i++) ws.Row(r + i).Height = 15;
-		using var emblem = new MemoryStream(AttendanceSheetTexts.Emblem);   // ClosedXML copies the image
-		ws.AddPicture(emblem, $"Emblem{pageNo}")
-			.MoveTo(ws.Cell(r, AttName), 6, 2)
-			.WithSize(58, 56);
+		AddEmblem(ws, $"Emblem{pageNo}", r, AttName, 6, 2, 58, 56);
 		r += 3;
 
 		// Letterhead (left) and centre titles + period, on the same rows.

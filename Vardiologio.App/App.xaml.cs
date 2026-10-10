@@ -72,6 +72,7 @@ public partial class App : System.Windows.Application
 			services.AddScoped<IHoursReportService, HoursReportService>();
 			services.AddScoped<IAttendanceReportService, AttendanceReportService>();
 			services.AddScoped<IOvertimeCertificateService, OvertimeCertificateService>();
+			services.AddScoped<IContractCertificateService, ContractCertificateService>();
 			services.AddScoped<IShiftTableService, ShiftTableService>();
 			services.AddScoped<IEmployeeService, EmployeeService>();
 			services.AddScoped<IShiftCodeService, ShiftCodeService>();

@@ -43,8 +43,7 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 		// ---- Header: emblem + letterhead (left), titles (centre), addressee (right) ----
 		// Same arrangement and the same position-based formatting as the official shift table.
 		for (var i = 1; i <= 3; i++) ws.Row(i).Height = 16;
-		using (var emblem = new MemoryStream(AttendanceSheetTexts.Emblem))   // ClosedXML copies the image
-			ws.AddPicture(emblem, "Emblem").MoveTo(ws.Cell(1, cName), 30, 2).WithSize(62, 60);
+		AddEmblem(ws, "Emblem", 1, cName, 30, 2, 62, 60);
 
 		const int lh0 = 4;
 		var letterhead = ShiftTableTexts.Letterhead(m.Texts);
@@ -198,6 +197,28 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 	}
 
 	/// <summary>Writes a merged, styled cell (used for headers/titles).</summary>
+	/// <summary>
+	/// Puts the emblem on the sheet, its top-left corner at an offset inside a cell.
+	/// Does nothing when there is no emblem file (see <see cref="AttendanceSheetTexts.Emblem"/>).
+	/// </summary>
+	/// <param name="ws">The worksheet.</param>
+	/// <param name="name">Picture name, unique in the worksheet.</param>
+	/// <param name="row">Row of the anchor cell.</param>
+	/// <param name="column">Column of the anchor cell.</param>
+	/// <param name="offsetX">Horizontal offset inside the anchor cell, in pixels.</param>
+	/// <param name="offsetY">Vertical offset inside the anchor cell, in pixels.</param>
+	/// <param name="width">Picture width in pixels.</param>
+	/// <param name="height">Picture height in pixels.</param>
+	private static void AddEmblem(IXLWorksheet ws, string name, int row, int column,
+		int offsetX, int offsetY, int width, int height)
+	{
+		var bytes = AttendanceSheetTexts.Emblem;
+		if (bytes is null) return;   // no emblem file: the form prints without it
+
+		using var emblem = new MemoryStream(bytes);   // ClosedXML copies the image
+		ws.AddPicture(emblem, name).MoveTo(ws.Cell(row, column), offsetX, offsetY).WithSize(width, height);
+	}
+
 	private static void Merge(IXLWorksheet ws, int r1, int c1, int r2, int c2,
 		string text, double size, bool bold, XLAlignmentHorizontalValues h, XLColor? fill)
 	{

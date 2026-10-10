@@ -4,7 +4,8 @@ namespace Vardiologio.Infrastructure.Persistence.Seeding;
 
 /// <summary>
 /// Static, hard-coded seed data (dictionaries). This half holds the reference
-/// lists; the employees (personal data) live in the SeedData.Employees.cs partial.
+/// lists only. The employees (employees.json) and the texts of the official forms
+/// (report-data.json) are read from JSON files that are kept out of the repository.
 /// </summary>
 public static partial class SeedData   
 {
