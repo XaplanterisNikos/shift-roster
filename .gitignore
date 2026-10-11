@@ -498,6 +498,10 @@ $RECYCLE.BIN/
 # (public demo password) is the fallback.
 **/admin.json
 
+# Telegram bot token and chat id (message to the developer). A SECRET: never commit it.
+# The committed telegram.demo.json (empty values) shows the shape of the file.
+**/telegram.json
+
 # Emblem printed on the official forms; without the file the forms print without it.
 **/emblem.png
 

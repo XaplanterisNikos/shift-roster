@@ -29,6 +29,10 @@
     <!-- Real texts (service details, signatories) and the emblem: git-ignored; copied only when present. -->
     <None Update="report-data.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('report-data.json')" />
     <None Update="emblem.png" CopyToOutputDirectory="PreserveNewest" Condition="Exists('emblem.png')" />
+
+    <!-- Telegram bot token and chat id for the message to the developer: git-ignored; copied only
+         when present. telegram.demo.json only shows the shape of the file and is never copied. -->
+    <None Update="telegram.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('telegram.json')" />
   </ItemGroup>
 
   <PropertyGroup>

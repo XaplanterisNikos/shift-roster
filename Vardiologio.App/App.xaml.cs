@@ -6,6 +6,7 @@ using Vardiologio.Application.Activity;
 using Vardiologio.Application.Auth;
 using Vardiologio.Application.DatabaseTransfer;
 using Vardiologio.Application.Employees;
+using Vardiologio.Application.Feedback;
 using Vardiologio.Application.Files;
 using Vardiologio.Application.Hours;
 using Vardiologio.Application.Logging;
@@ -19,6 +20,7 @@ using Vardiologio.Infrastructure.Activity;
 using Vardiologio.Infrastructure.Auth;
 using Vardiologio.Infrastructure.DatabaseTransfer;
 using Vardiologio.Infrastructure.Employees;
+using Vardiologio.Infrastructure.Feedback;
 using Vardiologio.Infrastructure.Files;
 using Vardiologio.Infrastructure.Hours;
 using Vardiologio.Infrastructure.Logging;
@@ -101,6 +103,8 @@ public partial class App : System.Windows.Application
 			services.AddSingleton<IErrorLogReader, ErrorLogReader>();
 			services.AddSingleton<IActivityLog, ActivityLog>();
 			services.AddSingleton<IDocumentsArchive, DocumentsArchive>();
+			// Message to the developer: Telegram bot, zip in Documents\Vardiologio\Feedback when it cannot be sent
+			services.AddSingleton<IFeedbackSender, TelegramFeedbackSender>();
 
 			// Auth
 			services.AddSingleton<IAuthService, AuthService>();

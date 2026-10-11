@@ -72,10 +72,11 @@ staff and producing the official attendance/shift reports.
   the current page. The drawer sits next to the page, so the instructions can be read while
   working, and follows the user from page to page until it is closed.
 - **Message to the developer** — the pen button of the top bar opens a form in the same drawer:
-  kind (error / addition), the menu it concerns, the sender's name and the text. It opens the
-  user's own mail program with recipient, subject ("kind - menu") and text filled in; nothing is
-  sent by the application itself. For an error, the form shows the folder of the log files so
-  that they can be attached by hand.
+  kind (error / addition), the menu it concerns, the sender's name and the text. The application
+  sends it itself, over HTTPS, to the developer's Telegram bot, as a zip with the message and
+  the error logs of the last 7 days; no mail program and no Telegram is needed on the computer.
+  When it cannot be sent, the zip stays in `Documents\Vardiologio\Feedback` and the form shows
+  where it is.
 - **Database export / import** (Διαχείριση → Εισαγωγή / Εξαγωγή βάσης) — open to every user.
   Export writes a dated copy of the database to `Documents\Vardiologio\Database`. Import lets
   the user pick such a copy: it is accepted only if it is a database of this application with
@@ -152,11 +153,11 @@ Every page is built from **MudBlazor** components (the move from hand-written HT
   the help texts of the current page (`Shared/HelpContent.razor`, one block per route) and the
   message form (`Shared/FeedbackForm.razor`). The form stays rendered while hidden, so a
   half-written message is kept. Width: `DrawerWidthRight` in `AppTheme.cs`.
-- **Message form** — builds a `mailto:` address, which BlazorWebView hands to Windows. A
-  `mailto:` address cannot carry attachments, and some mail programs open the new message
-  without the subject or the text; the "copy message" button puts recipient, subject and text
-  on the clipboard as a way around it. The menu list of the form is kept by hand in step with
-  the side menu.
+- **Message form** — calls `IFeedbackSender` (`Application/Feedback`), implemented by
+  `Infrastructure/Feedback/TelegramFeedbackSender.cs`: one `sendDocument` call of the Telegram
+  Bot API with `HttpClient`, no extra package. Bot token and chat id are read from the
+  git-ignored `telegram.json`; without it nothing is sent and only the zip is written. The menu
+  list of the form is kept by hand in step with the side menu.
 - **About card** — the app icon (top bar and login card) opens a card with the application version and the
   creator's e-mail, LinkedIn and GitHub (`Shared/AboutButton.razor`, `Shared/AboutCard.razor`).
   Version and creator details live in `Vardiologio.App/AppInfo.cs`; the window title shows
@@ -217,6 +218,7 @@ and inside the installer); each has a committed fallback, so a fresh clone build
 | `report-data.json` | `report-data.demo.json` (same blocks, every line empty) | Default texts of the official forms — service details, phones, e-mails, decisions, signatories — and, optionally, `directorLastName`: the surname that marks the head of the directorate while no employee has the work position ΔΙΕΥΘΥΝΤΗΣ. |
 | `emblem.png` | none — the forms print without an emblem | The emblem above the letterhead. |
 | `admin.json` | `admin.demo.json` (public demo password `admin-demo`; copied to the output only when `admin.json` is absent) | Salt and hash of the administrator's password — never the password itself. Created with `tools/New-AdminFile.ps1`, which asks for the password on screen. |
+| `telegram.json` | none — messages are then kept as a zip instead of being sent; `telegram.demo.json` shows the shape of the file and is never read | Token of the Telegram bot and id of the developer's chat with it, for the message to the developer. **A secret**: anyone holding the token can post as the bot. If it leaks, revoke it in @BotFather and ship a new file. |
 
 The texts are seeded per line from the data file (`Persistence/Seeding/ReportDataFile.cs`): a
 line that already exists is never overwritten, and a line added to the file in a later version
@@ -239,6 +241,7 @@ administrator password, which is public: create `admin.json` before any real use
 - **Documents\Vardiologio** (Latin names only):
   - `Logs\yyyy-MM-dd.log` — errors only (startup, unhandled, failed exports).
   - `Database\vardiologio_yyyy-MM-dd_HHmmss.db` — exported copies of the database.
+  - `Feedback\yyyy-MM-dd_HHmmss.zip` — messages to the developer that could not be sent.
   - `Reports\<Monthly-Total | Monthly-Hours | Staff-Attendance | Overtime-Certificate | Contract-Certificate | Shift-Table | Individual-Sheet>\yyyy-MM Month\` — exported reports.
 - **Version:** `<Version>` in `Vardiologio.App.csproj` is the only place to change it; the login
   screen shows it and the installer reads it from the built exe.

@@ -1,16 +1,17 @@
-@using Microsoft.JSInterop
-@using Vardiologio.Infrastructure.Files
-@inject IJSRuntime Js
+@using System.Diagnostics
+@using Vardiologio.Application.Auth
+@using Vardiologio.Application.Feedback
+@inject IFeedbackSender Sender
+@inject IUserSession Session
 @inject ISnackbar Snackbar
 
 @* Message to the developer: kind (error / addition), the menu it is about, the sender's name and
-   the text. "Αποστολή email" is a mailto: link, so the user's own mail program opens with the
-   recipient, subject and text filled in; the address is outside the app's origin, so BlazorWebView
-   hands it to Windows (same as the e-mail link of Shared/AboutCard.razor).
-   A mailto: link cannot carry attachments: for an error, a note asks the user to attach the log
-   files by hand and shows the folder they are in.
-   Some mail programs open the new message without the subject or the text (seen with the new
-   Outlook); "Αντιγραφή" puts recipient, subject and text on the clipboard as a way around it.
+   the text. "Αποστολή" hands the message to IFeedbackSender, which packs it with the error logs
+   of the last days into a zip and posts it to the developer (Telegram bot, see
+   Infrastructure/Feedback/TelegramFeedbackSender.cs). No mail program is involved.
+   When it cannot be sent (no internet, blocked, not configured) the zip stays in
+   Documents\Vardiologio\Feedback; the form then shows where it is, with a button that opens the
+   folder, so the user can send the file by hand.
    Shown in the side drawer of Layout/MainLayout.razor. *@
 <div class="feedback-form">
     @* Kind of message: exactly one of the two. *@
@@ -32,43 +33,40 @@
     <MudTextField T="string" Label="Ονοματεπώνυμο" @bind-Value="name" Immediate="true" Required="true"
                   Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="80" />
 
-    @* Immediate => the send button and the mailto: link follow every keystroke. *@
+    @* Immediate => the send button follows every keystroke. *@
     <MudTextField T="string" Label="Πείτε μου το πρόβλημα που έχετε" @bind-Value="text" Immediate="true"
                   Variant="Variant.Outlined" Lines="9" MaxLength="@MaxTextLength" Counter="@MaxTextLength" />
 
     @if (kind == KindError)
     {
         <MudAlert Severity="Severity.Info" Dense="true" Class="feedback-note">
-            Καλό είναι να επισυνάψετε στο email και τα αρχεία καταγραφής σφαλμάτων (logs).
-            Θα τα βρείτε στον φάκελο:
-            <span class="feedback-path">@AppFolders.Logs</span>
+            Μαζί με το μήνυμα στέλνονται αυτόματα και τα αρχεία καταγραφής σφαλμάτων (logs) των τελευταίων ημερών.
         </MudAlert>
     }
 
-    @if (!CanSend)
+    @* Shown after a failed send, until the next attempt or "Καθαρισμός". *@
+    @if (unsentPath is not null)
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="feedback-note">
+            Το μήνυμα δεν στάλθηκε (ελέγξτε τη σύνδεση στο internet). Αποθηκεύτηκε στο αρχείο:
+            <span class="feedback-path">@unsentPath</span>
+            Μπορείτε να το στείλετε στο @AppInfo.AuthorEmail ή να δοκιμάσετε ξανά αργότερα.
+        </MudAlert>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
+                   StartIcon="@Icons.Material.Rounded.FolderOpen" OnClick="ShowUnsent">Άνοιγμα φακέλου</MudButton>
+    }
+
+    @if (!CanSend && !sending)
     {
         <div class="feedback-hint">Συμπληρώστε ονοματεπώνυμο και κείμενο για να στείλετε το μήνυμα.</div>
     }
 
-    @* Actions, one under the other: send, copy (the way around a mail program that drops the
-       text), clear. *@
+    @* Actions, one under the other: send, clear. *@
     <div class="feedback-actions">
-        @* A link button only when the form is complete; a disabled plain button otherwise. *@
-        @if (CanSend)
-        {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" FullWidth="true"
-                       Href="@MailtoUrl()" StartIcon="@Icons.Material.Rounded.Send">Αποστολή email</MudButton>
-        }
-        else
-        {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" FullWidth="true"
-                       Disabled="true" StartIcon="@Icons.Material.Rounded.Send">Αποστολή email</MudButton>
-        }
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" Disabled="@(!CanSend)"
-                   StartIcon="@Icons.Material.Rounded.ContentCopy"
-                   title="Αντιγραφή παραλήπτη, θέματος και κειμένου, για επικόλληση σε email"
-                   OnClick="CopyAsync">Αντιγραφή μηνύματος</MudButton>
-        <MudButton Variant="Variant.Text" FullWidth="true" OnClick="Clear">Καθαρισμός</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" FullWidth="true"
+                   Disabled="@(!CanSend || sending)" StartIcon="@Icons.Material.Rounded.Send"
+                   OnClick="SendAsync">@(sending ? "Αποστολή..." : "Αποστολή")</MudButton>
+        <MudButton Variant="Variant.Text" FullWidth="true" Disabled="@sending" OnClick="Clear">Καθαρισμός</MudButton>
     </div>
 </div>
 
@@ -77,11 +75,8 @@
     private const string KindAddition = "Προσθήκη";
     private const string GeneralMenu = "Γενικά";
 
-    /// <summary>
-    /// Longest message text. A mailto: address has a length limit that depends on the mail program,
-    /// and every Greek letter takes six characters in it; longer texts can be continued in the e-mail.
-    /// </summary>
-    private const int MaxTextLength = 1000;
+    /// <summary>Longest message text; plenty for a description, and it keeps the zip small.</summary>
+    private const int MaxTextLength = 3000;
 
     /// <summary>
     /// The entries of the picker: page route (null = no page of its own) and label, in side-menu order.
@@ -115,6 +110,8 @@
     private bool menuPicked;        // the user chose a menu: stop following the current page
     private string name = "";
     private string text = "";
+    private bool sending;           // a send is in progress: buttons disabled
+    private string? unsentPath;     // zip of the last message that could not be sent
 
     /// <summary>Both the sender's name and the text are required.</summary>
     private bool CanSend => !string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(text);
@@ -142,40 +139,48 @@
     private void Clear()
     {
         text = "";
+        unsentPath = null;
         menuPicked = false;
         menu = MenuOf(Route);
     }
 
-    /// <summary>Subject of the e-mail: kind and menu, e.g. "Σφάλμα - Αναφορές - Ατομική Μηνιαία".</summary>
-    private string Subject => $"{kind} - {menu}";
-
-    /// <summary>Text of the e-mail: the message, then the sender's name and the application version.</summary>
-    private string Body()
+    /// <summary>
+    /// Sends the message. On success the text is emptied; otherwise the form keeps it and shows
+    /// where the zip was left. The sender never throws, so there is nothing to catch here.
+    /// </summary>
+    private async Task SendAsync()
     {
-        // Mail programs expect CRLF line ends in the body.
-        var message = text.Trim().Replace("\r\n", "\n").Replace("\n", "\r\n");
-        return $"{message}\r\n\r\n{name.Trim()}\r\nΒαρδιολόγιο {AppInfo.Version}";
+        sending = true;
+        unsentPath = null;
+
+        // The typed name, plus the sign-in name when it differs (nobody is signed in on the login screen).
+        var user = Session.Current?.Username;
+        var sender = string.IsNullOrEmpty(user) || user == name.Trim() ? name.Trim() : $"{name.Trim()} ({user})";
+
+        var result = await Sender.SendAsync(new FeedbackMessage(kind, menu, sender, text.Trim(), AppInfo.Version));
+        sending = false;
+
+        if (result.Sent)
+        {
+            Snackbar.Add("Το μήνυμα στάλθηκε. Ευχαριστώ!", Severity.Success);
+            Clear();
+        }
+        else if (result.ArchivePath is not null)
+        {
+            unsentPath = result.ArchivePath;
+            Snackbar.Add("Το μήνυμα δεν στάλθηκε. Δείτε τις οδηγίες στη φόρμα.", Severity.Warning);
+        }
+        else
+        {
+            Snackbar.Add("Το μήνυμα δεν στάλθηκε και δεν αποθηκεύτηκε. Δοκιμάστε ξανά.", Severity.Error);
+        }
     }
 
-    /// <summary>The mailto: address: recipient, subject and text.</summary>
-    private string MailtoUrl() =>
-        $"mailto:{AppInfo.AuthorEmail}?subject={Uri.EscapeDataString(Subject)}&body={Uri.EscapeDataString(Body())}";
-
-    /// <summary>
-    /// Puts recipient, subject and text on the clipboard, to paste into any mail program or webmail.
-    /// </summary>
-    private async Task CopyAsync()
+    /// <summary>Opens the Feedback folder in Explorer with the unsent zip selected.</summary>
+    private void ShowUnsent()
     {
-        var all = $"Προς: {AppInfo.AuthorEmail}\r\nΘέμα: {Subject}\r\n\r\n{Body()}";
-        try
-        {
-            await Js.InvokeVoidAsync("navigator.clipboard.writeText", all);
-            Snackbar.Add("Το μήνυμα αντιγράφηκε. Επικολλήστε το στο email σας.", Severity.Success);
-        }
-        catch (JSException)
-        {
-            // The browser refused the clipboard (e.g. the window lost focus).
-            Snackbar.Add("Η αντιγραφή δεν έγινε. Δοκιμάστε ξανά.", Severity.Warning);
-        }
+        if (unsentPath is null) return;
+        try { Process.Start("explorer.exe", $"/select,\"{unsentPath}\""); }
+        catch (System.ComponentModel.Win32Exception) { /* Explorer did not start: the path is on screen */ }
     }
 }
