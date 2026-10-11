@@ -4,13 +4,14 @@ using Vardiologio.Application.Reports;
 namespace Vardiologio.Infrastructure.Reports;
 
 /// <summary>
-/// Attendance report ("ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΠΡΟΣΩΠΙΚΟΥ") — one file per report (staff or directorate),
-/// the printed pages stacked vertically with a page break after each: emblem + letterhead + titles,
-/// the table, and the signature block on every page. Reuses Put/Merge of the Σ.Ω. part.
+/// Attendance report ("ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΠΡΟΣΩΠΙΚΟΥ") — one file per report (staff, fixed-term staff
+/// or directorate). The two fortnights are stacked vertically, each a document of its own: emblem +
+/// letterhead + titles once at the top, the numbered tables with a page break between them, and the
+/// signature block once under the last table. Reuses Put/Merge of the Σ.Ω. part.
 /// </summary>
 public partial class ClosedXmlReportRenderer
 {
-	// Column layout shared by every page: name, speciality, then up to 16 day slots
+	// Column layout shared by every table: name, speciality, then up to 16 day slots
 	// (days 1–15 in the first fortnight, 16–end in the second).
 	private const int AttName = 1, AttSpec = 2, AttDay0 = 3, AttDaySlots = 16;
 	private const int AttLastCol = AttDay0 + AttDaySlots - 1;
@@ -21,13 +22,25 @@ public partial class ClosedXmlReportRenderer
 		using var wb = new XLWorkbook();
 		var ws = wb.AddWorksheet(AttendanceSheetTexts.SheetName(m.Sheet));
 
-		// Pages one under the other; a manual page break closes each one.
+		// The tables are the same for both fortnights; only the days differ.
+		var tables = m.Tables();
+
+		// Fortnights one under the other, each starting on a new printed page.
 		var row = 1;
-		var pageNo = 0;
-		foreach (var page in m.Pages())
+		var fortnightNo = 0;
+		foreach (var (from, to) in m.Fortnights())
 		{
-			if (pageNo > 0) ws.PageSetup.AddHorizontalPageBreak(row - 1);
-			row = AttendancePage(ws, m, page.From, page.To, page.Table, page.Rows, row, ++pageNo);
+			if (fortnightNo > 0) ws.PageSetup.AddHorizontalPageBreak(row - 1);
+			row = AttendanceHead(ws, m, from, to, row, ++fortnightNo);
+
+			// One table per printed page: a manual page break before every table after the first.
+			for (var i = 0; i < tables.Count; i++)
+			{
+				if (i > 0) ws.PageSetup.AddHorizontalPageBreak(row - 1);
+				row = AttendanceTable(ws, from, to, i + 1, tables[i], row);
+			}
+
+			row = AttendanceSignatures(ws, m, row);
 		}
 		var lastRow = row - 1;
 
@@ -51,10 +64,12 @@ public partial class ClosedXmlReportRenderer
 	}
 
 	/// <summary>
-	/// Writes one printed page starting at <paramref name="top"/> and returns the first row after it.
+	/// Writes the top of one fortnight's document — addressee (directorate only), emblem, letterhead,
+	/// titles and period — starting at <paramref name="top"/>, and returns the first row after it.
 	/// </summary>
-	private static int AttendancePage(IXLWorksheet ws, AttendanceReportModel m,
-		DateOnly from, DateOnly to, int table, AttendanceReportRow[] rows, int top, int pageNo)
+	/// <param name="fortnightNo">1 or 2; makes the name of the emblem picture unique in the sheet.</param>
+	private static int AttendanceHead(IXLWorksheet ws, AttendanceReportModel m,
+		DateOnly from, DateOnly to, int top, int fortnightNo)
 	{
 		var r = top;
 		var titleFrom = AttDay0 + 2;       // centre titles span the middle day columns
@@ -72,7 +87,7 @@ public partial class ClosedXmlReportRenderer
 
 		// Emblem: three rows high, top left, above the letterhead (as on the original sheet).
 		for (var i = 0; i < 3; i++) ws.Row(r + i).Height = 15;
-		AddEmblem(ws, $"Emblem{pageNo}", r, AttName, 6, 2, 58, 56);
+		AddEmblem(ws, $"Emblem{fortnightNo}", r, AttName, 6, 2, 58, 56);
 		r += 3;
 
 		// Letterhead (left) and centre titles + period, on the same rows.
@@ -93,7 +108,17 @@ public partial class ClosedXmlReportRenderer
 			Merge(ws, periodRow, titleFrom, periodRow, titleTo,
 				AttendanceSheetTexts.Period(from, to), 10, false, XLAlignmentHorizontalValues.Center, null);
 		// Continue under whichever is longer: the letterhead or the titles with their period line.
-		r = Math.Max(r + lh.Length, periodRow + 1);
+		return Math.Max(r + lh.Length, periodRow + 1);
+	}
+
+	/// <summary>
+	/// Writes one numbered table (caption, header and one row per employee) starting at
+	/// <paramref name="top"/> and returns the first row after it.
+	/// </summary>
+	private static int AttendanceTable(IXLWorksheet ws, DateOnly from, DateOnly to,
+		int table, AttendanceReportRow[] rows, int top)
+	{
+		var r = top;
 
 		// Spacer + table caption ("ΠΙΝΑΚΑΣ 1").
 		ws.Row(r).Height = 6;
@@ -119,7 +144,7 @@ public partial class ClosedXmlReportRenderer
 		ws.Row(r + 1).Height = 12;
 		r += 2;
 
-		// One row per employee on this page.
+		// One row per employee of this table.
 		foreach (var row in rows)
 		{
 			Put(ws, r, AttName, row.FullName, 9, false, null)
@@ -137,7 +162,18 @@ public partial class ClosedXmlReportRenderer
 		grid.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 		grid.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
 
-		// Signatures: role lines, blank space to sign, then name / title lines.
+		return r;
+	}
+
+	/// <summary>
+	/// Writes the signature block of one fortnight's document — role lines, blank space to sign,
+	/// then name / title lines — starting at <paramref name="top"/>, and returns the first row after it.
+	/// </summary>
+	private static int AttendanceSignatures(IXLWorksheet ws, AttendanceReportModel m, int top)
+	{
+		var r = top;
+		var formal = AttendanceSheetTexts.IsFormal(m.Sheet);
+
 		ws.Row(r).Height = 8;
 		r++;
 		var signatures = AttendanceSheetTexts.Signatures(m.Texts);

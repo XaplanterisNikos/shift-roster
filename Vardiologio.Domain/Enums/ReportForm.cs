@@ -2,14 +2,14 @@ namespace Vardiologio.Domain.Enums;
 
 /// <summary>
 /// Official form whose fixed texts (letterhead, titles, signatures…) are editable by the user.
-/// The two attendance reports are separate forms: they have different titles and signatures.
+/// The three attendance reports are separate forms: they have different titles and signatures.
 /// </summary>
 public enum ReportForm
 {
 	/// <summary>Πίνακας βαρδιών εργασίας προσωπικού (A3).</summary>
 	ShiftTable = 1,
 
-	/// <summary>Πίνακας παρουσιών προσωπικού (every employee except the directorate).</summary>
+	/// <summary>Πίνακας παρουσιών προσωπικού: permanent and open-ended staff (Μόνιμοι, ΙΔΑΧ).</summary>
 	AttendanceStaff = 2,
 
 	/// <summary>Πίνακας παρουσιών of the head of the directorate.</summary>
@@ -25,5 +25,8 @@ public enum ReportForm
 	/// Συγκεντρωτική πιστοποίηση υπερωριακής εργασίας ανά σύμβαση (ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι):
 	/// one row per employee, grouped by contract. Both printed forms share these texts.
 	/// </summary>
-	ContractCertificate = 6
+	ContractCertificate = 6,
+
+	/// <summary>Πίνακας παρουσιών προσωπικού Ι.Δ. ορισμένου χρόνου (ΙΔΟΧ).</summary>
+	AttendanceFixedTerm = 7
 }

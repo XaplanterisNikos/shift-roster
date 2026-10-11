@@ -107,7 +107,8 @@ public static class ReportTextBlocks
 	public static string FormName(ReportForm form) => form switch
 	{
 		ReportForm.ShiftTable => "Πίνακας βαρδιών",
-		ReportForm.AttendanceStaff => "Παρουσίες προσωπικού",
+		ReportForm.AttendanceStaff => "Παρουσίες ΙΔΑΧ / Μόνιμοι",
+		ReportForm.AttendanceFixedTerm => "Παρουσίες ΙΔΟΧ",
 		ReportForm.AttendanceDirectorate => "Παρουσίες Διεύθυνσης",
 		ReportForm.OvertimeCertificate => "Ατομική βεβαίωση",
 		ReportForm.MonthlyTotal => "Συνολική μηνιαία Σ.Ω.",

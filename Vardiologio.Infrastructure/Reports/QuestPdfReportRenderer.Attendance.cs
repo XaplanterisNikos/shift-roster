@@ -7,9 +7,9 @@ using Vardiologio.Application.ReportTexts;
 namespace Vardiologio.Infrastructure.Reports;
 
 /// <summary>
-/// Attendance report ("ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΠΡΟΣΩΠΙΚΟΥ") — one A4 landscape page per fortnight × table:
-/// emblem + letterhead + titles in the header, the table in the content, the signatures in the
-/// footer (so they always sit at the bottom of every page).
+/// Attendance report ("ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΠΡΟΣΩΠΙΚΟΥ") on A4 landscape. Each fortnight is one document:
+/// emblem + letterhead + titles once at the top, the numbered tables (a new page for each), and the
+/// signatures once under the last table. Nothing repeats from page to page.
 /// </summary>
 public partial class QuestPdfReportRenderer
 {
@@ -19,19 +19,35 @@ public partial class QuestPdfReportRenderer
 	/// <inheritdoc/>
 	public byte[] Render(AttendanceReportModel m)
 	{
+		// The tables are the same for both fortnights; only the days differ.
+		var tables = m.Tables();
+
 		var doc = Document.Create(container =>
 		{
-			foreach (var p in m.Pages())
+			foreach (var (from, to) in m.Fortnights())
 			{
+				// One page definition per fortnight: its content flows over as many pages as it
+				// needs, and there is no page header or footer, so nothing is repeated.
 				container.Page(page =>
 				{
 					page.Size(PageSizes.A4.Landscape());
 					page.Margin(20);
 					page.DefaultTextStyle(x => x.FontFamily("Lato").FontSize(8));
 
-					page.Header().Element(h => AttHead(h, m.Sheet, m.Texts, p.From, p.To));
-					page.Content().PaddingTop(6).Element(c => AttTable(c, p.Table, p.From, p.To, p.Rows));
-					page.Footer().Element(f => AttSignatures(f, m.Sheet, m.Texts));
+					page.Content().Column(col =>
+					{
+						col.Item().Element(h => AttHead(h, m.Sheet, m.Texts, from, to));
+
+						for (var i = 0; i < tables.Count; i++)
+						{
+							var index = i;   // own copy for the lambda below
+							if (index > 0) col.Item().PageBreak();   // every table after the first starts a page
+							col.Item().PaddingTop(6).Element(c => AttTable(c, index + 1, from, to, tables[index]));
+						}
+
+						// Kept in one piece; the table sizes leave room for it under the last table.
+						col.Item().ShowEntire().Element(f => AttSignatures(f, m.Sheet, m.Texts));
+					});
 				});
 			}
 		});

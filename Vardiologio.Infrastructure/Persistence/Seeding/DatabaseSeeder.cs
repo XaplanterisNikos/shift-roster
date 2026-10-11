@@ -1,6 +1,10 @@
 ﻿using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Vardiologio.Application.ReportColors;
+using Vardiologio.Application.Reports;
+using Vardiologio.Application.ReportTexts;
 using Vardiologio.Domain.Entities;
+using Vardiologio.Domain.Enums;
 
 namespace Vardiologio.Infrastructure.Persistence.Seeding;
 
@@ -28,6 +32,7 @@ public static class DatabaseSeeder
 		SeedHolidays(db);
 		SeedHourLimits(db);
 		SeedReportTexts(db, reportData.Texts ?? []);
+		SeedFixedTermAttendanceTexts(db);   // after the file: copies the staff form when the file has no such form
 		SeedReportColors(db);
 		SeedEmployees(db);      // last: resolves each employee's SpecialityId by name
 	}
@@ -183,6 +188,52 @@ public static class DatabaseSeeder
 					Text = block.Lines[line]
 				});
 			}
+		}
+		db.SaveChanges();
+	}
+
+	/// <summary>Added to the "ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΠΡΟΣΩΠΙΚΟΥ" title line on the fixed-term form.</summary>
+	private const string FixedTermTitleSuffix = " Ι.Δ. ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ";
+
+	/// <summary>
+	/// Gives the fixed-term attendance form (ΙΔΟΧ) its lines when it has none: a copy of the
+	/// staff attendance form as it is now in the database (the user's edits included), with
+	/// "Ι.Δ. ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ" added to the title line that names the table. The form was added
+	/// after the first installations, so it is not in their report data file; a file that does
+	/// list it wins, because its lines are already there when this runs. Runs once: afterwards
+	/// the lines exist and are edited in Παράμετροι → Αναφορών like every other form.
+	/// </summary>
+	private static void SeedFixedTermAttendanceTexts(AppDbContext db)
+	{
+		if (db.ReportTexts.Any(t => t.Form == ReportForm.AttendanceFixedTerm)) return;
+
+		var staffLines = db.ReportTexts
+			.AsNoTracking()
+			.Where(t => t.Form == ReportForm.AttendanceStaff)
+			.OrderBy(t => t.Block).ThenBy(t => t.Line)
+			.ToList();
+
+		var titleDone = false;
+		foreach (var source in staffLines)
+		{
+			var text = source.Text;
+
+			// The first title line that names the attendance table gets the suffix.
+			if (!titleDone && source.Block == ReportTextBlocks.Titles
+				&& GreekText.Upper(text).Contains("ΠΑΡΟΥΣΙ", StringComparison.Ordinal))
+			{
+				text = text.TrimEnd() + FixedTermTitleSuffix;
+				titleDone = true;
+			}
+
+			db.ReportTexts.Add(new ReportText
+			{
+				Form = ReportForm.AttendanceFixedTerm,
+				Section = source.Section,
+				Block = source.Block,
+				Line = source.Line,
+				Text = text
+			});
 		}
 		db.SaveChanges();
 	}

@@ -29,15 +29,21 @@ public class AttendanceReportService : IAttendanceReportService
 				e.LastName,
 				e.FirstName,
 				Speciality = e.Speciality.Name,
-				Position = e.WorkPosition != null ? e.WorkPosition.Name : null
+				Position = e.WorkPosition != null ? e.WorkPosition.Name : null,
+				ContractCode = e.EmploymentType != null ? e.EmploymentType.Code : null,
+				ContractName = e.EmploymentType != null ? e.EmploymentType.Name : null
 			})
 			.ToListAsync();
 
 		// The head of the directorate goes to its own report (by position, or by surname as a fallback).
 		var anyoneHasPosition = all.Any(e => PresenceRules.IsDirectorPosition(e.Position));
-		var wantDirector = sheet == AttendanceSheet.Directorate;
+
+		// Everyone else is split by contract: fixed-term staff have their own form; permanent and
+		// open-ended staff share one, which also takes anyone whose contract is not recognised.
 		var employees = all
-			.Where(e => PresenceRules.IsDirector(e.LastName, e.Position, anyoneHasPosition) == wantDirector)
+			.Where(e => SheetOf(
+				PresenceRules.IsDirector(e.LastName, e.Position, anyoneHasPosition),
+				ContractRules.Resolve(e.ContractCode, e.ContractName)) == sheet)
 			.ToList();
 		var ids = employees.Select(e => e.Id).ToList();
 
@@ -52,8 +58,21 @@ public class AttendanceReportService : IAttendanceReportService
 		var model = new AttendanceReportModel { Year = year, Month = month, Sheet = sheet };
 
 		// Each attendance report is its own form, with its own titles and signatures.
-		model.Texts = await ReportTextService.LoadSetAsync(db,
-			wantDirector ? ReportForm.AttendanceDirectorate : ReportForm.AttendanceStaff);
+		model.Texts = await ReportTextService.LoadSetAsync(db, sheet switch
+		{
+			AttendanceSheet.Directorate => ReportForm.AttendanceDirectorate,
+			AttendanceSheet.FixedTerm => ReportForm.AttendanceFixedTerm,
+			_ => ReportForm.AttendanceStaff
+		});
+
+		// Staff report only: who is printed there for lack of a recognised contract.
+		if (sheet == AttendanceSheet.Staff)
+		{
+			model.WithoutContract = employees
+				.Where(e => ContractRules.Resolve(e.ContractCode, e.ContractName) is null)
+				.Select(e => $"{e.LastName.Trim()} {e.FirstName.Trim()}".Trim())
+				.ToList();
+		}
 
 		foreach (var e in employees)
 		{
@@ -76,5 +95,14 @@ public class AttendanceReportService : IAttendanceReportService
 		}
 
 		return model;
+	}
+
+	/// <summary>The report an employee is printed on.</summary>
+	/// <param name="isDirector">True for the head of the directorate (see <see cref="PresenceRules.IsDirector"/>).</param>
+	/// <param name="contract">Kind of the employee's contract, or null when it is missing or not recognised.</param>
+	private static AttendanceSheet SheetOf(bool isDirector, ContractKind? contract)
+	{
+		if (isDirector) return AttendanceSheet.Directorate;
+		return contract == ContractKind.FixedTerm ? AttendanceSheet.FixedTerm : AttendanceSheet.Staff;
 	}
 }

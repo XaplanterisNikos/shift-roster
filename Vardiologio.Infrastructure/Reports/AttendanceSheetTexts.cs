@@ -30,8 +30,12 @@ internal static class AttendanceSheetTexts
 	public static string DayName(DateOnly date) => DayNames[(int)date.DayOfWeek];
 
 	/// <summary>Worksheet / file label of each report.</summary>
-	public static string SheetName(AttendanceSheet sheet) =>
-		sheet == AttendanceSheet.Directorate ? "ΔΙΕΥΘΥΝΣΗ" : "ΥΠΑΛΛΗΛΟΙ";
+	public static string SheetName(AttendanceSheet sheet) => sheet switch
+	{
+		AttendanceSheet.Directorate => "ΔΙΕΥΘΥΝΣΗ",
+		AttendanceSheet.FixedTerm => "ΙΔΟΧ",
+		_ => "ΙΔΑΧ - ΜΟΝΙΜΟΙ"   // a worksheet name cannot contain "/"
+	};
 
 	/// <summary>
 	/// Line printed above the letterhead, or null when the form has none (only the directorate
@@ -51,16 +55,16 @@ internal static class AttendanceSheetTexts
 	/// <summary>
 	/// The directorate report uses the formal layout of its own sheet: bold addressee and
 	/// signatures, the period dates bold and underlined, and a taller signing space.
-	/// The staff report keeps the plain layout.
+	/// The two staff reports keep the plain layout.
 	/// </summary>
 	public static bool IsFormal(AttendanceSheet sheet) => sheet == AttendanceSheet.Directorate;
 
-	/// <summary>Table caption above each page's table ("ΠΙΝΑΚΑΣ 1").</summary>
+	/// <summary>Table caption above each table ("ΠΙΝΑΚΑΣ 1").</summary>
 	public static string TableCaption(int table) => $"ΠΙΝΑΚΑΣ {table}";
 
 	/// <summary>
-	/// Signature blocks at the bottom of every page, left to right: the role lines above the
-	/// signing space and the name / title lines below it. The staff report has two
+	/// Signature blocks under the last table of each fortnight, left to right: the role lines
+	/// above the signing space and the name / title lines below it. The staff reports have two
 	/// (author and acting head of the directorate); the directorate report has one.
 	/// </summary>
 	public static (string[] Role, string[] Name)[] Signatures(ReportTextSet texts) => texts.Signatures();

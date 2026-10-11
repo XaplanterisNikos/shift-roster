@@ -11,13 +11,13 @@
 @inject IErrorLog ErrorLog
 @inject ISnackbar Snackbar
 
-@* Monthly staff attendance report ("ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΠΡΟΣΩΠΙΚΟΥ"), in two reports:
-   the staff and the directorate. The preview is the PDF itself (exactly what gets printed);
-   every export writes one file per report (Excel or PDF). *@
+@* Monthly staff attendance report ("ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΠΡΟΣΩΠΙΚΟΥ"), in three reports:
+   permanent and open-ended staff, fixed-term staff, and the directorate. The preview is the
+   PDF itself (exactly what gets printed); every export writes one file per report (Excel or PDF). *@
 <div class="page-head">
     <div>
         <MudText Typo="Typo.h4">Εξαγωγή Αναφοράς Παρουσιών Προσωπικού</MudText>
-        <MudText Typo="Typo.body2" Class="page-sub">Δύο έντυπα: Υπάλληλοι και Διεύθυνση. Κάθε εξαγωγή γράφει ένα αρχείο για το καθένα.</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Τρία έντυπα: ΙΔΑΧ / Μόνιμοι, ΙΔΟΧ και Διεύθυνση. Κάθε εξαγωγή γράφει ένα αρχείο για το καθένα.</MudText>
     </div>
 </div>
 
@@ -37,6 +37,14 @@
     </MudAlert>
 }
 
+@if (withoutContract.Count > 0)
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="report-alert">
+        Χωρίς αναγνωρίσιμη σύμβαση (Μόνιμος, ΙΔΑΧ ή ΙΔΟΧ): @string.Join(", ", withoutContract).
+        Τυπώνονται στο έντυπο «ΙΔΑΧ / Μόνιμοι»· ορίστε τη σύμβασή τους στο «Λειτουργίες → Εργαζόμενοι».
+    </MudAlert>
+}
+
 @if (previews is not null)
 {
     @* One tab per report; the PDF under the tabs is the one of the open tab. *@
@@ -53,8 +61,9 @@
 }
 
 @code {
-    /// <summary>The two reports, in tab / sheet order.</summary>
-    private static readonly AttendanceSheet[] Sheets = { AttendanceSheet.Staff, AttendanceSheet.Directorate };
+    /// <summary>The three reports, in tab / file order.</summary>
+    private static readonly AttendanceSheet[] Sheets =
+        { AttendanceSheet.Staff, AttendanceSheet.FixedTerm, AttendanceSheet.Directorate };
 
     private int year = DateTime.Today.Year;
     private int month = DateTime.Today.Month;
@@ -62,10 +71,13 @@
     private string? error;
     private AttendanceSheet activeSheet = AttendanceSheet.Staff;
 
+    /// <summary>Employees printed on the staff report because their contract is not recognised.</summary>
+    private List<string> withoutContract = new();
+
     /// <summary>PDF data-URI per report, after "Προεπισκόπηση".</summary>
     private Dictionary<AttendanceSheet, string>? previews;
 
-    /// <summary>Builds both reports for the selected month (staff first, then directorate).</summary>
+    /// <summary>Builds the three reports for the selected month, in tab order.</summary>
     private async Task<List<AttendanceReportModel>> BuildAllAsync()
     {
         var models = new List<AttendanceReportModel>();
@@ -74,6 +86,7 @@
 
         // Warn when the director was not found at all (the directorate report is then empty).
         noDirector = models.Single(m => m.Sheet == AttendanceSheet.Directorate).Rows.Count == 0;
+        withoutContract = models.Single(m => m.Sheet == AttendanceSheet.Staff).WithoutContract;
         return models;
     }
 
@@ -89,7 +102,7 @@
         StateHasChanged();
     }
 
-    /// <summary>Renders both reports to PDF in memory and shows them inline (no file written).</summary>
+    /// <summary>Renders the three reports to PDF in memory and shows them inline (no file written).</summary>
     private async Task PreviewAsync()
     {
         busy = true; error = null; previews = null;
@@ -109,7 +122,7 @@
     private Task ExportPdfAsync() => ExportAsync(m => Pdf.Render(m), "pdf");
 
     /// <summary>
-    /// Writes one file per report (staff and directorate go to different signatories),
+    /// Writes one file per report (each is a form of its own, with its own signatories),
     /// then opens them with the default application.
     /// </summary>
     private async Task ExportAsync(Func<AttendanceReportModel, byte[]> render, string ext)
@@ -129,17 +142,31 @@
         finally { busy = false; }
     }
 
-    /// <summary>Attendance_Staff_yyyy_MM or Attendance_Directorate_yyyy_MM (Latin characters only).</summary>
-    private string FileName(AttendanceSheet sheet, string ext) => sheet == AttendanceSheet.Directorate
-        ? $"Attendance_Directorate_{year}_{month:00}.{ext}"
-        : $"Attendance_Staff_{year}_{month:00}.{ext}";
+    /// <summary>
+    /// Attendance_IDAX-Monimoi_yyyy_MM, Attendance_IDOX_yyyy_MM or Attendance_Directorate_yyyy_MM
+    /// (Latin characters only).
+    /// </summary>
+    private string FileName(AttendanceSheet sheet, string ext)
+    {
+        var name = sheet switch
+        {
+            AttendanceSheet.Directorate => "Directorate",
+            AttendanceSheet.FixedTerm => "IDOX",
+            _ => "IDAX-Monimoi"
+        };
+        return $"Attendance_{name}_{year}_{month:00}.{ext}";
+    }
 
     /// <summary>Opens a file with its default application.</summary>
     private static void Open(string path) => Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
 
     /// <summary>Tab title of a report.</summary>
-    private static string TabTitle(AttendanceSheet sheet) =>
-        sheet == AttendanceSheet.Directorate ? "Διεύθυνση" : "Υπάλληλοι";
+    private static string TabTitle(AttendanceSheet sheet) => sheet switch
+    {
+        AttendanceSheet.Directorate => "Διεύθυνση",
+        AttendanceSheet.FixedTerm => "ΙΔΟΧ",
+        _ => "ΙΔΑΧ / Μόνιμοι"
+    };
 
     /// <summary>
     /// Draws the progress bar before the report work starts: building and rendering a report

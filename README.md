@@ -28,8 +28,11 @@ staff and producing the official attendance/shift reports.
 - **Reports open ready** — the reports that need no employee (Σ.Ω., hours, shift table,
   attendance) show the current month as soon as their page opens.
 - **Staff attendance report** (Πίνακας παρουσιών προσωπικού) — one mark per
-  employee per day (√ / status code), printed per fortnight on A4 landscape with
-  the emblem, letterhead and signatures on every page; a separate report for the
+  employee per day (√ / status code), printed per fortnight on A4 landscape. Each fortnight
+  is one document: emblem, letterhead and titles once at the top, numbered tables (one per
+  page), signatures once under the last table. Three forms, each with its own texts: permanent
+  and open-ended staff together (Μόνιμοι, ΙΔΑΧ), fixed-term staff (ΙΔΟΧ) by the employee's
+  contract, and a separate report for the
   head of the directorate (work position ΔΙΕΥΘΥΝΤΗΣ; a surname fallback can be set in the
   local data file, see [Data & seeding](#data--seeding)).
   Excel and PDF (one file per report) and inline preview.
@@ -50,8 +53,8 @@ staff and producing the official attendance/shift reports.
   calculation as the individual certificate; a zero is left blank. The head of the directorate
   is left out; employees without one of the three contracts are listed in a note. Excel, PDF
   (A4 landscape) and inline preview; the page opens with the current month.
-- **Report text parameters** (Παράμετροι → Αναφορών) — the fixed texts of six forms
-  (shift table, staff attendance, directorate attendance, overtime certificate, certificate
+- **Report text parameters** (Παράμετροι → Αναφορών) — the fixed texts of seven forms
+  (shift table, staff attendance, fixed-term staff attendance, directorate attendance, overtime certificate, certificate
   per contract, Σ.Ω.) are
   stored in the database and edited per form, header and footer separately: service details,
   phones, e-mail, titles, decision numbers, declaration and signatories. Lines are only
@@ -225,6 +228,9 @@ The texts are seeded per line from the data file (`Persistence/Seeding/ReportDat
 line that already exists is never overwritten, and a line added to the file in a later version
 is inserted on the next start. After that they are edited in Παράμετροι → Αναφορών. With the
 demo file every line starts empty (an empty line is not printed) and is filled in there.
+The fixed-term attendance form (ΙΔΟΧ) is not in the data file: on the first start that finds it
+without lines it gets a copy of the staff attendance form as it then is in the database, with
+"Ι.Δ. ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ" added to the title (`DatabaseSeeder.SeedFixedTermAttendanceTexts`).
 
 Users are rows of the `Users` table of the local database: username, salt and hash
 (`Infrastructure/Auth/PasswordHasher.cs`, PBKDF2-SHA256). A fresh database has no users; the
