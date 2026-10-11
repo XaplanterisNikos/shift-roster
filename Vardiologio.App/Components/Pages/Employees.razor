@@ -2,22 +2,29 @@
 @using Vardiologio.Application.Employees
 @using Microsoft.AspNetCore.Components.Forms
 @inject IEmployeeService EmployeeService
+@inject Vardiologio.Application.ShiftEntry.IShiftEntryService ShiftService
 @inject ISnackbar Snackbar
 @inject IDialogService Dialogs
 
 @* Employees CRUD (master-detail): pick a specialty (auto-reloads the list),
-   select a name to edit, or "Νέος" to add. Soft-delete/restore live in the form.
+   select a name to edit, or "Νέος" to add. The search box is a second way in: picking a name
+   there shows that employee's specialty with the employee selected. Soft-delete/restore live in the form.
    Styles: "Master-detail" block in app.css. *@
 
 <div class="page-head">
     <div>
         <MudText Typo="Typo.h4">Εργαζόμενοι</MudText>
-        <MudText Typo="Typo.body2" Class="page-sub">Επιλέξτε ειδικότητα για να δείτε, να προσθέσετε ή να αλλάξετε εργαζόμενους.</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Επιλέξτε ειδικότητα, ή αναζητήστε με το όνομα, για να δείτε, να προσθέσετε ή να αλλάξετε εργαζόμενους.</MudText>
     </div>
 
     @* @bind-Value:after => reload the list automatically when the specialty or the
        "show inactive" switch changes (no button needed here). *@
     <div class="page-filters">
+        @* Search by name (Shared/EmployeePicker.razor, as on the report pages): active employees
+           of every specialty. A pick opens the employee's specialty and form. *@
+        <EmployeePicker Employees="searchList" Value="searchId" ValueChanged="OnSearchPickedAsync"
+                        Class="filter-search" />
+
         @* ToStringFunc: the closed box shows the name, not the Id it is bound to. *@
         <MudSelect T="int" Label="Ειδικότητα" @bind-Value="specialityId" @bind-Value:after="OnSpecialityChanged"
                    Variant="Variant.Outlined" Margin="Margin.Dense" Class="filter-speciality"
@@ -44,7 +51,7 @@
 {
     <MudPaper Elevation="0" Class="empty-state">
         <MudIcon Icon="@Icons.Material.Rounded.Groups" Size="Size.Large" />
-        <MudText Typo="Typo.body1">Επιλέξτε ειδικότητα για να εμφανιστούν οι εργαζόμενοί της.</MudText>
+        <MudText Typo="Typo.body1">Επιλέξτε ειδικότητα για να εμφανιστούν οι εργαζόμενοί της, ή γράψτε ένα όνομα στην αναζήτηση.</MudText>
     </MudPaper>
 }
 else
@@ -175,10 +182,39 @@ else
     private int selectedId;
     private EmployeeDetail? form;
 
+    // Search box: every active employee (the ShiftEntry list item: Id + "Surname Name — Speciality";
+    // written in full because this page's own list uses the Employees item of the same name).
+    private IReadOnlyList<Vardiologio.Application.ShiftEntry.EmployeeListItem> searchList =
+        Array.Empty<Vardiologio.Application.ShiftEntry.EmployeeListItem>();
+    private int searchId;   // employee shown in the search box; 0 = empty
+
     protected override async Task OnInitializedAsync()
     {
         specialities = await EmployeeService.GetSpecialitiesAsync();
         lookups = await EmployeeService.GetLookupsAsync();
+        await ReloadSearchAsync();
+    }
+
+    /// <summary>Reloads the names offered by the search box (after a save, a delete or a restore).</summary>
+    private async Task ReloadSearchAsync() => searchList = await ShiftService.GetEmployeesAsync();
+
+    /// <summary>
+    /// A name was picked in the search box: show that employee's specialty with its whole list,
+    /// the employee selected and the form open — the same state as picking the specialty and
+    /// then the name by hand. Clearing the box (0) changes nothing else.
+    /// </summary>
+    private async Task OnSearchPickedAsync(int id)
+    {
+        searchId = id;
+        if (id == 0) return;
+
+        var detail = await EmployeeService.GetAsync(id);
+        if (detail is null) return;   // removed in the meantime: nothing to show
+
+        specialityId = detail.SpecialityId;
+        await ReloadListAsync();
+        selectedId = id;
+        form = detail;
     }
 
     /// <summary>
@@ -207,6 +243,7 @@ else
     /// <summary>When the specialty changes, reset selection/form and reload the list.</summary>
     private async Task OnSpecialityChanged()
     {
+        searchId = 0;   // the search box no longer describes what is shown
         selectedId = 0;
         form = null;
         await ReloadListAsync();
@@ -223,6 +260,7 @@ else
     private async Task SelectAsync(int id)
     {
         if (id == 0) return;   // the list reports "nothing selected" as 0
+        if (id != searchId) searchId = 0;   // another name picked from the list: empty the search box
         selectedId = id;
         form = await EmployeeService.GetAsync(id);
     }
@@ -230,6 +268,7 @@ else
     /// <summary>Prepares a blank form for a new employee (specialty pre-filled).</summary>
     private void NewEmployee()
     {
+        searchId = 0;
         selectedId = 0;
         form = new EmployeeDetail { SpecialityId = specialityId, IsActive = true };
     }
@@ -252,6 +291,7 @@ else
 
         Snackbar.Add("Αποθηκεύτηκε.", Severity.Success);
         await ReloadListAsync();
+        await ReloadSearchAsync();   // a new employee or a changed name must be found by the search
     }
 
     /// <summary>Asks first, then soft-deletes the current employee (can be restored later).</summary>
@@ -278,6 +318,7 @@ else
         form.IsActive = isActive;
         Snackbar.Add(isActive ? "Επαναφέρθηκε." : "Διαγράφηκε.", Severity.Success);
         await ReloadListAsync();
+        await ReloadSearchAsync();   // the search offers active employees only
 
         // If it became inactive and we're not showing inactive, clear the form.
         if (!isActive && !includeInactive) { form = null; selectedId = 0; }

@@ -1278,6 +1278,9 @@ div.report-bar .mud-input-control.mud-input-control {
 /* Width of the speciality filter in the page head (Pages/Employees.razor). */
 .page-filters .filter-speciality { width: 260px; flex: none; }
 
+/* Search by name on the Employees page: narrower than on the report pages, it shares the row. */
+.page-filters .filter-search { width: 340px; flex: none; }
+
 /* Filters and buttons of an editor that lives inside a tab (no page head of its own). */
 .md-bar {
 	display: flex;
