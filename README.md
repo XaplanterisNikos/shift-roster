@@ -257,7 +257,7 @@ administrator password, which is public: create `admin.json` before any real use
 
 ## Status
 
-Current release: **1.19.0**.
+Current release: **1.21.0** — the first release handed to the users.
 
 Working: database and seeding, login with per-installation users and the administrator's area
 (activity log, error log, users, archive of the documents folder), employee management, daily shift
@@ -269,9 +269,13 @@ MudBlazor components.
 Not finished yet:
 
 - Report totals columns (ΗΜΕΡΗΣΙΑ / ΚΥΡΙΑΚΩΝ) of the Σ.Ω. report — calculation rule pending.
-- Automatic copy of the database when the application closes (today: export by button).
-- Automatic sync between the two workstations (today: manual export / import of the database).
-- Dark theme switch.
+
+Decided against (not planned):
+
+- Automatic copy of the database when the application closes: the export button covers it.
+- Automatic sync between workstations: there is no server, so every user works on an own
+  database and data moves by export / import.
+- Dark theme.
 
 ## License
 
