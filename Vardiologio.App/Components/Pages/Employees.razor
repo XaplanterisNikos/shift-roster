@@ -20,11 +20,6 @@
     @* @bind-Value:after => reload the list automatically when the specialty or the
        "show inactive" switch changes (no button needed here). *@
     <div class="page-filters">
-        @* Search by name (Shared/EmployeePicker.razor, as on the report pages): active employees
-           of every specialty. A pick opens the employee's specialty and form. *@
-        <EmployeePicker Employees="searchList" Value="searchId" ValueChanged="OnSearchPickedAsync"
-                        Class="filter-search" />
-
         @* ToStringFunc: the closed box shows the name, not the Id it is bound to. *@
         <MudSelect T="int" Label="Ειδικότητα" @bind-Value="specialityId" @bind-Value:after="OnSpecialityChanged"
                    Variant="Variant.Outlined" Margin="Margin.Dense" Class="filter-speciality"
@@ -36,6 +31,11 @@
                 <MudSelectItem T="int" Value="@s.Id">@OptionLabel(s)</MudSelectItem>
             }
         </MudSelect>
+
+        @* Search by name (Shared/EmployeePicker.razor, as on the report pages): active employees
+           of every specialty. A pick opens the employee's specialty and form. *@
+        <EmployeePicker Employees="searchList" Value="searchId" ValueChanged="OnSearchPickedAsync"
+                        Class="filter-search" />
 
         <MudSwitch T="bool" @bind-Value="includeInactive" @bind-Value:after="ReloadListAsync"
                    Color="Color.Primary" Label="Εμφάνιση ανενεργών" />
