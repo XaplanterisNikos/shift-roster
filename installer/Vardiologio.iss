@@ -43,8 +43,8 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-; Whole publish folder, including wwwroot and subfolders.
-Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; The demo administrator account (public password) must never be installed.
+Source: "{#PublishDir}\*"; DestDir: "{app}"; Excludes: "admin.demo.json"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
