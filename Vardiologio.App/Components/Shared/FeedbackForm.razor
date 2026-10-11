@@ -1,4 +1,5 @@
 @using System.Diagnostics
+@using System.Text.RegularExpressions
 @using Vardiologio.Application.Auth
 @using Vardiologio.Application.Feedback
 @inject IFeedbackSender Sender
@@ -6,7 +7,7 @@
 @inject ISnackbar Snackbar
 
 @* Message to the developer: kind (error / addition), the menu it is about, the sender's name and
-   the text. "Αποστολή" hands the message to IFeedbackSender, which packs it with the error logs
+   e-mail address (both required: the developer answers by e-mail) and the text. "Αποστολή" hands the message to IFeedbackSender, which packs it with the error logs
    of the last days into a zip and posts it to the developer (Telegram bot, see
    Infrastructure/Feedback/TelegramFeedbackSender.cs). No mail program is involved.
    When it cannot be sent (no internet, blocked, not configured) the zip stays in
@@ -33,6 +34,11 @@
     <MudTextField T="string" Label="Ονοματεπώνυμο" @bind-Value="name" Immediate="true" Required="true"
                   Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="80" />
 
+    @* Required, and checked against EmailPattern; the error shows once something is typed. *@
+    <MudTextField T="string" Label="Email (για να σας απαντήσω)" @bind-Value="email" Immediate="true" Required="true"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="100" InputType="InputType.Email"
+                  Error="@EmailInvalid" ErrorText="Το email δεν είναι έγκυρο (π.χ. onoma@example.gr)." />
+
     @* Immediate => the send button follows every keystroke. *@
     <MudTextField T="string" Label="Πείτε μου το πρόβλημα που έχετε" @bind-Value="text" Immediate="true"
                   Variant="Variant.Outlined" Lines="9" MaxLength="@MaxTextLength" Counter="@MaxTextLength" />
@@ -58,7 +64,7 @@
 
     @if (!CanSend && !sending)
     {
-        <div class="feedback-hint">Συμπληρώστε ονοματεπώνυμο και κείμενο για να στείλετε το μήνυμα.</div>
+        <div class="feedback-hint">Συμπληρώστε ονοματεπώνυμο, έγκυρο email και κείμενο για να στείλετε το μήνυμα.</div>
     }
 
     @* Actions, one under the other: send, clear. *@
@@ -109,12 +115,26 @@
     private string menu = GeneralMenu;
     private bool menuPicked;        // the user chose a menu: stop following the current page
     private string name = "";
+    private string email = "";
     private string text = "";
     private bool sending;           // a send is in progress: buttons disabled
     private string? unsentPath;     // zip of the last message that could not be sent
 
-    /// <summary>Both the sender's name and the text are required.</summary>
-    private bool CanSend => !string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(text);
+    /// <summary>
+    /// Shape of an e-mail address: something, "@", a domain with at least one dot and an ending
+    /// of two or more characters; no spaces and a single "@". It catches typing slips only:
+    /// whether the address exists cannot be known here.
+    /// </summary>
+    private static readonly Regex EmailPattern = new(@"^[^@\s]+@[^@\s.]+(\.[^@\s.]+)*\.[^@\s.]{2,}$");
+
+    /// <summary>True when the typed e-mail address has a valid shape.</summary>
+    private bool EmailValid => EmailPattern.IsMatch(email.Trim());
+
+    /// <summary>True when something is typed and it is not a valid address (an empty box shows no error).</summary>
+    private bool EmailInvalid => !string.IsNullOrWhiteSpace(email) && !EmailValid;
+
+    /// <summary>The sender's name, a valid e-mail address and the text are all required.</summary>
+    private bool CanSend => !string.IsNullOrWhiteSpace(name) && EmailValid && !string.IsNullOrWhiteSpace(text);
 
     protected override void OnParametersSet()
     {
@@ -135,7 +155,7 @@
         menuPicked = true;
     }
 
-    /// <summary>Empties the text and returns the menu to the current page; kind and name stay.</summary>
+    /// <summary>Empties the text and returns the menu to the current page; kind, name and e-mail stay.</summary>
     private void Clear()
     {
         text = "";
@@ -150,6 +170,7 @@
     /// </summary>
     private async Task SendAsync()
     {
+        if (!CanSend) return;   // the button is disabled then; guards against a double click
         sending = true;
         unsentPath = null;
 
@@ -157,7 +178,7 @@
         var user = Session.Current?.Username;
         var sender = string.IsNullOrEmpty(user) || user == name.Trim() ? name.Trim() : $"{name.Trim()} ({user})";
 
-        var result = await Sender.SendAsync(new FeedbackMessage(kind, menu, sender, text.Trim(), AppInfo.Version));
+        var result = await Sender.SendAsync(new FeedbackMessage(kind, menu, sender, email.Trim(), text.Trim(), AppInfo.Version));
         sending = false;
 
         if (result.Sent)

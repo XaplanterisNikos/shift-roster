@@ -72,7 +72,8 @@ staff and producing the official attendance/shift reports.
   the current page. The drawer sits next to the page, so the instructions can be read while
   working, and follows the user from page to page until it is closed.
 - **Message to the developer** — the pen button of the top bar opens a form in the same drawer:
-  kind (error / addition), the menu it concerns, the sender's name and the text. The application
+  kind (error / addition), the menu it concerns, the sender's name and e-mail address (both
+  required, the address checked for its shape, so the developer can answer) and the text. The application
   sends it itself, over HTTPS, to the developer's Telegram bot, as a zip with the message and
   the error logs of the last 7 days; no mail program and no Telegram is needed on the computer.
   When it cannot be sent, the zip stays in `Documents\Vardiologio\Feedback` and the form shows

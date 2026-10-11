@@ -125,18 +125,19 @@ public class TelegramFeedbackSender : IFeedbackSender
 	private static string FullText(FeedbackMessage m, DateTime now) =>
 		$"{m.Kind} - {m.Menu}{Environment.NewLine}" +
 		$"Από: {m.SenderName}{Environment.NewLine}" +
+		$"Email: {m.SenderEmail}{Environment.NewLine}" +
 		$"Ημερομηνία: {now:dd/MM/yyyy HH:mm}{Environment.NewLine}" +
 		$"Έκδοση: {m.AppVersion}{Environment.NewLine}" +
 		$"Υπολογιστής: {Environment.MachineName}{Environment.NewLine}" +
 		$"{Environment.NewLine}{m.Text}{Environment.NewLine}";
 
 	/// <summary>
-	/// Text shown under the file in the chat: subject, sender, version and the message, cut to
+	/// Text shown under the file in the chat: subject, sender, e-mail, version and the message, cut to
 	/// Telegram's limit (the whole text is always in message.txt).
 	/// </summary>
 	private static string Caption(FeedbackMessage m)
 	{
-		var caption = $"{m.Kind} - {m.Menu}\n{m.SenderName} · v{m.AppVersion}\n\n{m.Text}";
+		var caption = $"{m.Kind} - {m.Menu}\n{m.SenderName} · {m.SenderEmail} · v{m.AppVersion}\n\n{m.Text}";
 		return caption.Length <= MaxCaptionLength ? caption : caption[..(MaxCaptionLength - 1)] + "…";
 	}
 }

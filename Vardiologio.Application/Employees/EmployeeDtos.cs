@@ -29,8 +29,7 @@ public class EmployeeDetail
 	[Required(ErrorMessage = "Επίλεξε σύμβαση.")]
 	public int? EmploymentTypeId { get; set; }
 
-	// Must pick a work position (— = null is invalid).
-	[Required(ErrorMessage = "Επίλεξε θέση.")]
+	// Optional work position (— = null: the employee has none).
 	public int? WorkPositionId { get; set; }
 
 	public bool IsActive { get; set; } = true;
