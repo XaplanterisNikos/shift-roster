@@ -1,0 +1,111 @@
+@using Vardiologio.Application.Auth
+@inject IAuthService Auth
+@inject IUserSession Session
+@inject ISnackbar Snackbar
+
+@* The signed-in user's name on the top bar, as a button that opens "Τα στοιχεία μου": the
+   user's own full name and e-mail address, which the message form sends along. Username and
+   password are not changed here. Not used for the administrator, who is not a row of the
+   Users table (Layout/MainLayout.razor shows a plain name then). *@
+<MudButton Variant="Variant.Text" Class="user-name-btn" StartIcon="@Icons.Material.Rounded.AccountCircle"
+           title="Τα στοιχεία μου" OnClick="Open">@Session.Current?.DisplayName</MudButton>
+
+@* Inline dialog: MudBlazor renders it in MudDialogProvider (Routes.razor).
+   Escape or a click on the dimmed background closes it (-> OnVisibleChanged). *@
+<MudDialog Visible="open" VisibleChanged="OnVisibleChanged" Options="DialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Τα στοιχεία μου</MudText>
+    </TitleContent>
+    <DialogContent>
+        <div class="admin-fields">
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Με αυτά τα στοιχεία επικοινωνούμε μαζί σας όταν στέλνετε μήνυμα από την εφαρμογή.
+            </MudAlert>
+            <MudTextField T="string" Label="Όνομα χρήστη" Value="@Session.Current?.Username" ReadOnly="true"
+                          Variant="Variant.Outlined" />
+            <MudTextField T="string" Label="Ονοματεπώνυμο" @bind-Value="fullName" Immediate="true"
+                          Variant="Variant.Outlined" AutoFocus="true" MaxLength="@UserRules.MaxFullNameLength"
+                          autocomplete="off" />
+            <MudTextField T="string" Label="Email" @bind-Value="email" Immediate="true"
+                          Variant="Variant.Outlined" MaxLength="@UserRules.MaxEmailLength"
+                          InputType="InputType.Email" OnKeyDown="OnKey" autocomplete="off" />
+            @if (error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true">@error</MudAlert>
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">Ακύρωση</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Disabled="busy"
+                   OnClick="Save">Αποθήκευση</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    /// <summary>Narrow dialog; Escape closes it.</summary>
+    private static readonly DialogOptions DialogOptions =
+        new() { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseOnEscapeKey = true };
+
+    private bool open;          // dialog visible
+    private bool busy;          // a save is running: ignore a second click
+    private string fullName = "";
+    private string email = "";
+    private string? error;      // why the form was not accepted
+
+    /// <summary>Opens the dialog with the stored details of the signed-in user.</summary>
+    private void Open()
+    {
+        fullName = Session.Current?.FullName ?? "";
+        email = Session.Current?.Email ?? "";
+        error = null;
+        open = true;
+    }
+
+    /// <summary>Closes the dialog; anything typed and not saved is discarded.</summary>
+    private void Close() => open = false;
+
+    /// <summary>Raised by the dialog when it closes itself (Escape, click on the background).</summary>
+    private void OnVisibleChanged(bool visible)
+    {
+        if (!visible) Close();
+    }
+
+    /// <summary>Enter in the last field saves.</summary>
+    private async Task OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await Save();
+    }
+
+    /// <summary>
+    /// Checks the form, stores the details and puts them in the session, so the message form
+    /// shows them at once (check-then-act: no exceptions for expected cases).
+    /// </summary>
+    private async Task Save()
+    {
+        var user = Session.Current;
+        if (busy || user is null) return;
+
+        error =
+            fullName.Trim().Length == 0 ? "Συμπληρώστε το ονοματεπώνυμό σας." :
+            email.Trim().Length == 0 ? "Συμπληρώστε το email σας." :
+            !UserRules.IsValidEmail(email) ? "Το email δεν είναι έγκυρο (π.χ. onoma@example.gr)." :
+            null;
+        if (error is not null) return;
+
+        busy = true;
+        try
+        {
+            await Auth.UpdateContactAsync(user.Username, fullName, email);
+        }
+        finally
+        {
+            busy = false;
+        }
+
+        // Same user with the new details; the session notifies whoever shows them.
+        Session.SignIn(user with { FullName = fullName.Trim(), Email = email.Trim() });
+        Close();
+        Snackbar.Add("Τα στοιχεία σας αποθηκεύτηκαν.", Severity.Success);
+    }
+}

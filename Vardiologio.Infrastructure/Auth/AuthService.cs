@@ -58,7 +58,7 @@ public class AuthService : IAuthService
 		if (user is null) return null;
 
 		return PasswordHasher.Verify(password, user.PasswordSalt, user.PasswordHash)
-			? new AuthenticatedUser(user.Username, user.Username, IsAdmin: false)
+			? new AuthenticatedUser(user.Username, user.Username, IsAdmin: false, user.FullName, user.Email)
 			: null;
 	}
 
@@ -77,7 +77,7 @@ public class AuthService : IAuthService
 	}
 
 	/// <inheritdoc/>
-	public async Task CreateUserAsync(string username, string password)
+	public async Task CreateUserAsync(string username, string password, string fullName, string email)
 	{
 		var (salt, hash) = PasswordHasher.Hash(password);
 
@@ -86,9 +86,25 @@ public class AuthService : IAuthService
 		db.Users.Add(new User
 		{
 			Username = username.Trim(),
+			FullName = fullName.Trim(),
+			Email = email.Trim(),
 			PasswordSalt = salt,
 			PasswordHash = hash
 		});
+		await db.SaveChangesAsync();
+	}
+
+	/// <inheritdoc/>
+	public async Task UpdateContactAsync(string username, string fullName, string email)
+	{
+		await using var db = await _factory.CreateDbContextAsync();
+
+		// Tracked entity, so the change is recorded in the activity log.
+		var user = await db.Users.FirstOrDefaultAsync(u => u.IsActive && u.Username == username)
+			?? throw new InvalidOperationException($"User '{username}' not found.");
+
+		user.FullName = fullName.Trim();
+		user.Email = email.Trim();
 		await db.SaveChangesAsync();
 	}
 
@@ -106,7 +122,9 @@ public class AuthService : IAuthService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		var users = await db.Users.Select(u => new UserItem(u.Id, u.Username)).ToListAsync();
+		var users = await db.Users
+			.Select(u => new UserItem(u.Id, u.Username, u.FullName, u.Email))
+			.ToListAsync();
 
 		// Sorted in memory: SQLite's own ordering is not case-insensitive for Greek letters.
 		return users.OrderBy(u => u.Username, StringComparer.CurrentCultureIgnoreCase).ToList();

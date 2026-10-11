@@ -12,6 +12,12 @@ public class User
 	/// <summary>Sign-in name, also shown in the app. Unique, never reused once created.</summary>
 	public string Username { get; set; } = null!;
 
+	/// <summary>The person's full name, as typed when the user was created; "" for users older than the field.</summary>
+	public string FullName { get; set; } = "";
+
+	/// <summary>E-mail address the developer answers to; "" for users older than the field.</summary>
+	public string Email { get; set; } = "";
+
 	/// <summary>Random PBKDF2 salt of the password, Base64.</summary>
 	public string PasswordSalt { get; set; } = null!;
 

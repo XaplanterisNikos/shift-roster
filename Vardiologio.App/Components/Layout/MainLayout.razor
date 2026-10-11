@@ -33,7 +33,16 @@
                            OnClick="() => Toggle(SidePanel.Feedback)" />
             }
             <div class="user-box">
+                @* A user's name opens the user's own details (Shared/UserProfileButton.razor);
+                   the administrator has none, so that name is plain text. *@
+                @if (IsAdmin)
+                {
                 <MudText Typo="Typo.subtitle2">@Session.Current!.DisplayName</MudText>
+                }
+                else
+                {
+                <UserProfileButton />
+                }
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
                            DropShadow="false" Class="logout-btn" OnClick="Logout">Αποσύνδεση</MudButton>
             </div>

@@ -4,7 +4,11 @@ namespace Vardiologio.Application.Auth;
 public record LoginOption(string Username, string DisplayName);
 
 /// <summary>A user of this installation, as listed for the administrator.</summary>
-public record UserItem(int Id, string Username);
+/// <param name="Id">Primary key.</param>
+/// <param name="Username">Sign-in name.</param>
+/// <param name="FullName">The person's full name; "" when not given.</param>
+/// <param name="Email">The person's e-mail address; "" when not given.</param>
+public record UserItem(int Id, string Username, string FullName, string Email);
 
 /// <summary>
 /// Sign-in and user creation. The users belong to this installation (database); the
@@ -30,7 +34,22 @@ public interface IAuthService
 	/// <summary>Creates an active user with the given password (stored as salt + hash only).</summary>
 	/// <param name="username">Sign-in name; trimmed before it is stored.</param>
 	/// <param name="password">The password as typed.</param>
-	Task CreateUserAsync(string username, string password);
+	/// <param name="fullName">The person's full name; trimmed before it is stored.</param>
+	/// <param name="email">
+	/// The person's e-mail address; trimmed before it is stored. Check it with
+	/// <see cref="UserRules.IsValidEmail"/> first.
+	/// </param>
+	Task CreateUserAsync(string username, string password, string fullName, string email);
+
+	/// <summary>
+	/// Changes a user's full name and e-mail address (the user's own details, from the top bar).
+	/// Check the address with <see cref="UserRules.IsValidEmail"/> first.
+	/// </summary>
+	/// <param name="username">Sign-in name of the user, as stored.</param>
+	/// <param name="fullName">The new full name; trimmed before it is stored.</param>
+	/// <param name="email">The new e-mail address; trimmed before it is stored.</param>
+	/// <exception cref="InvalidOperationException">No active user has that name.</exception>
+	Task UpdateContactAsync(string username, string fullName, string email);
 
 	/// <summary>
 	/// True when the administrator's limit on the number of users has been reached, so no new

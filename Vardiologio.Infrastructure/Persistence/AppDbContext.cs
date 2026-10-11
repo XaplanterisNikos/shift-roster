@@ -222,6 +222,11 @@ public class AppDbContext : DbContext
 			e.Property(x => x.Username).IsRequired().HasMaxLength(40);
 			e.HasIndex(x => x.Username).IsUnique();
 
+			// Same sizes as UserRules.MaxFullNameLength / MaxEmailLength. Empty for users created
+			// before the columns existed, hence the default.
+			e.Property(x => x.FullName).IsRequired().HasMaxLength(80).HasDefaultValue("");
+			e.Property(x => x.Email).IsRequired().HasMaxLength(100).HasDefaultValue("");
+
 			e.Property(x => x.PasswordSalt).IsRequired().HasMaxLength(64);
 			e.Property(x => x.PasswordHash).IsRequired().HasMaxLength(64);
 

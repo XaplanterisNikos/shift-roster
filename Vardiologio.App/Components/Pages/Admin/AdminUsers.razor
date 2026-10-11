@@ -54,10 +54,14 @@
     <MudTable T="UserItem" Items="users" Dense="true" Hover="true" Elevation="0" Outlined="true">
         <HeaderContent>
             <MudTh>Όνομα χρήστη</MudTh>
+            <MudTh>Ονοματεπώνυμο</MudTh>
+            <MudTh>Email</MudTh>
             <MudTh></MudTh>
         </HeaderContent>
         <RowTemplate>
             <MudTd>@context.Username</MudTd>
+            <MudTd>@context.FullName</MudTd>
+            <MudTd>@context.Email</MudTd>
             <MudTd Style="text-align: right">
                 <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
                            StartIcon="@Icons.Material.Rounded.Delete" OnClick="() => AskDelete(context)">Διαγραφή</MudButton>

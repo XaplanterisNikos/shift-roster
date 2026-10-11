@@ -32,6 +32,8 @@ internal static class ActivityNames
 		"FirstName" => "Όνομα",
 		"IsActive" => "Ενεργός",
 		"Username" => "Όνομα χρήστη",
+		"FullName" => "Ονοματεπώνυμο",
+		"Email" => "Email",
 		"PasswordSalt" or "PasswordHash" => "Κωδικός πρόσβασης",
 		"MaxUsers" => "Όριο χρηστών",
 		_ => property

@@ -223,6 +223,13 @@
 	border-radius: 12px;
 }
 
+/* The user's name as a button (Shared/UserProfileButton.razor): looks like the plain name it replaces. */
+.user-box .user-name-btn {
+	text-transform: none;
+	font-weight: 500;
+	color: inherit;
+}
+
 /* Tonal (soft) button instead of a solid one, so it does not compete with page actions. */
 .user-box .logout-btn {
 	height: 36px;

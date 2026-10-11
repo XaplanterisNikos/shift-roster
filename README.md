@@ -98,8 +98,10 @@ staff and producing the official attendance/shift reports.
   maximum number of users) and a zip of everything in `Documents\Vardiologio`. The start page
   shows the version and the creator's details.
 - **Login and users** — every installation has its own users, created from the login screen
-  (username, password, password once more) and stored in its database with salted PBKDF2
-  hashes. A single administrator account, the same in every installation, is listed after them.
+  (full name and e-mail address, both required, then username, password, password once more)
+  and stored in its database with salted PBKDF2 hashes. A signed-in user changes the full name
+  and the e-mail address from the name on the top bar (`Shared/UserProfileButton.razor`); the
+  message form starts with them filled in. A single administrator account, the same in every installation, is listed after them.
 
 ## Technology
 
@@ -232,7 +234,7 @@ The fixed-term attendance form (ΙΔΟΧ) is not in the data file: on the first 
 without lines it gets a copy of the staff attendance form as it then is in the database, with
 "Ι.Δ. ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ" added to the title (`DatabaseSeeder.SeedFixedTermAttendanceTexts`).
 
-Users are rows of the `Users` table of the local database: username, salt and hash
+Users are rows of the `Users` table of the local database: username, full name, e-mail address, salt and hash
 (`Infrastructure/Auth/PasswordHasher.cs`, PBKDF2-SHA256). A fresh database has no users; the
 first one is created from the login screen, and only the administrator can delete a user or
 limit how many may exist. The administrator is not a row of the table: its

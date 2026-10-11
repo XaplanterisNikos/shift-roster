@@ -1,7 +1,8 @@
 @using Vardiologio.Application.Auth
 @inject IAuthService Auth
 
-@* "Δημιουργία νέου χρήστη" on the login card, with its dialog: username, password and the
+@* "Δημιουργία νέου χρήστη" on the login card, with its dialog: full name and e-mail address
+   (required: the developer answers the user's messages there), username, password and the
    password once more. The user belongs to this installation (database). Nothing typed is kept:
    the fields are emptied when the dialog opens and when it closes. *@
 <MudButton Variant="Variant.Text" Color="Color.Primary" FullWidth="true"
@@ -15,8 +16,18 @@
     </TitleContent>
     <DialogContent>
         <div class="admin-fields">
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Συμπληρώστε σωστά το ονοματεπώνυμο και το email σας: με αυτά θα επικοινωνούμε μαζί σας
+                όταν στέλνετε μήνυμα από την εφαρμογή.
+            </MudAlert>
+            <MudTextField T="string" Label="Ονοματεπώνυμο" @bind-Value="fullName" Immediate="true"
+                          Variant="Variant.Outlined" AutoFocus="true" MaxLength="@UserRules.MaxFullNameLength"
+                          autocomplete="off" />
+            <MudTextField T="string" Label="Email" @bind-Value="email" Immediate="true"
+                          Variant="Variant.Outlined" MaxLength="@UserRules.MaxEmailLength"
+                          InputType="InputType.Email" autocomplete="off" />
             <MudTextField T="string" Label="Όνομα χρήστη" @bind-Value="username" Immediate="true"
-                          Variant="Variant.Outlined" AutoFocus="true" MaxLength="@UserRules.MaxUsernameLength"
+                          Variant="Variant.Outlined" MaxLength="@UserRules.MaxUsernameLength"
                           autocomplete="off" />
             @* autocomplete new-password => the browser does not offer saved passwords. *@
             <MudTextField T="string" Label="Κωδικός" @bind-Value="password" Immediate="true"
@@ -49,6 +60,8 @@
 
     private bool open;          // dialog visible
     private bool busy;          // a create is running: ignore a second click
+    private string fullName = "";
+    private string email = "";
     private string username = "";
     private string password = "";
     private string confirm = "";
@@ -70,7 +83,7 @@
 
     private void Reset()
     {
-        username = password = confirm = "";
+        fullName = email = username = password = confirm = "";
         error = null;
     }
 
@@ -93,6 +106,9 @@
 
         var name = username.Trim();
         error =
+            fullName.Trim().Length == 0 ? "Συμπληρώστε το ονοματεπώνυμό σας." :
+            email.Trim().Length == 0 ? "Συμπληρώστε το email σας." :
+            !UserRules.IsValidEmail(email) ? "Το email δεν είναι έγκυρο (π.χ. onoma@example.gr)." :
             name.Length == 0 ? "Συμπληρώστε όνομα χρήστη." :
             password.Length < UserRules.MinPasswordLength
                 ? $"Ο κωδικός πρέπει να έχει τουλάχιστον {UserRules.MinPasswordLength} χαρακτήρες." :
@@ -115,7 +131,7 @@
                 return;
             }
 
-            await Auth.CreateUserAsync(name, password);
+            await Auth.CreateUserAsync(name, password, fullName, email);
         }
         finally
         {

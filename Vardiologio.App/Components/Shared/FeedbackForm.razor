@@ -1,13 +1,15 @@
 @using System.Diagnostics
-@using System.Text.RegularExpressions
 @using Vardiologio.Application.Auth
 @using Vardiologio.Application.Feedback
 @inject IFeedbackSender Sender
 @inject IUserSession Session
 @inject ISnackbar Snackbar
+@implements IDisposable
 
 @* Message to the developer: kind (error / addition), the menu it is about, the sender's name and
-   e-mail address (both required: the developer answers by e-mail) and the text. "Αποστολή" hands the message to IFeedbackSender, which packs it with the error logs
+   e-mail address (both required: the developer answers by e-mail) and the text. Name and
+   address start as the signed-in user's own details (Shared/UserProfileButton.razor) and can
+   be changed for one message; they are empty for a user who has not given them yet. "Αποστολή" hands the message to IFeedbackSender, which packs it with the error logs
    of the last days into a zip and posts it to the developer (Telegram bot, see
    Infrastructure/Feedback/TelegramFeedbackSender.cs). No mail program is involved.
    When it cannot be sent (no internet, blocked, not configured) the zip stays in
@@ -30,11 +32,11 @@
         }
     </MudSelect>
 
-    @* Typed by the sender (not the sign-in name); required. *@
+    @* The sender's full name (not the sign-in name); required. *@
     <MudTextField T="string" Label="Ονοματεπώνυμο" @bind-Value="name" Immediate="true" Required="true"
                   Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="80" />
 
-    @* Required, and checked against EmailPattern; the error shows once something is typed. *@
+    @* Required, and checked with UserRules.IsValidEmail; the error shows once something is typed. *@
     <MudTextField T="string" Label="Email (για να σας απαντήσω)" @bind-Value="email" Immediate="true" Required="true"
                   Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="100" InputType="InputType.Email"
                   Error="@EmailInvalid" ErrorText="Το email δεν είναι έγκυρο (π.χ. onoma@example.gr)." />
@@ -120,21 +122,44 @@
     private bool sending;           // a send is in progress: buttons disabled
     private string? unsentPath;     // zip of the last message that could not be sent
 
-    /// <summary>
-    /// Shape of an e-mail address: something, "@", a domain with at least one dot and an ending
-    /// of two or more characters; no spaces and a single "@". It catches typing slips only:
-    /// whether the address exists cannot be known here.
-    /// </summary>
-    private static readonly Regex EmailPattern = new(@"^[^@\s]+@[^@\s.]+(\.[^@\s.]+)*\.[^@\s.]{2,}$");
-
     /// <summary>True when the typed e-mail address has a valid shape.</summary>
-    private bool EmailValid => EmailPattern.IsMatch(email.Trim());
+    private bool EmailValid => UserRules.IsValidEmail(email);
 
     /// <summary>True when something is typed and it is not a valid address (an empty box shows no error).</summary>
     private bool EmailInvalid => !string.IsNullOrWhiteSpace(email) && !EmailValid;
 
     /// <summary>The sender's name, a valid e-mail address and the text are all required.</summary>
     private bool CanSend => !string.IsNullOrWhiteSpace(name) && EmailValid && !string.IsNullOrWhiteSpace(text);
+
+    /// <summary>
+    /// The session details the name and e-mail boxes were last filled from; when they change
+    /// (another user signs in, or the user edits the details) the boxes are filled again.
+    /// </summary>
+    private (string Username, string FullName, string Email)? filledFrom;
+
+    protected override void OnInitialized()
+    {
+        Session.Changed += OnSessionChanged;
+        FillFromSession();
+    }
+
+    // The session event may arrive off the UI thread -> marshal back with InvokeAsync.
+    private void OnSessionChanged() => InvokeAsync(() => { FillFromSession(); StateHasChanged(); });
+
+    /// <summary>Puts the signed-in user's full name and e-mail in the boxes, once per change of them.</summary>
+    private void FillFromSession()
+    {
+        var user = Session.Current;
+        (string, string, string)? current = user is null ? null : (user.Username, user.FullName, user.Email);
+        if (current == filledFrom) return;
+
+        filledFrom = current;
+        name = user?.FullName ?? "";
+        email = user?.Email ?? "";
+    }
+
+    // Unsubscribe to avoid a memory leak (pairs with the subscribe in OnInitialized).
+    public void Dispose() => Session.Changed -= OnSessionChanged;
 
     protected override void OnParametersSet()
     {
