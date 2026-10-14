@@ -33,6 +33,7 @@ public static class DatabaseSeeder
 		SeedHourLimits(db);
 		SeedReportTexts(db, reportData.Texts ?? []);
 		SeedFixedTermAttendanceTexts(db);   // after the file: copies the staff form when the file has no such form
+		SeedMonthlyTotalFixedTermBand(db);  // after the file: the Σ.Ω. separator line, when the file has none
 		SeedReportColors(db);
 		SeedEmployees(db);      // last: resolves each employee's SpecialityId by name
 	}
@@ -239,18 +240,51 @@ public static class DatabaseSeeder
 	}
 
 	/// <summary>
+	/// Gives the Σ.Ω. form its separator line ("ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ"), the row inside the table
+	/// before the fixed-term employees. The line was added after the first installations, so
+	/// their report data file does not have it; it is not private data, so its default lives
+	/// here. Runs once: when the line exists (from the file or an earlier start) it is left
+	/// alone, and afterwards it is edited in Παράμετροι → Αναφορών like every other line.
+	/// </summary>
+	private static void SeedMonthlyTotalFixedTermBand(AppDbContext db)
+	{
+		if (db.ReportTexts.Any(t => t.Form == ReportForm.MonthlyTotal && t.Block == ReportTextBlocks.FixedTermBand))
+			return;
+
+		db.ReportTexts.Add(new ReportText
+		{
+			Form = ReportForm.MonthlyTotal,
+			Section = ReportSection.Header,   // part of the table, listed with the blocks above the signatures
+			Block = ReportTextBlocks.FixedTermBand,
+			Line = 0,
+			Text = ReportTextBlocks.FixedTermBandDefault
+		});
+		db.SaveChanges();
+	}
+
+	/// <summary>
 	/// Adds the default colours of the reports. Works per key: a colour that already exists is
 	/// never touched (the user may have changed it), and a colour that a later version adds to
-	/// the catalogue is inserted on the next start.
+	/// the catalogue is inserted on the next start — as the colour of its
+	/// <see cref="ReportColorCatalog.Entry.SeedFromKey"/> when it has one, else as its default.
 	/// </summary>
 	private static void SeedReportColors(AppDbContext db)
 	{
-		var existing = db.ReportColors.Select(c => c.Key).ToHashSet();
+		// Stored colours by key: to skip existing keys and to copy a colour a new key starts from.
+		var stored = db.ReportColors.ToDictionary(c => c.Key, c => c.Hex);
 
 		foreach (var entry in ReportColorCatalog.All)
 		{
-			if (existing.Contains(entry.Key)) continue;
-			db.ReportColors.Add(new ReportColor { Key = entry.Key, Hex = entry.DefaultHex });
+			if (stored.ContainsKey(entry.Key)) continue;
+
+			var hex = entry.SeedFromKey is not null
+				&& stored.TryGetValue(entry.SeedFromKey, out var source)
+				&& ReportColorCatalog.IsHex(source)
+					? source
+					: entry.DefaultHex;
+
+			db.ReportColors.Add(new ReportColor { Key = entry.Key, Hex = hex });
+			stored[entry.Key] = hex;   // a later entry may start from this one
 		}
 		db.SaveChanges();
 	}

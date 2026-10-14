@@ -1,6 +1,7 @@
 ﻿using ClosedXML.Excel;
 using Vardiologio.Application.ReportColors;
 using Vardiologio.Application.Reports;
+using Vardiologio.Application.ReportTexts;
 
 namespace Vardiologio.Infrastructure.Reports;
 
@@ -25,12 +26,14 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 		var sunFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.MonthlyTotalSunday]);
 		var satFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.MonthlyTotalSaturday]);
 		var totFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.MonthlyTotalTotals]);
+		var bandFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.MonthlyTotalFixedTermBand]);
 
 		using var wb = new XLWorkbook();
 		var ws = wb.AddWorksheet("Σ.Ω.");
 
 		var days = m.DaysInMonth;
-		const int cAA = 1, cName = 2, cSpec = 3, cDay0 = 4;
+		// No Α/Α column on the printed Σ.Ω. (as on the paper form): the name is the first column.
+		const int cName = 1, cSpec = 2, cDay0 = 3;
 		var cDayEnd = cDay0 + days - 1;
 		var cCount0 = cDayEnd + 1;
 		var cCountEnd = cCount0 + 6;         
@@ -79,7 +82,6 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 		var rWd = rGroup + 2;
 		var rData0 = rGroup + 3;
 
-		Merge(ws, rGroup, cAA, rWd, cAA, "Α/Α", 8, true, XLAlignmentHorizontalValues.Center, hdrFill);
 		Merge(ws, rGroup, cName, rWd, cName, "ΟΝΟΜΑΤΕΠΩΝΥΜΟ", 9, true, XLAlignmentHorizontalValues.Center, hdrFill);
 		Merge(ws, rGroup, cSpec, rWd, cSpec, "ΕΙΔΙΚΟΤΗΤΑ", 8, true, XLAlignmentHorizontalValues.Center, hdrFill);
 
@@ -105,11 +107,20 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 		for (var k = 1; k <= 7; k++)
 			Merge(ws, rDay, cCount0 + k - 1, rWd, cCount0 + k - 1, k.ToString(), 8, true, XLAlignmentHorizontalValues.Center, hdrFill);
 
-		// Data rows
+		// Data rows: the permanent / open-ended list, then the separator row and the fixed-term list.
+		var bandText = m.Texts.Line(ReportTextBlocks.FixedTermBand, 0);
+		var bandDone = false;
 		var r = rData0;
 		foreach (var row in m.Rows)
 		{
-			Put(ws, r, cAA, row.Index, 8, false, null);
+			if (row.IsFixedTerm && !bandDone)
+			{
+				// One full-width row before the first fixed-term employee (only when there is one).
+				Merge(ws, r, cName, r, lastCol, bandText, 9, true, center, bandFill);
+				bandDone = true;
+				r++;
+			}
+
 			var nameCell = Put(ws, r, cName, $"{row.LastName} {row.FirstName}".Trim(), 8, false, null);
 			nameCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 			var specCell = Put(ws, r, cSpec, row.Speciality, 8, false, null);
@@ -169,7 +180,6 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 				Merge(ws, nameRow + i, from, nameRow + i, to, name[i], 10, true, center, null);
 		}
 
-		ws.Column(cAA).Width = 4;
 		ws.Column(cName).Width = 22;
 		ws.Column(cSpec).Width = 16;
 		for (var c = cDay0; c <= cCountEnd; c++) ws.Column(c).Width = 3.4;

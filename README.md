@@ -22,7 +22,9 @@ staff and producing the official attendance/shift reports.
   to each day (split into two fortnights). The month's hours per pay category are shown
   live against their limits, and days whose code is not allowed are flagged.
 - **Monthly roster report** (Συνολική μηνιαία Σ.Ω.) — one row per employee, one column per
-  day, with per-program counts; emblem, letterhead, titles and addressee above the table, the
+  day, with per-program counts, in two alphabetical lists on one sheet: permanent / open-ended
+  staff (and anyone without a contract yet), then an editable separator row ("ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ",
+  own colour) and the fixed-term staff; no Α/Α column on the print; emblem, letterhead, titles and addressee above the table, the
   legend of shift codes and the signatures below it. Exported to **Excel** and **PDF**
   (A4 landscape, flowing over as many pages as needed) or previewed inline.
 - **Reports open ready** — the reports that need no employee (Σ.Ω., hours, shift table,

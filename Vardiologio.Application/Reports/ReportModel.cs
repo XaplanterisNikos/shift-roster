@@ -27,7 +27,13 @@ public class ReportModel
 /// <summary>One employee's row in the monthly roster.</summary>
 public class ReportRow
 {
-	public int Index { get; set; }                 // Α/Α (sequential row number)
+	public int Index { get; set; }                 // Α/Α (sequential row number; not printed on the Σ.Ω.)
+
+	/// <summary>
+	/// True for a fixed-term (ΙΔΟΧ) employee. These rows come last, after the permanent /
+	/// open-ended ones (and those without a contract), under the separator row of the table.
+	/// </summary>
+	public bool IsFixedTerm { get; set; }
 	public string LastName { get; set; } = "";
 	public string FirstName { get; set; } = "";
 	public string Speciality { get; set; } = "";

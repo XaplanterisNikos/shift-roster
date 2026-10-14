@@ -33,6 +33,15 @@ public static class ReportTextBlocks
 	/// </summary>
 	public const string ContractGroups = "ContractGroups";
 
+	/// <summary>
+	/// Σ.Ω. only: the separator row inside the table that starts the fixed-term (ΙΔΟΧ) employees,
+	/// who follow the permanent / open-ended ones in a second alphabetical list.
+	/// </summary>
+	public const string FixedTermBand = "FixedTermBand";
+
+	/// <summary>Default text of <see cref="FixedTermBand"/> (seeded once, then edited by the user).</summary>
+	public const string FixedTermBandDefault = "ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ";
+
 	/// <summary>Certificate only: heading of the declaration.</summary>
 	public const string DeclarationTitle = "DeclarationTitle";
 
@@ -51,7 +60,7 @@ public static class ReportTextBlocks
 	/// <summary>Blocks in the order they are listed on the settings page (signatures come after them).</summary>
 	private static readonly string[] DisplayOrder =
 	{
-		Letterhead, HandFilled, Titles, Addressee, Intro, Department, ContractGroups,
+		Letterhead, HandFilled, Titles, Addressee, Intro, Department, ContractGroups, FixedTermBand,
 		DeclarationTitle, Declarations, Certification
 	};
 
@@ -84,6 +93,7 @@ public static class ReportTextBlocks
 			case Intro: return "Εισαγωγικό κείμενο";
 			case Department: return "Τμήμα (ζώνη πάνω από τον πίνακα)";
 			case ContractGroups: return "Τίτλοι ομάδων σύμβασης (ζώνες του πίνακα)";
+			case FixedTermBand: return "Χώρισμα ορισμένου χρόνου (γραμμή μέσα στον πίνακα)";
 			case DeclarationTitle: return "Τίτλος δήλωσης";
 			case Declarations: return "Σημεία δήλωσης";
 			case Certification: return "Βεβαίωση";

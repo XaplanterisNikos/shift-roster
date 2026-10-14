@@ -119,6 +119,7 @@
         (ReportForm.OvertimeCertificate or ReportForm.ContractCertificate, ReportTextBlocks.Intro) => "Στο τέλος της τελευταίας γραμμής προστίθεται αυτόματα «από … έως …».",
         (ReportForm.ContractCertificate, ReportTextBlocks.Department) => "Τυπώνεται μία φορά, πάνω από την πρώτη ομάδα κάθε εντύπου.",
         (ReportForm.ContractCertificate, ReportTextBlocks.ContractGroups) => "Με τη σειρά: Μόνιμοι, Αορίστου χρόνου (ΙΔΑΧ), Ορισμένου χρόνου (ΙΔΟΧ).",
+        (ReportForm.MonthlyTotal, ReportTextBlocks.FixedTermBand) => "Γραμμή σε όλο το πλάτος του πίνακα, πριν από τους ΙΔΟΧ· τυπώνεται μόνο όταν υπάρχει εργαζόμενος ΙΔΟΧ. Το χρώμα της αλλάζει στην καρτέλα «Χρώματα».",
         (ReportForm.AttendanceStaff or ReportForm.AttendanceFixedTerm or ReportForm.AttendanceDirectorate, ReportTextBlocks.Titles) => "Κάτω από τους τίτλους τυπώνεται αυτόματα η περίοδος «Από … έως …».",
         _ => null
     };

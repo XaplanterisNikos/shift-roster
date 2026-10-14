@@ -12,6 +12,7 @@ public static class ReportColorCatalog
 	public const string MonthlyTotalSaturday = "MonthlyTotal.Saturday";
 	public const string MonthlyTotalSunday = "MonthlyTotal.Sunday";
 	public const string MonthlyTotalTotals = "MonthlyTotal.Totals";
+	public const string MonthlyTotalFixedTermBand = "MonthlyTotal.FixedTermBand";
 
 	// Ωρών μηνιαία
 	public const string HoursHeader = "Hours.Header";
@@ -32,7 +33,12 @@ public static class ReportColorCatalog
 	/// <param name="Report">Greek name of the report (group title on the settings page).</param>
 	/// <param name="Fields">The fields of that report the colour is applied to.</param>
 	/// <param name="DefaultHex">The colour the application ships with, "#RRGGBB".</param>
-	public sealed record Entry(string Key, string Report, string Fields, string DefaultHex);
+	/// <param name="SeedFromKey">
+	/// Optional: when this colour is first added to an existing database, it starts as the
+	/// colour stored under this other key (so it matches what the user already chose) instead
+	/// of <paramref name="DefaultHex"/>.
+	/// </param>
+	public sealed record Entry(string Key, string Report, string Fields, string DefaultHex, string? SeedFromKey = null);
 
 	/// <summary>Every colour, in the order of the settings page (grouped by report).</summary>
 	public static readonly Entry[] All =
@@ -41,6 +47,8 @@ public static class ReportColorCatalog
 		new(MonthlyTotalSaturday, "Συνολική μηνιαία Σ.Ω.", "Στήλες Σαββάτου", "#FFF2CC"),
 		new(MonthlyTotalSunday, "Συνολική μηνιαία Σ.Ω.", "Στήλες Κυριακής", "#FCE4D6"),
 		new(MonthlyTotalTotals, "Συνολική μηνιαία Σ.Ω.", "Επικεφαλίδες «Εργασία προς συμπλήρωση»", "#E2EFDA"),
+		// Starts as the header colour (the separator looks like a header row), editable on its own.
+		new(MonthlyTotalFixedTermBand, "Συνολική μηνιαία Σ.Ω.", "Γραμμή-χώρισμα ορισμένου χρόνου", "#D9E1F2", MonthlyTotalHeader),
 
 		new(HoursHeader, "Ωρών μηνιαία", "Επικεφαλίδες Α/Α, ονοματεπώνυμου και ειδικότητας", "#D9E1F2"),
 		new(HoursCategories, "Ωρών μηνιαία", "Επικεφαλίδες κατηγοριών και γραμμή συνόλων", "#E2EFDA"),

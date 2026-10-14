@@ -22,10 +22,33 @@ public class ReportService : IReportService
 
 		await using var db = await _factory.CreateDbContextAsync();
 
-		var employees = await db.Employees
-			.OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
-			.Select(e => new { e.Id, e.LastName, e.FirstName, Speciality = e.Speciality.Name })
-			.ToListAsync();
+		// Alphabetical as before, plus the contract (Παράμετροι → Εργαζομένων → Συμβάσεις).
+		var employees = (await db.Employees
+				.OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
+				.Select(e => new
+				{
+					e.Id,
+					e.LastName,
+					e.FirstName,
+					Speciality = e.Speciality.Name,
+					ContractCode = e.EmploymentType != null ? e.EmploymentType.Code : null,
+					ContractName = e.EmploymentType != null ? e.EmploymentType.Name : null
+				})
+				.ToListAsync())
+			.Select(e => new
+			{
+				e.Id,
+				e.LastName,
+				e.FirstName,
+				e.Speciality,
+				// Same contract rule as the collective certificate (name first, then code).
+				IsFixedTerm = ContractRules.Resolve(e.ContractCode, e.ContractName) == ContractKind.FixedTerm
+			})
+			// Two lists on one sheet: permanent / open-ended (and anyone without a contract yet)
+			// first, fixed-term after the separator row. OrderBy is stable, so each list keeps
+			// the alphabetical order of the query.
+			.OrderBy(e => e.IsFixedTerm)
+			.ToList();
 
 		var entries = await db.ShiftDays
 			.Where(s => s.Date >= first && s.Date <= last)
@@ -66,6 +89,7 @@ public class ReportService : IReportService
 				LastName = e.LastName,
 				FirstName = e.FirstName,
 				Speciality = e.Speciality,
+				IsFixedTerm = e.IsFixedTerm,
 				DayCodes = new string?[days],
 				ProgramCounts = new int[7],
 			};

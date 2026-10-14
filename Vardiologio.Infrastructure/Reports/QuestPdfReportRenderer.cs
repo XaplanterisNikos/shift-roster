@@ -3,6 +3,7 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using Vardiologio.Application.ReportColors;
 using Vardiologio.Application.Reports;
+using Vardiologio.Application.ReportTexts;
 
 namespace Vardiologio.Infrastructure.Reports;
 
@@ -136,6 +137,7 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 		var satBg = m.Colors[ReportColorCatalog.MonthlyTotalSaturday];
 		var sunBg = m.Colors[ReportColorCatalog.MonthlyTotalSunday];
 		var totBg = m.Colors[ReportColorCatalog.MonthlyTotalTotals];
+		var bandBg = m.Colors[ReportColorCatalog.MonthlyTotalFixedTermBand];
 		Func<IContainer, IContainer> H = cell => Filled(cell, hdrBg);   // header cell
 		Func<IContainer, IContainer> T = cell => Filled(cell, totBg);   // totals-header cell
 		IContainer HDay(IContainer cell, DateOnly day) =>         // day header with weekend shading
@@ -145,9 +147,9 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 				.Border(0.5f).Padding(1).AlignCenter().AlignMiddle();
 
 		// Relative widths, so the 40-odd columns always fill the width of the A4 page.
+		// No Α/Α column on the printed Σ.Ω. (as on the paper form): the name is the first column.
 		table.ColumnsDefinition(cols =>
 		{
-			cols.RelativeColumn(0.9f);                                 // Α/Α
 			cols.RelativeColumn(5.2f);                                 // ΟΝΟΜΑΤΕΠΩΝΥΜΟ
 			cols.RelativeColumn(3.9f);                                 // ΕΙΔΙΚΟΤΗΤΑ
 			for (int d = 0; d < days; d++) cols.RelativeColumn(1);     // ημέρες
@@ -159,7 +161,6 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 		table.Header(header =>
 		{
 			// Row 1 — group headers
-			header.Cell().RowSpan(3).Element(H).Text("Α/Α");
 			header.Cell().RowSpan(3).Element(H).AlignLeft().Text("ΟΝΟΜΑΤΕΠΩΝΥΜΟ");
 			header.Cell().RowSpan(3).Element(H).AlignLeft().Text("ΕΙΔΙΚΟΤΗΤΑ");
 			header.Cell().ColumnSpan((uint)days).Element(H).Text("");                       // spans above the day columns
@@ -182,9 +183,23 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 			for (int k = 1; k <= 7; k++) header.Cell().Element(H).Text("");
 		});
 
+		// Every column of a data row: name, speciality, the days, the counts 1..7, the two totals.
+		var columnCount = (uint)(2 + days + 7 + 2);
+
+		// The permanent / open-ended list, then the separator row and the fixed-term list.
+		// The table simply flows on: a new page starts only when the rows no longer fit.
+		var bandText = m.Texts.Line(ReportTextBlocks.FixedTermBand, 0);
+		var bandDone = false;
+
 		foreach (var r in m.Rows)
 		{
-			table.Cell().Element(D).Text(r.Index.ToString());
+			if (r.IsFixedTerm && !bandDone)
+			{
+				// One full-width row before the first fixed-term employee (only when there is one).
+				table.Cell().ColumnSpan(columnCount).Element(x => Filled(x, bandBg)).Text(bandText).Bold().FontSize(7);
+				bandDone = true;
+			}
+
 			table.Cell().Element(D).AlignLeft().Text($"{r.LastName} {r.FirstName}".Trim());
 			table.Cell().Element(D).AlignLeft().Text(r.Speciality);
 			for (int d = 1; d <= days; d++)
