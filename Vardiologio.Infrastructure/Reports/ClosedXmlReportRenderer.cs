@@ -18,6 +18,9 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 		  "ΙΟΥΛΙΟΥ","ΑΥΓΟΥΣΤΟΥ","ΣΕΠΤΕΜΒΡΙΟΥ","ΟΚΤΩΒΡΙΟΥ","ΝΟΕΜΒΡΙΟΥ","ΔΕΚΕΜΒΡΙΟΥ" };
 	private static readonly string[] WdGr = { "Δε", "Τρ", "Τε", "Πε", "Πα", "Σα", "Κυ" }; // Δευτέρα-based
 
+	/// <summary>Height of a Σ.Ω. table / legend row, in points (Arial 8–9 with a little room).</summary>
+	private const double SoRowHeight = 12.75;
+
 	/// <inheritdoc/>
 	public byte[] Render(ReportModel m)
 	{
@@ -107,9 +110,16 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 		for (var k = 1; k <= 7; k++)
 			Merge(ws, rDay, cCount0 + k - 1, rWd, cCount0 + k - 1, k.ToString(), 8, true, XLAlignmentHorizontalValues.Center, hdrFill);
 
+		// Fixed row heights from the table down: Excel then prints exactly these heights, and the
+		// page-break estimate under the table (KeepLastRowsWithClosing) can rely on them.
+		ws.Row(rGroup).Height = 22;   // "ΕΡΓΑΣΙΑ ΠΡΟΣ ΣΥΜΠΛΗΡΩΣΗ" wraps onto two lines
+		ws.Row(rDay).Height = SoRowHeight;
+		ws.Row(rWd).Height = SoRowHeight;
+
 		// Data rows: the permanent / open-ended list, then the separator row and the fixed-term list.
 		var bandText = m.Texts.Line(ReportTextBlocks.FixedTermBand, 0);
 		var bandDone = false;
+		var bandRows = new HashSet<int>();
 		var r = rData0;
 		foreach (var row in m.Rows)
 		{
@@ -117,6 +127,8 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 			{
 				// One full-width row before the first fixed-term employee (only when there is one).
 				Merge(ws, r, cName, r, lastCol, bandText, 9, true, center, bandFill);
+				ws.Row(r).Height = 15;
+				bandRows.Add(r);
 				bandDone = true;
 				r++;
 			}
@@ -139,6 +151,7 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 
 			Put(ws, r, cHmer, "", 8, false, null);   // ΗΜΕΡΗΣΙΑ total — left blank until the rule is defined
 			Put(ws, r, cKyr, "", 8, false, null);   // ΚΥΡΙΑΚΩΝ total — left blank until the rule is defined
+			ws.Row(r).Height = SoRowHeight;
 			r++;
 		}
 		var lastRow = Math.Max(r - 1, rData0);
@@ -151,11 +164,13 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 		// ---- Legend of the shift codes (name / speciality columns), as on the shift table ----
 		var lt = lastRow + 2;
 		Merge(ws, lt, cName, lt, cSpec, ShiftTableTexts.LegendTitle, 9, true, center, hdrFill);
+		ws.Row(lt).Height = SoRowHeight;
 		var lr = lt + 1;
 		foreach (var (code, description) in m.WorkCodes.Concat(m.StatusCodes))
 		{
 			Put(ws, lr, cName, code, 9, true, null);
 			Put(ws, lr, cSpec, description, 8, false, null);
+			ws.Row(lr).Height = SoRowHeight;
 			lr++;
 		}
 		var legend = ws.Range(lt, cName, Math.Max(lr - 1, lt), cSpec);
@@ -193,13 +208,19 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 		// A4 landscape, one page wide and as many pages tall as the employees need: the
 		// letterhead prints once at the top, the table headers repeat on every page, the
 		// legend and the signatures come once after the last row.
+		var printLastRow = Math.Max(Math.Max(lr - 1, lt), nameRow + 2);
 		ws.PageSetup.PaperSize = XLPaperSize.A4Paper;
 		ws.PageSetup.PagesWide = 1;   // the height is left free
 		ws.PageSetup.SetRowsToRepeatAtTop(rGroup, rWd);
 		ws.PageSetup.CenterHorizontally = true;
-		ws.PageSetup.PrintAreas.Add(1, 1, Math.Max(Math.Max(lr - 1, lt), nameRow + 2), lastCol);
+		ws.PageSetup.PrintAreas.Add(1, 1, printLastRow, lastCol);
 		ws.PageSetup.Margins.Left = 0.3; ws.PageSetup.Margins.Right = 0.3;
 		ws.PageSetup.Margins.Top = 0.4; ws.PageSetup.Margins.Bottom = 0.4;
+		AddPageNumbers(ws);
+
+		// The legend and the signatures never on a page without employees (an estimate: see the method).
+		if (m.Rows.Count > 0)
+			KeepLastRowsWithClosing(ws, lastCol, TailFirstRow(lastRow, bandRows), lastRow, printLastRow);
 
 		using var ms = new MemoryStream();
 		wb.SaveAs(ms);

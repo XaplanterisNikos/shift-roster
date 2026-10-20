@@ -42,6 +42,7 @@ public partial class ClosedXmlReportRenderer
 
 		// Groups one under the other: bands, then one row per employee.
 		var r = rHead + 2;
+		var bandRows = new HashSet<int>();
 		for (var g = 0; g < m.Groups.Count; g++)
 		{
 			var group = m.Groups[g];
@@ -50,7 +51,11 @@ public partial class ClosedXmlReportRenderer
 			{
 				// The department band is printed once, above the first group.
 				var department = ContractCertificateTexts.Department(m.Texts);
-				if (department.Length > 0) r = ContractBand(ws, r, department, bandFill);
+				if (department.Length > 0)
+				{
+					bandRows.Add(r);
+					r = ContractBand(ws, r, department, bandFill);
+				}
 			}
 			else
 			{
@@ -59,7 +64,11 @@ public partial class ClosedXmlReportRenderer
 			}
 
 			var title = ContractCertificateTexts.GroupTitle(m.Texts, group.Kind);
-			if (title.Length > 0) r = ContractBand(ws, r, title, bandFill);
+			if (title.Length > 0)
+			{
+				bandRows.Add(r);
+				r = ContractBand(ws, r, title, bandFill);
+			}
 
 			foreach (var row in group.Rows)
 			{
@@ -106,6 +115,11 @@ public partial class ClosedXmlReportRenderer
 		ws.PageSetup.PrintAreas.Add(1, 1, lastRow, CertLastCol);
 		ws.PageSetup.Margins.Left = 0.4; ws.PageSetup.Margins.Right = 0.4;
 		ws.PageSetup.Margins.Top = 0.4; ws.PageSetup.Margins.Bottom = 0.4;
+		AddPageNumbers(ws);
+
+		// The signatures never on a page without employees (an estimate: see the method).
+		if (lastTableRow > rHead + 1)
+			KeepLastRowsWithClosing(ws, CertLastCol, TailFirstRow(lastTableRow, bandRows), lastTableRow, lastRow);
 
 		using var ms = new MemoryStream();
 		wb.SaveAs(ms);

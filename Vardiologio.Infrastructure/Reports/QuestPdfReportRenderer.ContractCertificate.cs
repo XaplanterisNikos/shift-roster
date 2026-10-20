@@ -39,14 +39,23 @@ public partial class QuestPdfReportRenderer
 						var group = m.Groups[g];
 						var isFirst = g == 0;
 
+						// The signatures once, under the last group, on the same page as its last
+						// employee (see ContractTable).
+						Action<IContainer>? closing = g == m.Groups.Count - 1
+							? s => s.PaddingTop(14).Element(x => AttSignatures(x, AttendanceSheet.Staff, m.Texts))
+							: null;
+
 						// Every contract after the first starts on a new page.
 						if (!isFirst) col.Item().PageBreak();
-						col.Item().PaddingTop(isFirst ? 10 : 0).Element(c => ContractTable(c, m, group, isFirst));
+						col.Item().PaddingTop(isFirst ? 10 : 0).Element(c => ContractTable(c, m, group, isFirst, closing));
 					}
 
-					// Signatures once, kept together (they move to a new page when they do not fit).
-					col.Item().PaddingTop(14).ShowEntire().Element(c => AttSignatures(c, AttendanceSheet.Staff, m.Texts));
+					// A form without groups still gets its signatures.
+					if (m.Groups.Count == 0)
+						col.Item().PaddingTop(14).ShowEntire().Element(c => AttSignatures(c, AttendanceSheet.Staff, m.Texts));
 				});
+
+				page.Footer().PaddingTop(4).Element(c => PageNumbers(c));
 			});
 		});
 
@@ -55,20 +64,26 @@ public partial class QuestPdfReportRenderer
 
 	/// <summary>
 	/// The table of one contract: header (repeated on every page it runs onto), the department
-	/// band (first group only), the contract band, then one row per employee.
+	/// band (first group only), the contract band, then one row per employee. The last group
+	/// gets the signatures, which print on the same page as its last employee
+	/// (see <see cref="RowsWithClosing"/>).
 	/// </summary>
-	private static void ContractTable(IContainer c, ContractCertificateModel m, ContractCertificateGroup group, bool isFirst) => c.Table(t =>
+	/// <param name="closing">The signatures; null for every group but the last.</param>
+	private static void ContractTable(IContainer c, ContractCertificateModel m, ContractCertificateGroup group,
+		bool isFirst, Action<IContainer>? closing) => c.Table(t =>
 	{
 		var bandColor = m.Colors[ReportColorCatalog.ContractCertificateBand];
 
-		t.ColumnsDefinition(cols =>
+		// A local function, because the last row is drawn in a table of its own with the same columns.
+		void Columns(TableColumnsDefinitionDescriptor cols)
 		{
 			cols.ConstantColumn(26);                           // A/A
 			cols.RelativeColumn(1.7f);                         // Επίθετο
 			cols.RelativeColumn(1.3f);                         // Όνομα
 			cols.RelativeColumn(1.5f);                         // Ειδικότητα
 			for (var k = 0; k < 6; k++) cols.RelativeColumn(); // hour columns
-		});
+		}
+		t.ColumnsDefinition(Columns);
 
 		t.Header(h =>
 		{
@@ -88,25 +103,34 @@ public partial class QuestPdfReportRenderer
 				h.Cell().Element(CertH).Text(sub).Bold().FontSize(6.5f);
 		});
 
+		var items = new List<TableItem>();
+
 		// Bands across the whole table; a band whose text was left empty is not printed.
 		var department = isFirst ? ContractCertificateTexts.Department(m.Texts) : "";
 		if (department.Length > 0)
-			t.Cell().ColumnSpan(ContractColumns).Element(x => ContractBandCell(x, bandColor)).Text(department).Bold().FontSize(8);
+			items.Add(new TableItem(true, x =>
+				x.Cell().ColumnSpan(ContractColumns).Element(b => ContractBandCell(b, bandColor)).Text(department).Bold().FontSize(8)));
 
 		var title = ContractCertificateTexts.GroupTitle(m.Texts, group.Kind);
 		if (title.Length > 0)
-			t.Cell().ColumnSpan(ContractColumns).Element(x => ContractBandCell(x, bandColor)).Text(title).Bold().FontSize(8);
+			items.Add(new TableItem(true, x =>
+				x.Cell().ColumnSpan(ContractColumns).Element(b => ContractBandCell(b, bandColor)).Text(title).Bold().FontSize(8)));
 
 		// One row per employee.
 		foreach (var row in group.Rows)
 		{
-			t.Cell().Element(ContractD).Text(row.Index.ToString()).FontSize(7);
-			t.Cell().Element(ContractD).Text(GreekText.Upper(row.LastName)).Bold().FontSize(8.5f);
-			t.Cell().Element(ContractD).Text(GreekText.Upper(row.FirstName)).Bold().FontSize(8.5f);
-			t.Cell().Element(ContractD).Text(GreekText.Upper(row.Speciality)).Bold().FontSize(6.5f);
-			foreach (var v in ContractCertificateTexts.Values(row))
-				t.Cell().Element(ContractD).Text(v).Bold().FontSize(9.5f);
+			items.Add(new TableItem(false, x =>
+			{
+				x.Cell().Element(ContractD).Text(row.Index.ToString()).FontSize(7);
+				x.Cell().Element(ContractD).Text(GreekText.Upper(row.LastName)).Bold().FontSize(8.5f);
+				x.Cell().Element(ContractD).Text(GreekText.Upper(row.FirstName)).Bold().FontSize(8.5f);
+				x.Cell().Element(ContractD).Text(GreekText.Upper(row.Speciality)).Bold().FontSize(6.5f);
+				foreach (var v in ContractCertificateTexts.Values(row))
+					x.Cell().Element(ContractD).Text(v).Bold().FontSize(9.5f);
+			}));
 		}
+
+		RowsWithClosing(t, ContractColumns, Columns, items, closing);
 	});
 
 	// Contract certificate cell styles.

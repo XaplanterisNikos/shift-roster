@@ -9,7 +9,8 @@ namespace Vardiologio.Infrastructure.Reports;
 /// <summary>
 /// Attendance report ("ΠΙΝΑΚΑΣ ΠΑΡΟΥΣΙΩΝ ΠΡΟΣΩΠΙΚΟΥ") on A4 landscape. Each fortnight is one document:
 /// emblem + letterhead + titles once at the top, the numbered tables (a new page for each), and the
-/// signatures once under the last table. Nothing repeats from page to page.
+/// signatures once under the last table. Only the page number ("Σελίδα 1 από 2", counted per
+/// fortnight) is on every page.
 /// </summary>
 public partial class QuestPdfReportRenderer
 {
@@ -24,30 +25,41 @@ public partial class QuestPdfReportRenderer
 
 		var doc = Document.Create(container =>
 		{
+			var fortnight = 0;
 			foreach (var (from, to) in m.Fortnights())
 			{
+				// The pages of each fortnight are numbered on their own ("Σελίδα 1 από 2" twice),
+				// because each fortnight is a document of its own with its own signatures.
+				var section = $"fortnight-{++fortnight}";
+
 				// One page definition per fortnight: its content flows over as many pages as it
-				// needs, and there is no page header or footer, so nothing is repeated.
+				// needs, and the only thing on every page is the page number.
 				container.Page(page =>
 				{
 					page.Size(PageSizes.A4.Landscape());
 					page.Margin(20);
 					page.DefaultTextStyle(x => x.FontFamily("Lato").FontSize(8));
 
-					page.Content().Column(col =>
+					page.Content().Section(section).Column(col =>
 					{
 						col.Item().Element(h => AttHead(h, m.Sheet, m.Texts, from, to));
 
 						for (var i = 0; i < tables.Count; i++)
 						{
 							var index = i;   // own copy for the lambda below
-							if (index > 0) col.Item().PageBreak();   // every table after the first starts a page
-							col.Item().PaddingTop(6).Element(c => AttTable(c, index + 1, from, to, tables[index]));
-						}
 
-						// Kept in one piece; the table sizes leave room for it under the last table.
-						col.Item().ShowEntire().Element(f => AttSignatures(f, m.Sheet, m.Texts));
+							// The signatures under the last table. The table sizes leave room for them;
+							// should the rows still run long, the last employee goes with them.
+							Action<IContainer>? closing = index == tables.Count - 1
+								? s => AttSignatures(s, m.Sheet, m.Texts)
+								: null;
+
+							if (index > 0) col.Item().PageBreak();   // every table after the first starts a page
+							col.Item().PaddingTop(6).Element(c => AttTable(c, index + 1, from, to, tables[index], closing));
+						}
 					});
+
+					page.Footer().PaddingTop(2).Element(c => PageNumbers(c, section));
 				});
 			}
 		});
@@ -109,8 +121,13 @@ public partial class QuestPdfReportRenderer
 		});
 	});
 
-	/// <summary>Table caption, then name / speciality / one column per day of the fortnight.</summary>
-	private static void AttTable(IContainer c, int table, DateOnly from, DateOnly to, AttendanceReportRow[] rows) => c.Column(col =>
+	/// <summary>
+	/// Table caption, then name / speciality / one column per day of the fortnight. The last
+	/// table gets the signatures, on the same page as its last employee (see <see cref="RowsWithClosing"/>).
+	/// </summary>
+	/// <param name="closing">The signatures; null for every table but the last.</param>
+	private static void AttTable(IContainer c, int table, DateOnly from, DateOnly to, AttendanceReportRow[] rows,
+		Action<IContainer>? closing) => c.Column(col =>
 	{
 		var days = to.Day - from.Day + 1;
 
@@ -118,12 +135,14 @@ public partial class QuestPdfReportRenderer
 
 		col.Item().Table(t =>
 		{
-			t.ColumnsDefinition(cols =>
+			// A local function, because the last row is drawn in a table of its own with the same columns.
+			void Columns(TableColumnsDefinitionDescriptor cols)
 			{
 				cols.ConstantColumn(120);                              // ΟΝΟΜΑΤΕΠΩΝΥΜΟ
 				cols.ConstantColumn(140);                              // ΕΙΔΙΚΟΤΗΤΑ (longest specialities)
 				for (var i = 0; i < days; i++) cols.RelativeColumn();  // days of the fortnight
-			});
+			}
+			t.ColumnsDefinition(Columns);
 
 			t.Header(h =>
 			{
@@ -138,13 +157,15 @@ public partial class QuestPdfReportRenderer
 					h.Cell().Element(AttHDayName).Text(AttendanceSheetTexts.DayName(from.AddDays(i))).FontSize(5.3f);
 			});
 
-			foreach (var r in rows)
+			var items = rows.Select(r => new TableItem(false, x =>
 			{
-				t.Cell().Element(AttDLeft).Text(r.FullName);
-				t.Cell().Element(AttDLeft).Text(r.Speciality).FontSize(6.5f);
+				x.Cell().Element(AttDLeft).Text(r.FullName);
+				x.Cell().Element(AttDLeft).Text(r.Speciality).FontSize(6.5f);
 				for (var i = 0; i < days; i++)
-					t.Cell().Element(AttD).Text(r.Mark(from.Day + i)).FontSize(9);
-			}
+					x.Cell().Element(AttD).Text(r.Mark(from.Day + i)).FontSize(9);
+			})).ToList();
+
+			RowsWithClosing(t, (uint)(2 + days), Columns, items, closing);
 		});
 	});
 

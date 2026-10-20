@@ -107,6 +107,7 @@ public partial class ClosedXmlReportRenderer
 		ws.PageSetup.SetRowsToRepeatAtTop(rCat, rSub);
 		ws.PageSetup.Margins.Left = 0.3; ws.PageSetup.Margins.Right = 0.3;
 		ws.PageSetup.Margins.Top = 0.4; ws.PageSetup.Margins.Bottom = 0.4;
+		AddPageNumbers(ws);
 
 		using var ms = new MemoryStream();
 		wb.SaveAs(ms);

@@ -168,6 +168,7 @@ public partial class ClosedXmlReportRenderer
 		ws.PageSetup.PrintAreas.Add(1, 1, lastRow, lastCol);
 		ws.PageSetup.Margins.Left = 0.3; ws.PageSetup.Margins.Right = 0.3;
 		ws.PageSetup.Margins.Top = 0.3; ws.PageSetup.Margins.Bottom = 0.3;
+		AddPageNumbers(ws);
 
 		using var ms = new MemoryStream();
 		wb.SaveAs(ms);

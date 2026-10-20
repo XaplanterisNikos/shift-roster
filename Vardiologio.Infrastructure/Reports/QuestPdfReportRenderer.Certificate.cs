@@ -31,6 +31,8 @@ public partial class QuestPdfReportRenderer
 					col.Item().PaddingTop(10).Element(c => CertDeclaration(c, m));
 					col.Item().PaddingTop(12).Element(c => CertSignature(c, m));
 				});
+
+				page.Footer().PaddingTop(4).Element(c => PageNumbers(c));
 			});
 		});
 

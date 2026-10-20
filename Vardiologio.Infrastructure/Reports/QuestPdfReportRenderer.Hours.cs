@@ -24,11 +24,16 @@ public partial class QuestPdfReportRenderer
 
 				page.Header().Element(h => HoursHead(h, m));
 				page.Content().PaddingTop(8).Element(c => HoursTable(c, m));
-				page.Footer().PaddingTop(4)
-					.Text($"ΔΗΛ. = δηλωμένες, ΠΛΗΡ. = πληρώνονται, ΠΕΡ. = περισσεύουν (δεν πληρώνονται).  " +
-					      $"Όριο αργίας = {Num(m.Limits[HourCategory.Holiday])} ({m.HolidaysInMonth} αργίες τον μήνα).  " +
-					      $"Προς συμπλήρωση + Αργίας: κοινό όριο {Num(m.CombinedLimit)}, κόβεται πρώτα το προς συμπλήρωση.")
-					.FontSize(6);
+				// The explanation of the columns on the left, the page number on the right.
+				page.Footer().PaddingTop(4).Row(row =>
+				{
+					row.RelativeItem()
+						.Text($"ΔΗΛ. = δηλωμένες, ΠΛΗΡ. = πληρώνονται, ΠΕΡ. = περισσεύουν (δεν πληρώνονται).  " +
+						      $"Όριο αργίας = {Num(m.Limits[HourCategory.Holiday])} ({m.HolidaysInMonth} αργίες τον μήνα).  " +
+						      $"Προς συμπλήρωση + Αργίας: κοινό όριο {Num(m.CombinedLimit)}, κόβεται πρώτα το προς συμπλήρωση.")
+						.FontSize(6);
+					row.ConstantItem(80).AlignBottom().Element(c => PageNumbers(c));
+				});
 			});
 		});
 

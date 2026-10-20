@@ -36,13 +36,14 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 
 				// Normal flow over as many A4 pages as the employees need: the letterhead once at
 				// the top, the table (its header rows repeat on every page), then the legend and
-				// the signatures once after the last row, kept together.
+				// the signatures once after the last row, kept together and never on a page
+				// without employees (see Table).
 				page.Content().Column(col =>
 				{
 					col.Item().Element(c => Head(c, m));
 					col.Item().PaddingTop(6).Element(c => Table(c, m, days));
-					col.Item().PaddingTop(10).ShowEntire().Element(c => Bottom(c, m));
 				});
+				page.Footer().PaddingTop(4).Element(c => PageNumbers(c));
 			});
 		});
 
@@ -129,7 +130,11 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 		});
 	});
 
-	/// <summary>Builds the roster table (headers + one row per employee).</summary>
+	/// <summary>
+	/// Builds the roster table (headers + one row per employee) and closes it with the legend and
+	/// the signatures, which always print on the same page as the last employee
+	/// (see <see cref="RowsWithClosing"/>).
+	/// </summary>
 	private static void Table(IContainer c, ReportModel m, int days) => c.Table(table =>
 	{
 		// Cell styles with the report's colours (Παράμετροι → Αναφορών → Χρώματα).
@@ -148,7 +153,8 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 
 		// Relative widths, so the 40-odd columns always fill the width of the A4 page.
 		// No Α/Α column on the printed Σ.Ω. (as on the paper form): the name is the first column.
-		table.ColumnsDefinition(cols =>
+		// A local function, because the last row is drawn in a table of its own with the same columns.
+		void Columns(TableColumnsDefinitionDescriptor cols)
 		{
 			cols.RelativeColumn(5.2f);                                 // ΟΝΟΜΑΤΕΠΩΝΥΜΟ
 			cols.RelativeColumn(3.9f);                                 // ΕΙΔΙΚΟΤΗΤΑ
@@ -156,7 +162,8 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 			for (int k = 0; k < 7; k++) cols.RelativeColumn(1);        // μετρήσεις 1..7
 			cols.RelativeColumn(1.7f);                                 // ΗΜΕΡΗΣΙΑ
 			cols.RelativeColumn(1.9f);                                 // ΚΥΡΙΑΚΩΝ
-		});
+		}
+		table.ColumnsDefinition(Columns);
 
 		table.Header(header =>
 		{
@@ -190,28 +197,37 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 		// The table simply flows on: a new page starts only when the rows no longer fit.
 		var bandText = m.Texts.Line(ReportTextBlocks.FixedTermBand, 0);
 		var bandDone = false;
+		var items = new List<TableItem>();
 
 		foreach (var r in m.Rows)
 		{
 			if (r.IsFixedTerm && !bandDone)
 			{
 				// One full-width row before the first fixed-term employee (only when there is one).
-				table.Cell().ColumnSpan(columnCount).Element(x => Filled(x, bandBg)).Text(bandText).Bold().FontSize(7);
+				items.Add(new TableItem(true, t =>
+					t.Cell().ColumnSpan(columnCount).Element(x => Filled(x, bandBg)).Text(bandText).Bold().FontSize(7)));
 				bandDone = true;
 			}
 
-			table.Cell().Element(D).AlignLeft().Text($"{r.LastName} {r.FirstName}".Trim());
-			table.Cell().Element(D).AlignLeft().Text(r.Speciality);
-			for (int d = 1; d <= days; d++)
+			var row = r;   // own copy for the lambda below
+			items.Add(new TableItem(false, t =>
 			{
-				var date = new DateOnly(m.Year, m.Month, d);
-				table.Cell().Element(x => DDay(x, date)).Text(r.DayCodes[d - 1] ?? "");
-			}
-			for (int k = 0; k < 7; k++)
-				table.Cell().Element(D).Text(r.ProgramCounts[k] == 0 ? "" : r.ProgramCounts[k].ToString());
-			table.Cell().Element(D).Text("");  // ΗΜΕΡΗΣΙΑ total — left blank until the rule is defined
-			table.Cell().Element(D).Text("");   // ΚΥΡΙΑΚΩΝ total — left blank until the rule is defined
+				t.Cell().Element(D).AlignLeft().Text($"{row.LastName} {row.FirstName}".Trim());
+				t.Cell().Element(D).AlignLeft().Text(row.Speciality);
+				for (int d = 1; d <= days; d++)
+				{
+					var date = new DateOnly(m.Year, m.Month, d);
+					t.Cell().Element(x => DDay(x, date)).Text(row.DayCodes[d - 1] ?? "");
+				}
+				for (int k = 0; k < 7; k++)
+					t.Cell().Element(D).Text(row.ProgramCounts[k] == 0 ? "" : row.ProgramCounts[k].ToString());
+				t.Cell().Element(D).Text("");   // ΗΜΕΡΗΣΙΑ total — left blank until the rule is defined
+				t.Cell().Element(D).Text("");   // ΚΥΡΙΑΚΩΝ total — left blank until the rule is defined
+			}));
 		}
+
+		// The last employee goes with the legend and the signatures, on the same page.
+		RowsWithClosing(table, columnCount, Columns, items, x => x.PaddingTop(10).Element(b => Bottom(b, m)));
 	});
 
 	// Cell styles (borders / background / alignment). The fills take their colour as an

@@ -35,6 +35,9 @@ public partial class QuestPdfReportRenderer
 					col.Item().PaddingTop(6).Element(c => IndivTable(c, m));
 					col.Item().PaddingTop(10).Element(c => IndivSignatures(c, m));
 				});
+
+				// Outside the scaled content, so the page number keeps its size.
+				page.Footer().PaddingTop(4).Element(c => PageNumbers(c));
 			});
 		});
 

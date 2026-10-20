@@ -57,6 +57,15 @@ staff and producing the official attendance/shift reports.
   calculation as the individual certificate; a zero is left blank. The head of the directorate
   is left out; employees without one of the three contracts are listed in a note. Excel, PDF
   (A4 landscape) and inline preview; the page opens with the current month.
+- **Page rules of every printed form** — every page carries "Σελίδα X από Y" at the bottom
+  right (in the attendance PDF counted per fortnight, since each fortnight is a document of its
+  own). The signatures (and the legend of the Σ.Ω.) never print on a page without employees:
+  when they do not fit under the last row, that row — with any band right above it — moves to
+  the next page with them. In the PDF this is exact (the last row and the closing block form one
+  unbreakable block, `QuestPdfReportRenderer.Paging.cs`); in Excel, which breaks pages itself
+  when it prints, the app estimates the breaks (`ExcelPageEstimate`) and adds a manual page
+  break when needed, which the user can still move in Excel. The table header repeats on a new
+  page only on the forms that already repeated it (Σ.Ω., certificate per contract).
 - **Report text parameters** (Παράμετροι → Αναφορών) — the fixed texts of seven forms
   (shift table, staff attendance, fixed-term staff attendance, directorate attendance, overtime certificate, certificate
   per contract, Σ.Ω.) are

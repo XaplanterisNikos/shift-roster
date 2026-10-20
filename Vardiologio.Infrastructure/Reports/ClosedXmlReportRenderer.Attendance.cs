@@ -56,7 +56,8 @@ public partial class ClosedXmlReportRenderer
 		ws.PageSetup.PrintAreas.Add(1, 1, lastRow, AttLastCol);
 		ws.PageSetup.Margins.Left = 0.3; ws.PageSetup.Margins.Right = 0.3;
 		ws.PageSetup.Margins.Top = 0.3; ws.PageSetup.Margins.Bottom = 0.3;
-		ws.PageSetup.Margins.Header = 0; ws.PageSetup.Margins.Footer = 0;
+		ws.PageSetup.Margins.Header = 0;
+		AddPageNumbers(ws);   // the whole sheet: both fortnights are on it
 
 		using var ms = new MemoryStream();
 		wb.SaveAs(ms);
