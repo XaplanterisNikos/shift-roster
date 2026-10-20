@@ -1,0 +1,36 @@
+@page "/employee-parameters"
+@using Vardiologio.Application.Parameters
+
+@* Employee lookups (ειδικότητες / συμβάσεις / θέσεις) as tabs over one reusable editor, and
+   the supervisors who sign the individual monthly sheet (own editor, last tab).
+   A tab's editor is created when the tab opens and dropped when it closes, so each tab
+   starts clean. Tab styles: "Report texts" block in app.css. *@
+
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Παράμετροι Εργαζομένων</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Οι ειδικότητες, οι συμβάσεις, οι θέσεις και οι υπογράφοντες προϊστάμενοι που επιλέγονται στην καρτέλα κάθε εργαζομένου.</MudText>
+    </div>
+</div>
+
+<MudTabs Elevation="0" SliderColor="Color.Primary" Class="report-tabs" TabPanelsClass="report-tab-panel">
+    @foreach (var tab in Tabs)
+    {
+        <MudTabPanel Text="@tab.Title">
+            <LookupEditor Kind="tab.Kind" />
+        </MudTabPanel>
+    }
+    <MudTabPanel Text="Υπογράφοντες">
+        <SignatoryEditor />
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    /// <summary>Tab order and titles; the Kind is what LookupEditor works on.</summary>
+    private static readonly (LookupKind Kind, string Title)[] Tabs =
+    {
+        (LookupKind.Speciality, "Ειδικότητες"),
+        (LookupKind.EmploymentType, "Συμβάσεις"),
+        (LookupKind.WorkPosition, "Θέσεις")
+    };
+}

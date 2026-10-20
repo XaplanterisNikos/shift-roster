@@ -1,0 +1,13 @@
+@* Inline PDF preview via a base64 data-URI (WebView2 has a built-in PDF viewer): exactly what
+   gets printed. Styles: "Reports" block in app.css. *@
+<object data="@Data" type="application/pdf" class="pdf-preview">
+    <p>
+        Δεν εμφανίζεται η προεπισκόπηση.
+        <a href="@Data" target="_blank">Άνοιγμα PDF</a>
+    </p>
+</object>
+
+@code {
+    /// <summary>The PDF as a data-URI ("data:application/pdf;base64,...").</summary>
+    [Parameter, EditorRequired] public string Data { get; set; } = "";
+}

@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Vardiologio.App/Vardiologio.App.csproj" />
+  <Project Path="Vardiologio.Application/Vardiologio.Application.csproj" />
+  <Project Path="Vardiologio.Domain/Vardiologio.Domain.csproj" />
+  <Project Path="Vardiologio.Infrastructure/Vardiologio.Infrastructure.csproj" />
+</Solution>

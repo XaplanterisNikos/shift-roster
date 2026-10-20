@@ -1,0 +1,105 @@
+﻿@page "/export"
+@using System.Diagnostics
+@using System.IO
+@using Vardiologio.Application.Files
+@using Vardiologio.Application.Logging
+@using Vardiologio.Application.Reports
+@inject IReportService ReportService
+@inject IExcelReportRenderer Excel
+@inject IPdfReportRenderer Pdf
+@inject IReportFileStore FileStore
+@inject IErrorLog ErrorLog
+@inject ISnackbar Snackbar
+
+@* Export the monthly Σ.Ω. report: save+open as Excel or PDF, or preview the PDF inline. *@
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Συνολική μηνιαία Σ.Ω.</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Το μηνιαίο πρόγραμμα όλων των εργαζομένων σε ένα φύλλο.</MudText>
+    </div>
+</div>
+
+@* Month, preview and export buttons (Shared/ReportToolbar.razor). *@
+<ReportToolbar @bind-Year="year" @bind-Month="month" Busy="busy"
+               OnPreview="PreviewPdf" OnExcel="ExportExcel" OnPdf="ExportPdf" />
+
+@if (error is not null)
+{
+    <MudAlert Severity="Severity.Error" Dense="true" Class="report-alert">@error</MudAlert>
+}
+
+@if (pdfDataUri is not null)
+{
+    <PdfPreview Data="@pdfDataUri" />
+}
+
+@code {
+    private int year = DateTime.Today.Year;
+    private int month = DateTime.Today.Month;
+    private bool busy;
+    private string? error, pdfDataUri;
+
+    /// <summary>
+    /// The page opens with the current month already shown. Done after the first render, so
+    /// the page appears at once and the report follows; for another month the user picks it
+    /// and presses the button.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await PreviewPdf();
+        StateHasChanged();
+    }
+
+    private async Task ExportExcel() => await SaveAndOpen(m => Excel.Render(m), "xlsx");
+    private async Task ExportPdf() => await SaveAndOpen(m => Pdf.Render(m), "pdf");
+
+    // Shared helper: build the model, render to bytes, save under Reports\Monthly-Total\<month>, then open with the default app.
+    private async Task SaveAndOpen(Func<ReportModel, byte[]> render, string ext)
+    {
+        busy = true; error = null;
+        await ShowBusyAsync();
+        try
+        {
+            var model = await ReportService.BuildMonthlyRosterAsync(year, month);
+            var bytes = render(model);
+            var path = await FileStore.SaveAsync(ReportFolder.MonthlyTotal, year, month, $"Monthly_Total_{year}_{month:00}.{ext}", bytes);
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            Snackbar.ReportSaved(path);
+        }
+        catch (Exception ex) { Fail("Excel/PDF export", ex); }
+        finally { busy = false; }
+    }
+
+    // Build the PDF in memory and show it inline (no file written).
+    private async Task PreviewPdf()
+    {
+        busy = true; error = null; pdfDataUri = null;
+        await ShowBusyAsync();
+        try
+        {
+            var model = await ReportService.BuildMonthlyRosterAsync(year, month);
+            var bytes = Pdf.Render(model);
+            pdfDataUri = "data:application/pdf;base64," + Convert.ToBase64String(bytes);
+        }
+        catch (Exception ex) { Fail("PDF preview", ex); }
+        finally { busy = false; }
+    }
+
+    /// <summary>
+    /// Draws the progress bar before the report work starts: building and rendering a report
+    /// keeps the UI thread busy, so without this pause the bar would never be seen.
+    /// </summary>
+    private async Task ShowBusyAsync()
+    {
+        StateHasChanged();
+        await Task.Delay(1);
+    }
+
+    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows what went wrong on the page.</summary>
+    private void Fail(string action, Exception ex)
+    {
+        ErrorLog.Error($"Monthly total report / {action}", ex);
+        error = ex.Message;
+    }
+}

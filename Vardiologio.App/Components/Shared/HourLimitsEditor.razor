@@ -1,0 +1,73 @@
+@using Vardiologio.Application.Hours
+@using Microsoft.AspNetCore.Components.Forms
+@inject IHourLimitsService LimitsService
+@inject ISnackbar Snackbar
+
+@* Monthly paid-hours limits (single settings row). Hours above a limit are declared
+   but not paid; the calculation is in MonthlyHoursCalculator.
+   Styles: "Master-detail" block in app.css. *@
+@if (form is not null)
+{
+    <MudPaper Elevation="0" Class="md-form md-limits">
+        <EditForm Model="form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+
+            <div class="md-form-head">
+                <MudText Typo="Typo.h6">Μηνιαία όρια ανά εργαζόμενο</MudText>
+            </div>
+
+            @* HoursConverter: the boxes take both "6,5" and "6.5" (Shared/HoursConverter.cs). *@
+            <div class="md-fields md-two">
+                <MudNumericField T="decimal" Label="Προς συμπλήρωση (τον μήνα)" @bind-Value="form.ToCompleteMonthly" For="@(() => form.ToCompleteMonthly)"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" Converter="HoursConverter.Instance"
+                                 Adornment="Adornment.End" AdornmentText="ώρες" />
+
+                <MudNumericField T="decimal" Label="Απλή (τον μήνα)" @bind-Value="form.SimpleMonthly" For="@(() => form.SimpleMonthly)"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" Converter="HoursConverter.Instance"
+                                 Adornment="Adornment.End" AdornmentText="ώρες" />
+
+                <MudNumericField T="decimal" Label="Νυχτερινή (τον μήνα)" @bind-Value="form.NightMonthly" For="@(() => form.NightMonthly)"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" Converter="HoursConverter.Instance"
+                                 Adornment="Adornment.End" AdornmentText="ώρες" />
+
+                <MudNumericField T="decimal" Label="Κυριακής (τον μήνα)" @bind-Value="form.SundayMonthly" For="@(() => form.SundayMonthly)"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" Converter="HoursConverter.Instance"
+                                 Adornment="Adornment.End" AdornmentText="ώρες" />
+
+                <MudNumericField T="decimal" Label="Αργίας (ανά αργία του μήνα)" @bind-Value="form.HolidayPerHoliday" For="@(() => form.HolidayPerHoliday)"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" Converter="HoursConverter.Instance"
+                                 Adornment="Adornment.End" AdornmentText="ώρες" />
+
+                <MudNumericField T="decimal" Label="Προς συμπλήρωση + Αργίας μαζί (τον μήνα)" @bind-Value="form.ToCompletePlusHolidayMonthly" For="@(() => form.ToCompletePlusHolidayMonthly)"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" Converter="HoursConverter.Instance"
+                                 Adornment="Adornment.End" AdornmentText="ώρες" />
+            </div>
+
+            <MudText Typo="Typo.body2" Class="md-note">
+                Όταν ξεπερνιέται το κοινό όριο, κόβονται πρώτα ώρες από το «Προς συμπλήρωση».
+            </MudText>
+
+            <div class="md-actions">
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+                           StartIcon="@Icons.Material.Rounded.Save">Αποθήκευση</MudButton>
+            </div>
+        </EditForm>
+    </MudPaper>
+}
+
+@code {
+    private HourLimitsDetail? form;
+
+    protected override async Task OnInitializedAsync()
+    {
+        form = await LimitsService.GetAsync();
+    }
+
+    /// <summary>Saves the limits (ranges are checked by the DTO's attributes).</summary>
+    private async Task SaveAsync()
+    {
+        if (form is null) return;
+        await LimitsService.UpdateAsync(form);
+        Snackbar.Add("Αποθηκεύτηκε.", Severity.Success);
+    }
+}

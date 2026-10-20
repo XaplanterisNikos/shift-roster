@@ -1,0 +1,88 @@
+@page "/admin/files"
+@using Vardiologio.Application.Files
+@using Vardiologio.Application.Logging
+@inject IDocumentsArchive Archive
+@inject IErrorLog ErrorLog
+
+@* All files of the application (Documents\Vardiologio: logs, exported reports, database
+   copies) in one zip, saved where the administrator chooses.
+   Reached only by the administrator (guard in Layout/MainLayout.razor). *@
+
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Αρχεία</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Όλα τα αρχεία της εφαρμογής σε ένα αρχείο zip.</MudText>
+    </div>
+</div>
+
+<div class="admin-card">
+    <MudText Typo="Typo.body2">
+        Το zip περιέχει ολόκληρο τον φάκελο Vardiologio των Εγγράφων: αρχεία καταγραφής σφαλμάτων,
+        αναφορές που έχουν εξαχθεί και αντίγραφα της βάσης.
+    </MudText>
+    <div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Disabled="busy"
+                   StartIcon="@Icons.Material.Rounded.FolderZip" OnClick="CreateAsync">Δημιουργία zip…</MudButton>
+    </div>
+    @if (busy)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Rounded="true" />
+    }
+    @if (message is not null)
+    {
+        <MudAlert Severity="messageSeverity" Dense="true">@message</MudAlert>
+    }
+</div>
+
+@code {
+    private bool busy;              // the zip is being written
+    private string? message;        // result of the last attempt
+    private Severity messageSeverity;
+
+    /// <summary>Asks where to save, then writes the zip.</summary>
+    private async Task CreateAsync()
+    {
+        message = null;
+
+        // Standard Windows dialog; the handler runs on the UI thread, which the dialog needs.
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Αποθήκευση αρχείων εφαρμογής",
+            Filter = "Αρχείο zip (*.zip)|*.zip",
+            FileName = $"Vardiologio_{DateTime.Now:yyyy-MM-dd}.zip",
+            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+            OverwritePrompt = true
+        };
+        if (dialog.ShowDialog(System.Windows.Application.Current.MainWindow) != true) return;
+
+        var path = dialog.FileName;
+        if (!Archive.CanSaveTo(path))
+        {
+            Show(Severity.Warning, "Επιλέξτε θέση έξω από τον φάκελο Vardiologio των Εγγράφων.");
+            return;
+        }
+
+        busy = true;
+        StateHasChanged();
+        try
+        {
+            await Archive.CreateAsync(path);
+            Show(Severity.Success, $"Το αρχείο δημιουργήθηκε: {path}");
+        }
+        catch (Exception ex)
+        {
+            ErrorLog.Error("Documents archive (zip)", ex);
+            Show(Severity.Error, "Η δημιουργία του zip δεν ολοκληρώθηκε. Δείτε τα Σφάλματα.");
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void Show(Severity severity, string text)
+    {
+        messageSeverity = severity;
+        message = text;
+    }
+}

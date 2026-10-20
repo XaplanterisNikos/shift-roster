@@ -1,0 +1,104 @@
+﻿@page "/login"
+@layout LoginLayout
+@using Microsoft.AspNetCore.Components.Web
+@using Vardiologio.Application.Auth
+@inject IAuthService Auth
+@inject IUserSession Session
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<MudPaper Elevation="0" Class="login-card">
+    <div class="login-brand">
+        @* App icon; a click opens the "about" card, as in the top bar of the main layout. *@
+        <AboutButton Large="true" />
+        <MudText Typo="Typo.h4">Βαρδιολόγιο</MudText>
+        <MudText Typo="Typo.body2" Class="login-sub">Σύνδεση στην εφαρμογή</MudText>
+    </div>
+
+    @* First start of an installation: nobody to pick yet. *@
+    @if (loaded && !options.Any(o => o.Username != UserRules.AdminUsername))
+    {
+        <MudAlert Severity="Severity.Info" Dense="true">
+            Δεν υπάρχει ακόμη χρήστης. Δημιουργήστε τον πρώτο με το «Δημιουργία νέου χρήστη».
+        </MudAlert>
+    }
+
+    @* User picker — the users of this installation, then the administrator (no passwords exposed).
+       ToStringFunc: the closed box shows the display name, not the username it is bound to. *@
+    <MudSelect T="string" Label="Χρήστης" @bind-Value="username" Variant="Variant.Outlined"
+               ToStringFunc="DisplayNameOf">
+        @foreach (var u in options)
+        {
+            <MudSelectItem T="string" Value="@u.Username">@u.DisplayName</MudSelectItem>
+        }
+    </MudSelect>
+
+    @* Immediate => the value is current on every keystroke; OnKeyDown => Enter submits. *@
+    <MudTextField T="string" Label="Κωδικός" @bind-Value="password" Immediate="true"
+                  InputType="InputType.Password" Variant="Variant.Outlined" OnKeyDown="OnKey" />
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" FullWidth="true"
+               DropShadow="false" OnClick="DoLogin">Είσοδος</MudButton>
+
+    @if (error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true">@error</MudAlert>
+    }
+
+    @* New user of this installation (Shared/NewUserButton.razor). *@
+    <NewUserButton Created="OnUserCreated" />
+</MudPaper>
+
+@* Credits, bottom-right of the login screen. The LinkedIn address is outside the app's origin,
+   so BlazorWebView opens it in the default browser instead of inside the app window. *@
+<footer class="login-credits">
+    <div class="app-name">Βαρδιολόγιο Shift-Roster <span class="app-version">v@(AppInfo.Version)</span></div>
+    <div>@AppInfo.AuthorName</div>
+    <a href="@AppInfo.LinkedInUrl">@AppInfo.LinkedInUrl</a>
+</footer>
+
+@code {
+    private IReadOnlyList<LoginOption> options = Array.Empty<LoginOption>();
+    private string username = "";
+    private string password = "";
+    private string? error;// shown to the user when login fails
+
+    private bool loaded;   // options read from the database (avoids a flash of the "no user" note)
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Already signed in? skip the login screen.
+        if (Session.IsAuthenticated) { Nav.NavigateTo("/"); return; }
+        await LoadOptionsAsync();
+        username = options.FirstOrDefault()?.Username ?? "";   // default to the first user
+        loaded = true;
+    }
+
+    private async Task LoadOptionsAsync() => options = await Auth.GetLoginOptionsAsync();
+
+    /// <summary>Display name of a username, for the text shown in the closed user picker.</summary>
+    private string DisplayNameOf(string? user) =>
+        options.FirstOrDefault(o => o.Username == user)?.DisplayName ?? "";
+
+    /// <summary>A user was just created: list it, select it and leave the password to be typed.</summary>
+    private async Task OnUserCreated(string name)
+    {
+        await LoadOptionsAsync();
+        username = name;
+        password = "";
+        error = null;
+        Snackbar.Add($"Ο χρήστης «{name}» δημιουργήθηκε. Πληκτρολογήστε τον κωδικό για είσοδο.", Severity.Success);
+    }
+
+    // Let Enter submit the form.
+    private async Task OnKey(KeyboardEventArgs e) { if (e.Key == "Enter") await DoLogin(); }
+
+    private async Task DoLogin()
+    {
+        error = null;
+        var user = await Auth.AuthenticateAsync(username, password);
+        if (user is null) { error = "Λάθος κωδικός."; return; }
+        Session.SignIn(user);// fires Session.Changed -> MainLayout re-renders
+        Nav.NavigateTo("/");
+    }
+}

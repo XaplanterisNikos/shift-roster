@@ -1,0 +1,144 @@
+@using Vardiologio.Application.Auth
+@inject IAuthService Auth
+
+@* "Δημιουργία νέου χρήστη" on the login card, with its dialog: full name and e-mail address
+   (required: the developer answers the user's messages there), username, password and the
+   password once more. The user belongs to this installation (database). Nothing typed is kept:
+   the fields are emptied when the dialog opens and when it closes. *@
+<MudButton Variant="Variant.Text" Color="Color.Primary" FullWidth="true"
+           StartIcon="@Icons.Material.Rounded.PersonAdd" OnClick="Open">Δημιουργία νέου χρήστη</MudButton>
+
+@* Inline dialog: MudBlazor renders it in MudDialogProvider (Routes.razor).
+   Escape or a click on the dimmed background closes it (-> OnVisibleChanged). *@
+<MudDialog Visible="open" VisibleChanged="OnVisibleChanged" Options="DialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Νέος χρήστης</MudText>
+    </TitleContent>
+    <DialogContent>
+        <div class="admin-fields">
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Συμπληρώστε σωστά το ονοματεπώνυμο και το email σας: με αυτά θα επικοινωνούμε μαζί σας
+                όταν στέλνετε μήνυμα από την εφαρμογή.
+            </MudAlert>
+            <MudTextField T="string" Label="Ονοματεπώνυμο" @bind-Value="fullName" Immediate="true"
+                          Variant="Variant.Outlined" AutoFocus="true" MaxLength="@UserRules.MaxFullNameLength"
+                          autocomplete="off" />
+            <MudTextField T="string" Label="Email" @bind-Value="email" Immediate="true"
+                          Variant="Variant.Outlined" MaxLength="@UserRules.MaxEmailLength"
+                          InputType="InputType.Email" autocomplete="off" />
+            <MudTextField T="string" Label="Όνομα χρήστη" @bind-Value="username" Immediate="true"
+                          Variant="Variant.Outlined" MaxLength="@UserRules.MaxUsernameLength"
+                          autocomplete="off" />
+            @* autocomplete new-password => the browser does not offer saved passwords. *@
+            <MudTextField T="string" Label="Κωδικός" @bind-Value="password" Immediate="true"
+                          InputType="InputType.Password" Variant="Variant.Outlined"
+                          HelperText="@($"Τουλάχιστον {UserRules.MinPasswordLength} χαρακτήρες")"
+                          autocomplete="new-password" />
+            <MudTextField T="string" Label="Επιβεβαίωση κωδικού" @bind-Value="confirm" Immediate="true"
+                          InputType="InputType.Password" Variant="Variant.Outlined" OnKeyDown="OnKey"
+                          autocomplete="new-password" />
+            @if (error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true">@error</MudAlert>
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">Ακύρωση</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Disabled="busy"
+                   OnClick="Submit">Δημιουργία</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    /// <summary>Narrow dialog; Escape closes it.</summary>
+    private static readonly DialogOptions DialogOptions =
+        new() { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseOnEscapeKey = true };
+
+    /// <summary>Raised with the new username after the user has been created.</summary>
+    [Parameter] public EventCallback<string> Created { get; set; }
+
+    private bool open;          // dialog visible
+    private bool busy;          // a create is running: ignore a second click
+    private string fullName = "";
+    private string email = "";
+    private string username = "";
+    private string password = "";
+    private string confirm = "";
+    private string? error;      // why the form was not accepted
+
+    /// <summary>Opens the dialog with empty fields.</summary>
+    private void Open()
+    {
+        Reset();
+        open = true;
+    }
+
+    /// <summary>Closes the dialog and discards anything typed.</summary>
+    private void Close()
+    {
+        open = false;
+        Reset();
+    }
+
+    private void Reset()
+    {
+        fullName = email = username = password = confirm = "";
+        error = null;
+    }
+
+    /// <summary>Raised by the dialog when it closes itself (Escape, click on the background).</summary>
+    private void OnVisibleChanged(bool visible)
+    {
+        if (!visible) Close();
+    }
+
+    /// <summary>Enter in the last field submits.</summary>
+    private async Task OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await Submit();
+    }
+
+    /// <summary>Checks the form, then creates the user (check-then-act: no exceptions for expected cases).</summary>
+    private async Task Submit()
+    {
+        if (busy) return;
+
+        var name = username.Trim();
+        error =
+            fullName.Trim().Length == 0 ? "Συμπληρώστε το ονοματεπώνυμό σας." :
+            email.Trim().Length == 0 ? "Συμπληρώστε το email σας." :
+            !UserRules.IsValidEmail(email) ? "Το email δεν είναι έγκυρο (π.χ. onoma@example.gr)." :
+            name.Length == 0 ? "Συμπληρώστε όνομα χρήστη." :
+            password.Length < UserRules.MinPasswordLength
+                ? $"Ο κωδικός πρέπει να έχει τουλάχιστον {UserRules.MinPasswordLength} χαρακτήρες." :
+            password != confirm ? "Οι δύο κωδικοί δεν είναι ίδιοι." :
+            null;
+        if (error is not null) return;
+
+        busy = true;
+        try
+        {
+            if (await Auth.UserLimitReachedAsync())
+            {
+                error = "Έχει συμπληρωθεί το όριο χρηστών. Επικοινωνήστε με τον διαχειριστή.";
+                return;
+            }
+
+            if (await Auth.UsernameExistsAsync(name))
+            {
+                error = "Το όνομα χρήστη υπάρχει ήδη. Επιλέξτε άλλο.";
+                return;
+            }
+
+            await Auth.CreateUserAsync(name, password, fullName, email);
+        }
+        finally
+        {
+            busy = false;
+        }
+
+        Close();
+        await Created.InvokeAsync(name);
+    }
+}

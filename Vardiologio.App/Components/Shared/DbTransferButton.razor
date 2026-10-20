@@ -1,0 +1,229 @@
+@using Vardiologio.Application.Auth
+@using Vardiologio.Application.DatabaseTransfer
+@using Vardiologio.Application.Logging
+@using Vardiologio.Infrastructure.Files
+@inject IDatabaseTransferService Transfer
+@inject IUserSession Session
+@inject IErrorLog ErrorLog
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+@* Side-menu entry "Εισαγωγή / Εξαγωγή βάσης" and its dialog; open to every user.
+   Export: a copy of the database goes to Documents\Vardiologio\Database (and to an internal
+   backup folder that is not shown).
+   Import: the user picks a file; if it is a database of this application with the same schema
+   and the user confirms, the current data is backed up internally and then replaced. The users
+   of this installation are kept. After an import everybody is signed out, so no page keeps
+   showing the old data. *@
+<MudNavLink OnClick="Open">Εισαγωγή / Εξαγωγή βάσης</MudNavLink>
+
+@* Inline dialog: MudBlazor renders it in MudDialogProvider (Routes.razor), above the whole shell.
+   It closes only with its own button, so it cannot be dismissed while a copy is running. *@
+<MudDialog Visible="open" Options="DialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Εισαγωγή / Εξαγωγή βάσης</MudText>
+    </TitleContent>
+    <DialogContent>
+        <div class="admin-fields">
+            @if (pendingFile is not null)
+            {
+                @* Import, step 2: the file passed the check; ask before replacing anything. *@
+                <MudAlert Severity="Severity.Warning" Dense="true">
+                    Όλα τα δεδομένα της εφαρμογής θα αντικατασταθούν με τα δεδομένα του αρχείου
+                    <b>@System.IO.Path.GetFileName(pendingFile)</b>. Οι χρήστες αυτού του υπολογιστή δεν αλλάζουν.
+                    Πριν από την αντικατάσταση κρατείται αντίγραφο ασφαλείας των σημερινών δεδομένων.
+                    Μετά την εισαγωγή θα χρειαστεί να συνδεθείτε ξανά.
+                </MudAlert>
+            }
+            else
+            {
+                <div>
+                    <MudText Typo="Typo.subtitle2">Εξαγωγή</MudText>
+                    <MudText Typo="Typo.body2">
+                        Αποθηκεύει αντίγραφο της βάσης στα Έγγραφα, στον φάκελο Vardiologio\Database.
+                    </MudText>
+                </div>
+                <div>
+                    <MudText Typo="Typo.subtitle2">Εισαγωγή</MudText>
+                    <MudText Typo="Typo.body2">
+                        Αντικαθιστά τα δεδομένα της εφαρμογής με τα δεδομένα ενός αντιγράφου που επιλέγετε.
+                    </MudText>
+                </div>
+            }
+
+            @* Progress: moving while a copy runs, full when the import has finished. *@
+            @if (busy)
+            {
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" Rounded="true" />
+            }
+            else if (finished)
+            {
+                <MudProgressLinear Color="Color.Success" Value="100" Rounded="true" />
+            }
+
+            @if (message is not null)
+            {
+                <MudAlert Severity="messageSeverity" Dense="true">@message</MudAlert>
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        @if (pendingFile is not null)
+        {
+            <MudButton Disabled="@Locked" OnClick="CancelImport">Ακύρωση</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Error" DropShadow="false" Disabled="@Locked"
+                       OnClick="ImportAsync">Επιβεβαίωση εισαγωγής</MudButton>
+        }
+        else
+        {
+            <MudButton Disabled="@Locked" OnClick="Close">Κλείσιμο</MudButton>
+            <MudSpacer />
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@Locked"
+                       StartIcon="@Icons.Material.Rounded.Download" OnClick="PickFileAsync">Εισαγωγή…</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Disabled="@Locked"
+                       StartIcon="@Icons.Material.Rounded.Upload" OnClick="ExportAsync">Εξαγωγή</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    /// <summary>Narrow dialog that closes only with its own button (not Escape, not a click outside).</summary>
+    private static readonly DialogOptions DialogOptions =
+        new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false };
+
+    /// <summary>Shown for a file that is not ours or is of another version, and for unexpected failures.</summary>
+    private const string ContactAdmin = "Επικοινωνήστε με τον διαχειριστή.";
+
+    /// <summary>Raised with true when the dialog opens and false when it closes (MainLayout colours the app icon).</summary>
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+
+    private bool open;                  // dialog visible
+    private bool busy;                  // a copy is running
+    private bool finished;              // import done; the app is about to return to the login screen
+    private string? pendingFile;        // chosen file that passed the check, waiting for confirmation
+    private string? message;            // result of the last action
+    private Severity messageSeverity;
+
+    /// <summary>Buttons are off while a copy runs and after a finished import.</summary>
+    private bool Locked => busy || finished;
+
+    /// <summary>Opens the dialog in a clean state.</summary>
+    private Task Open()
+    {
+        pendingFile = null;
+        message = null;
+        finished = false;
+        open = true;
+        return OpenChanged.InvokeAsync(true);
+    }
+
+    private Task Close()
+    {
+        open = false;
+        return OpenChanged.InvokeAsync(false);
+    }
+
+    private void CancelImport()
+    {
+        pendingFile = null;
+        message = null;
+    }
+
+    /// <summary>Writes a copy of the database and says where the user can find it.</summary>
+    private async Task ExportAsync()
+    {
+        await RunAsync("Database export", async () =>
+        {
+            var path = await Transfer.ExportAsync();
+            Show(Severity.Success,
+                $"Η εξαγωγή ολοκληρώθηκε. Αρχείο: {System.IO.Path.GetFileName(path)}, στα Έγγραφα, φάκελος Vardiologio\\Database.");
+        });
+    }
+
+    /// <summary>Import, step 1: Windows file picker, then the check of the chosen file.</summary>
+    private async Task PickFileAsync()
+    {
+        message = null;
+
+        // Standard Windows dialog; the handler runs on the UI thread, which the dialog needs.
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Επιλογή αντιγράφου βάσης",
+            Filter = "Αντίγραφα βάσης (*.db)|*.db|Όλα τα αρχεία (*.*)|*.*",
+            InitialDirectory = AppFolders.Database,
+            CheckFileExists = true
+        };
+        if (dialog.ShowDialog(System.Windows.Application.Current.MainWindow) != true) return;
+
+        var path = dialog.FileName;
+        await RunAsync("Database import / check", async () =>
+        {
+            var check = await Transfer.CheckAsync(path);
+            if (check == DatabaseFileCheck.Ok) pendingFile = path;
+            else Show(Severity.Error, Refusal(check));
+        });
+    }
+
+    /// <summary>Import, step 2 (confirmed): replace the data, then sign out to the login screen.</summary>
+    private async Task ImportAsync()
+    {
+        var path = pendingFile!;
+        var imported = false;
+
+        await RunAsync("Database import", async () =>
+        {
+            var check = await Transfer.ImportAsync(path);
+            if (check == DatabaseFileCheck.Ok) imported = true;
+            else { pendingFile = null; Show(Severity.Error, Refusal(check)); }
+        });
+        if (!imported) return;
+
+        // Full bar and a moment to read it, then back to the login screen.
+        finished = true;
+        Show(Severity.Success, "Η εισαγωγή ολοκληρώθηκε. Επιστροφή στην οθόνη σύνδεσης…");
+        StateHasChanged();
+        await Task.Delay(1500);
+
+        await Close();
+        Snackbar.Add("Η εισαγωγή της βάσης ολοκληρώθηκε. Συνδεθείτε ξανά.", Severity.Success);
+        Session.SignOut();
+        Nav.NavigateTo("/login");
+    }
+
+    /// <summary>Why a chosen file was refused.</summary>
+    private static string Refusal(DatabaseFileCheck check) => check == DatabaseFileCheck.DifferentSchema
+        ? $"Το αρχείο είναι βάση άλλης έκδοσης της εφαρμογής και δεν μπορεί να εισαχθεί. {ContactAdmin}"
+        : $"Το αρχείο δεν είναι βάση της εφαρμογής. {ContactAdmin}";
+
+    private void Show(Severity severity, string text)
+    {
+        messageSeverity = severity;
+        message = text;
+    }
+
+    /// <summary>
+    /// Runs one action with the progress bar on. An unexpected failure (disk, permissions) is
+    /// written to the error log and reported to the user without technical details.
+    /// </summary>
+    /// <param name="source">Where it happened, for the error log.</param>
+    /// <param name="action">The work to do.</param>
+    private async Task RunAsync(string source, Func<Task> action)
+    {
+        busy = true;
+        message = null;
+        StateHasChanged();
+        try
+        {
+            await action();
+        }
+        catch (Exception ex)
+        {
+            ErrorLog.Error(source, ex);
+            Show(Severity.Error, $"Η ενέργεια δεν ολοκληρώθηκε. {ContactAdmin}");
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

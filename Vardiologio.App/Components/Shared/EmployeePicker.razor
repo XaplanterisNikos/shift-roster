@@ -1,0 +1,72 @@
+@using Vardiologio.Application.ShiftEntry
+
+@* Employee picker with search, used on every page that asks for an employee: type part of the
+   surname or first name and the list narrows down, with the matching letters marked in yellow.
+   Bound like a plain select: @bind-Value holds the employee's Id (0 = nobody picked).
+   Styles: "Employee picker" rules in app.css. *@
+<MudAutocomplete T="EmployeeListItem" Label="Εργαζόμενος" Placeholder="Γράψτε επώνυμο ή όνομα"
+                 Value="Selected" ValueChanged="OnPicked" SearchFunc="SearchAsync" ToStringFunc="DisplayOf"
+                 Variant="Variant.Outlined" Margin="Margin.Dense" Class="@Class" PopoverClass="employee-picker-list"
+                 Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Rounded.Search"
+                 Clearable="true" ResetValueOnEmptyText="true" SelectValueOnTab="true"
+                 MaxItems="null" MaxHeight="360" DebounceInterval="0">
+    <ItemTemplate Context="employee">
+        @* Name with the matching letters marked; the speciality after it, dimmed. *@
+        <span class="employee-option">
+            <span>
+                @foreach (var piece in EmployeeSearch.Highlight(EmployeeSearch.Name(employee), typed))
+                {
+                    @if (piece.Hit)
+                    {
+                        <mark class="search-hit">@piece.Text</mark>
+                    }
+                    else
+                    {
+                        @piece.Text
+                    }
+                }
+            </span>
+            <span class="employee-option-spec">@EmployeeSearch.Speciality(employee)</span>
+        </span>
+    </ItemTemplate>
+    <NoItemsTemplate>
+        <MudText Typo="Typo.body2" Class="employee-picker-empty">Δεν βρέθηκε εργαζόμενος.</MudText>
+    </NoItemsTemplate>
+</MudAutocomplete>
+
+@code {
+    /// <summary>All employees offered, in alphabetical order.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<EmployeeListItem> Employees { get; set; } = [];
+
+    /// <summary>Id of the picked employee; 0 when nobody is picked.</summary>
+    [Parameter] public int Value { get; set; }
+
+    /// <summary>Raised when the pick changes (0 when the box is cleared).</summary>
+    [Parameter] public EventCallback<int> ValueChanged { get; set; }
+
+    /// <summary>CSS class of the input (pages give it its width).</summary>
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>What the user typed last; the list marks these letters.</summary>
+    private string? typed;
+
+    /// <summary>The picked employee, or null.</summary>
+    private EmployeeListItem? Selected => Employees.FirstOrDefault(e => e.Id == Value);
+
+    /// <summary>Text of the closed box.</summary>
+    private static string DisplayOf(EmployeeListItem? employee) => employee?.Display ?? "";
+
+    /// <summary>
+    /// Called by the box on every keystroke and when it opens. When the box still shows the
+    /// picked employee untouched, the whole list is offered (otherwise opening the box would
+    /// show that one employee only).
+    /// </summary>
+    private Task<IEnumerable<EmployeeListItem>> SearchAsync(string? text, CancellationToken token)
+    {
+        typed = Selected is not null && text == Selected.Display ? null : text;
+        return Task.FromResult<IEnumerable<EmployeeListItem>>(EmployeeSearch.Filter(Employees, typed));
+    }
+
+    /// <summary>Passes the pick to the page as an Id.</summary>
+    private Task OnPicked(EmployeeListItem? employee) => ValueChanged.InvokeAsync(employee?.Id ?? 0);
+}

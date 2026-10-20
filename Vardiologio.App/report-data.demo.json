@@ -1,0 +1,439 @@
+{
+  "directorLastName": "",
+  "texts": [
+    {
+      "form": "ShiftTable",
+      "section": "Header",
+      "block": "Letterhead",
+      "lines": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "ShiftTable",
+      "section": "Header",
+      "block": "Titles",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "ShiftTable",
+      "section": "Header",
+      "block": "Addressee",
+      "lines": [
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "ShiftTable",
+      "section": "Footer",
+      "block": "Signature1Role",
+      "lines": [
+        ""
+      ]
+    },
+    {
+      "form": "ShiftTable",
+      "section": "Footer",
+      "block": "Signature1Name",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "ShiftTable",
+      "section": "Footer",
+      "block": "Signature2Role",
+      "lines": [
+        ""
+      ]
+    },
+    {
+      "form": "ShiftTable",
+      "section": "Footer",
+      "block": "Signature2Name",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "AttendanceStaff",
+      "section": "Header",
+      "block": "Letterhead",
+      "lines": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "AttendanceStaff",
+      "section": "Header",
+      "block": "Titles",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "AttendanceStaff",
+      "section": "Footer",
+      "block": "Signature1Role",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "AttendanceStaff",
+      "section": "Footer",
+      "block": "Signature1Name",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "AttendanceStaff",
+      "section": "Footer",
+      "block": "Signature2Role",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "AttendanceStaff",
+      "section": "Footer",
+      "block": "Signature2Name",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "AttendanceDirectorate",
+      "section": "Header",
+      "block": "Addressee",
+      "lines": [
+        ""
+      ]
+    },
+    {
+      "form": "AttendanceDirectorate",
+      "section": "Header",
+      "block": "Letterhead",
+      "lines": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "AttendanceDirectorate",
+      "section": "Header",
+      "block": "Titles",
+      "lines": [
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "AttendanceDirectorate",
+      "section": "Footer",
+      "block": "Signature1Role",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "AttendanceDirectorate",
+      "section": "Footer",
+      "block": "Signature1Name",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "OvertimeCertificate",
+      "section": "Header",
+      "block": "Letterhead",
+      "lines": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "OvertimeCertificate",
+      "section": "Header",
+      "block": "HandFilled",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "OvertimeCertificate",
+      "section": "Header",
+      "block": "Titles",
+      "lines": [
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "OvertimeCertificate",
+      "section": "Header",
+      "block": "Intro",
+      "lines": [
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "OvertimeCertificate",
+      "section": "Footer",
+      "block": "DeclarationTitle",
+      "lines": [
+        ""
+      ]
+    },
+    {
+      "form": "OvertimeCertificate",
+      "section": "Footer",
+      "block": "Declarations",
+      "lines": [
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "OvertimeCertificate",
+      "section": "Footer",
+      "block": "Certification",
+      "lines": [
+        ""
+      ]
+    },
+    {
+      "form": "MonthlyTotal",
+      "section": "Header",
+      "block": "Letterhead",
+      "lines": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "MonthlyTotal",
+      "section": "Header",
+      "block": "Titles",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "MonthlyTotal",
+      "section": "Header",
+      "block": "Addressee",
+      "lines": [
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "MonthlyTotal",
+      "section": "Footer",
+      "block": "Signature1Role",
+      "lines": [
+        ""
+      ]
+    },
+    {
+      "form": "MonthlyTotal",
+      "section": "Footer",
+      "block": "Signature1Name",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "MonthlyTotal",
+      "section": "Footer",
+      "block": "Signature2Role",
+      "lines": [
+        ""
+      ]
+    },
+    {
+      "form": "MonthlyTotal",
+      "section": "Footer",
+      "block": "Signature2Name",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "ContractCertificate",
+      "section": "Header",
+      "block": "Letterhead",
+      "lines": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "ContractCertificate",
+      "section": "Header",
+      "block": "HandFilled",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "ContractCertificate",
+      "section": "Header",
+      "block": "Titles",
+      "lines": [
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "ContractCertificate",
+      "section": "Header",
+      "block": "Intro",
+      "lines": [
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "ContractCertificate",
+      "section": "Header",
+      "block": "Department",
+      "lines": [
+        ""
+      ]
+    },
+    {
+      "form": "ContractCertificate",
+      "section": "Header",
+      "block": "ContractGroups",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "ContractCertificate",
+      "section": "Footer",
+      "block": "Signature1Role",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "ContractCertificate",
+      "section": "Footer",
+      "block": "Signature1Name",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "ContractCertificate",
+      "section": "Footer",
+      "block": "Signature2Role",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "form": "ContractCertificate",
+      "section": "Footer",
+      "block": "Signature2Name",
+      "lines": [
+        "",
+        "",
+        ""
+      ]
+    }
+  ]
+}

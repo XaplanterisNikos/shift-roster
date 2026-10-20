@@ -1,0 +1,293 @@
+@using Vardiologio.Application.Parameters
+@using Vardiologio.Application.Reports
+@using Microsoft.AspNetCore.Components.Forms
+@inject ISignatoryService SignatoryService
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+
+@* Master-detail CRUD for the supervisors who sign the individual monthly sheet on the right
+   (tab "Υπογράφοντες" of EmployeeParameters.razor), plus the employees each one signs for.
+   Same shape as LookupEditor.razor. Styles: "Master-detail" block in app.css. *@
+<div class="md-bar">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+               StartIcon="@Icons.Material.Rounded.Add" OnClick="NewItem">Νέος</MudButton>
+
+    <MudSwitch T="bool" @bind-Value="includeInactive" @bind-Value:after="ReloadListAsync"
+               Color="Color.Primary" Label="Εμφάνιση ανενεργών" />
+</div>
+
+<div class="md-grid">
+    @* LEFT: the supervisors, with how many employees each one signs for. *@
+    <MudPaper Elevation="0" Class="md-list">
+        <div class="md-list-head">@list.Count @(list.Count == 1 ? "υπογράφων" : "υπογράφοντες")</div>
+        @if (list.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Class="md-list-empty">Κανένας υπογράφων. Πατήστε «Νέος».</MudText>
+        }
+        else
+        {
+            <MudList T="int" SelectedValue="selectedId" SelectedValueChanged="SelectById"
+                     Color="Color.Primary" Dense="true">
+                @foreach (var x in list)
+                {
+                    <MudListItem T="int" Value="@x.Id" Class="@(x.IsActive ? null : "md-inactive")">
+                        <span class="md-item">
+                            <span>@SignatoryItem.Label(x.FullName, x.Role)</span>
+                            @if (!x.IsActive)
+                            {
+                                <span class="md-tag">ανενεργός</span>
+                            }
+                            else
+                            {
+                                <span class="md-item-side">@CountOf(x.Id)</span>
+                            }
+                        </span>
+                    </MudListItem>
+                }
+            </MudList>
+        }
+    </MudPaper>
+
+    @* RIGHT: create/edit form and the employees this supervisor signs for. *@
+    @if (form is null)
+    {
+        <MudPaper Elevation="0" Class="empty-state md-hint">
+            <MudIcon Icon="@Icons.Material.Rounded.TouchApp" Size="Size.Large" />
+            <MudText Typo="Typo.body1">Επιλέξτε υπογράφοντα από τη λίστα ή πατήστε «Νέος».</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Elevation="0" Class="md-form">
+            <EditForm Model="form" OnValidSubmit="SaveAsync">
+                <DataAnnotationsValidator />
+
+                <div class="md-form-head">
+                    <MudText Typo="Typo.h6">@(form.Id == 0 ? "Νέος υπογράφων" : "Επεξεργασία")</MudText>
+                    @if (!form.IsActive)
+                    {
+                        <span class="md-tag">ανενεργός</span>
+                    }
+                </div>
+
+                <MudText Typo="Typo.body2" Class="md-note">
+                    Υπογράφει δεξιά στην «Ατομική μηνιαία» (επίσημη εκτύπωση Excel / PDF).
+                </MudText>
+
+                <div class="md-fields">
+                    @* One line per printed row above the signing space. *@
+                    <MudTextField T="string" Label="Ιδιότητα (μία γραμμή ανά σειρά εκτύπωσης)" @bind-Value="form.Role"
+                                  For="@(() => form.Role)" Lines="3" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Placeholder="π.χ. Ο Επόπτης Λειτουργίας Σ.Μ.Α." />
+
+                    <MudTextField T="string" Label="Ονοματεπώνυμο" @bind-Value="form.FullName"
+                                  For="@(() => form.FullName)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+                    <MudTextField T="string" Label="Ειδικότητα / βαθμός" @bind-Value="form.Title"
+                                  For="@(() => form.Title)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Placeholder="π.χ. ΔΕ Μηχανοτεχνιτών" />
+                </div>
+
+                @* Employees this supervisor signs for: tick to assign. A ticked employee leaves his
+                   previous supervisor (an employee has one). Saved together with the form. *@
+                <div class="sig-employees">
+                    <div class="sig-employees-head">
+                        <MudText Typo="Typo.subtitle2">Υπογράφει για (@picked.Count)</MudText>
+                        <MudTextField T="string" @bind-Value="filter" @bind-Value:after="StateHasChanged"
+                                      Placeholder="Αναζήτηση" Immediate="true" Clearable="true"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Rounded.Search" />
+                    </div>
+                    <div class="sig-employees-list">
+                        @foreach (var e in FilteredEmployees())
+                        {
+                            <div class="sig-employee">
+                                <MudCheckBox T="bool" Value="@picked.Contains(e.Id)"
+                                             ValueChanged="@((bool on) => Toggle(e.Id, on))"
+                                             Color="Color.Primary" Dense="true" Label="@e.FullName" />
+                                @if (OtherSupervisor(e) is { } other)
+                                {
+                                    <span class="md-item-side">@other</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (errorMessage is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="md-alert">@errorMessage</MudAlert>
+                }
+
+                <div class="md-actions">
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+                               StartIcon="@Icons.Material.Rounded.Save">Αποθήκευση</MudButton>
+                    <MudButton Variant="Variant.Text" OnClick="CancelEdit">Ακύρωση</MudButton>
+
+                    @if (form.Id != 0)
+                    {
+                        @if (form.IsActive)
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Error" DropShadow="false"
+                                       StartIcon="@Icons.Material.Rounded.Delete" OnClick="() => SetActiveAsync(false)">Διαγραφή</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" DropShadow="false"
+                                       StartIcon="@Icons.Material.Rounded.RestoreFromTrash" OnClick="() => SetActiveAsync(true)">Επαναφορά</MudButton>
+                        }
+                    }
+                </div>
+            </EditForm>
+        </MudPaper>
+    }
+</div>
+
+@code {
+    private List<SignatoryItem> list = new();
+    private IReadOnlyList<SignatoryEmployee> employees = Array.Empty<SignatoryEmployee>();
+
+    private bool includeInactive;
+    private int selectedId;
+    private SignatoryItem? form;
+    private string? errorMessage;
+
+    /// <summary>Employees ticked in the form (who this supervisor signs for).</summary>
+    private HashSet<int> picked = new();
+
+    /// <summary>Text typed in the employee search box.</summary>
+    private string? filter;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadListAsync();
+    }
+
+    /// <summary>Reloads the supervisors (for the inactive toggle) and the employees with their supervisor.</summary>
+    private async Task ReloadListAsync()
+    {
+        list = (await SignatoryService.GetAllAsync(includeInactive)).ToList();
+        employees = await SignatoryService.GetEmployeesAsync();
+    }
+
+    /// <summary>"12 εργαζ." next to a supervisor in the list.</summary>
+    private string CountOf(int id)
+    {
+        var n = employees.Count(e => e.SignatoryId == id);
+        return n == 0 ? "" : $"{n} εργαζ.";
+    }
+
+    /// <summary>The employees shown in the box, narrowed by the search text (accents and case ignored).</summary>
+    private IEnumerable<SignatoryEmployee> FilteredEmployees()
+    {
+        var typed = GreekText.Upper(filter ?? "").Trim();
+        return typed.Length == 0
+            ? employees
+            : employees.Where(e => GreekText.Upper(e.FullName).Contains(typed, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Name of the supervisor an unticked employee has now (so moving him is a visible choice);
+    /// null when he has none, or is ticked here.
+    /// </summary>
+    private string? OtherSupervisor(SignatoryEmployee e)
+    {
+        if (picked.Contains(e.Id) || e.SignatoryId is null || e.SignatoryId == form?.Id) return null;
+        return list.FirstOrDefault(s => s.Id == e.SignatoryId)?.FullName ?? "άλλος";
+    }
+
+    private void Toggle(int employeeId, bool on)
+    {
+        if (on) picked.Add(employeeId); else picked.Remove(employeeId);
+    }
+
+    /// <summary>Called by the list with the Id of the clicked row (0 = nothing selected).</summary>
+    private void SelectById(int id)
+    {
+        if (list.FirstOrDefault(x => x.Id == id) is { } item) Select(item);
+    }
+
+    /// <summary>Loads a row into the form as a COPY (the list row is untouched until a save).</summary>
+    private void Select(SignatoryItem x)
+    {
+        errorMessage = null;
+        filter = null;
+        selectedId = x.Id;
+        form = new SignatoryItem { Id = x.Id, Role = x.Role, FullName = x.FullName, Title = x.Title, IsActive = x.IsActive };
+        picked = employees.Where(e => e.SignatoryId == x.Id).Select(e => e.Id).ToHashSet();
+    }
+
+    /// <summary>Prepares a blank form for a new supervisor.</summary>
+    private void NewItem()
+    {
+        errorMessage = null;
+        filter = null;
+        selectedId = 0;
+        form = new SignatoryItem { IsActive = true };
+        picked = new();
+    }
+
+    /// <summary>Creates or updates the supervisor, then saves who he signs for.</summary>
+    private async Task SaveAsync()
+    {
+        if (form is null) return;
+        errorMessage = null;
+
+        if (SignatoryItem.SplitLines(form.Role).Length == 0)
+        {
+            errorMessage = "Η ιδιότητα είναι υποχρεωτική.";
+            return;
+        }
+
+        if (form.Id == 0)
+        {
+            var newId = await SignatoryService.CreateAsync(form);
+            selectedId = newId;
+            form.Id = newId;
+        }
+        else
+        {
+            await SignatoryService.UpdateAsync(form);
+        }
+
+        await SignatoryService.SetEmployeesAsync(form.Id, picked);
+
+        Snackbar.Add("Αποθηκεύτηκε.", Severity.Success);
+        await ReloadListAsync();
+    }
+
+    /// <summary>
+    /// Soft-delete (asked first; the employees keep him, so their old sheets still print) or restore.
+    /// </summary>
+    private async Task SetActiveAsync(bool isActive)
+    {
+        if (form is null || form.Id == 0) return;
+        errorMessage = null;
+
+        if (!isActive)
+        {
+            var confirmed = await Dialogs.ShowMessageBoxAsync(
+                "Διαγραφή υπογράφοντα",
+                $"Είστε σίγουροι; Ο «{form.FullName}» θα γίνει ανενεργός και δεν θα προτείνεται πια. " +
+                "Οι εργαζόμενοι που τον έχουν τον κρατούν μέχρι να τους ορίσετε άλλον. " +
+                "Μπορείτε να τον επαναφέρετε από την «Εμφάνιση ανενεργών».",
+                yesText: "Διαγραφή", cancelText: "Ακύρωση");
+            if (confirmed != true) return;
+        }
+
+        await SignatoryService.SetActiveAsync(form.Id, isActive);
+        form.IsActive = isActive;
+        Snackbar.Add(isActive ? "Επαναφέρθηκε." : "Διαγράφηκε.", Severity.Success);
+        await ReloadListAsync();
+
+        if (!isActive && !includeInactive) { form = null; selectedId = 0; }
+    }
+
+    /// <summary>Closes the form without saving.</summary>
+    private void CancelEdit()
+    {
+        form = null;
+        selectedId = 0;
+        errorMessage = null;
+    }
+}

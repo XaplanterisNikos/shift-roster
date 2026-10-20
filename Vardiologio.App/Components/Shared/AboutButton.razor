@@ -1,0 +1,32 @@
+@* The app icon as a button: top bar of the main layout and, larger, the login card. A click opens
+   the "about" card (Shared/AboutCard.razor) in a dialog.
+   Styles: "brand-mark-btn" and "About card" rules in the Shell block of app.css. *@
+<button type="button" class="brand-mark brand-mark-btn @(Large ? "brand-mark-lg" : "") @Class"
+        title="Σχετικά με την εφαρμογή" aria-label="Σχετικά με την εφαρμογή" @onclick="Open">
+    <MudIcon Icon="@Icons.Material.Rounded.CalendarMonth" Size="@(Large ? Size.Large : Size.Medium)" />
+</button>
+
+@* Inline dialog: MudBlazor renders it in MudDialogProvider (Routes.razor), above the whole shell.
+   Escape, the close button or a click on the dimmed background closes it. *@
+<MudDialog @bind-Visible="open" Options="DialogOptions" ContentClass="about-content">
+    <DialogContent>
+        <AboutCard />
+    </DialogContent>
+</MudDialog>
+
+@code {
+    /// <summary>Narrow dialog without a title bar; close button, Escape and a click outside close it.</summary>
+    private static readonly DialogOptions DialogOptions =
+        new() { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseOnEscapeKey = true, CloseButton = true };
+
+    /// <summary>Large variant (60px), used on the login card.</summary>
+    [Parameter] public bool Large { get; set; }
+
+    /// <summary>Extra CSS classes, e.g. the section colour set by MainLayout.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    private bool open;   // dialog visible
+
+    private void Open() => open = true;
+
+}

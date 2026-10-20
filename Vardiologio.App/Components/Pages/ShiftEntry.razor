@@ -1,0 +1,409 @@
+﻿@page "/"
+@using Vardiologio.Application.Hours
+@using Vardiologio.Application.ShiftEntry
+@using Vardiologio.Domain.Enums
+@inject IShiftEntryService ShiftService
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+
+@* Daily shift-entry screen (route "/"): pick year/month/employee, load the month, then fill
+   a code per day: the two fortnights are tabs, a day is picked by clicking it and its code by
+   clicking it in the box of codes next to the days; save once for the month (upsert).
+   Every change re-checks the (unsaved) month live: per-day warnings (code not allowed on
+   that kind of day, code 12 on the 1st) and the month's hours against the limits.
+   Warnings never block saving. Page-specific styles: "Shift entry" block in app.css. *@
+
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Εισαγωγή προγραμμάτων βάρδιας</MudText>
+        @if (entry is not null)
+        {
+            @* What is loaded right now (the pickers may already show something else). *@
+            <MudText Typo="Typo.body2" Class="page-sub">@Months[entry.Month - 1] @entry.Year · @EmployeeName(entry.EmployeeId)</MudText>
+        }
+    </div>
+
+    <div class="page-filters">
+        <MudSelect T="int" Label="Έτος" @bind-Value="year" Variant="Variant.Outlined" Margin="Margin.Dense" Class="filter-year">
+            @for (int y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
+            {
+                var value = y;   // copy: the loop variable itself changes while the items render
+                <MudSelectItem T="int" Value="@value">@value</MudSelectItem>
+            }
+        </MudSelect>
+        @* ToStringFunc: the closed box shows the name, not the number it is bound to. *@
+        <MudSelect T="int" Label="Μήνας" @bind-Value="month" Variant="Variant.Outlined" Margin="Margin.Dense"
+                   Class="filter-month" ToStringFunc="MonthName">
+            @for (int m = 1; m <= 12; m++)
+            {
+                var value = m;
+                <MudSelectItem T="int" Value="@value">@Months[value - 1]</MudSelectItem>
+            }
+        </MudSelect>
+        @* Search box: type part of the surname or first name (Shared/EmployeePicker.razor). *@
+        <EmployeePicker Employees="employees" @bind-Value="employeeId" Class="filter-employee" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Class="filter-load"
+                   Disabled="@(employeeId == 0)" OnClick="LoadAsync">Φόρτωση μήνα</MudButton>
+    </div>
+</div>
+
+@if (entry is null)
+{
+    <MudPaper Elevation="0" Class="empty-state">
+        <MudIcon Icon="@Icons.Material.Rounded.EditCalendar" Size="Size.Large" />
+        <MudText Typo="Typo.body1">Επιλέξτε έτος, μήνα και εργαζόμενο και πατήστε «Φόρτωση μήνα».</MudText>
+    </MudPaper>
+}
+else
+{
+    @if (check is not null)
+    {
+        @* Month's hours per pay category (unsaved values included): one tile each, with the
+           declared hours against the limit. A category over its limit turns red. *@
+        <div class="hour-tiles">
+            @foreach (var h in check.Hours)
+            {
+                <MudPaper Elevation="0" Class="hour-tile">
+                    <div class="tile-label">@HoursLabels.Category(h.Category)</div>
+                    <div class="tile-value"><span class="tile-num">@Num(h.Declared)</span> / @Num(h.Limit) ώρες</div>
+                    <MudProgressLinear Value="@Percent(h)" Rounded="true" Size="Size.Medium"
+                                       Color="@(h.Excess > 0 ? Color.Error : Color.Primary)" />
+                    <div class="tile-note">
+                        Πληρώνονται @Num(h.Paid)
+                        @if (h.Excess > 0)
+                        {
+                            <span class="tile-over"> · Περισσεύουν @Num(h.Excess)</span>
+                        }
+                    </div>
+                </MudPaper>
+            }
+        </div>
+    }
+
+    @* Left: the two halves of the month as tabs (the 1st opens with every load); a day is
+       picked by clicking its row. Right: every code in one box; clicking a code puts it on the
+       picked day and moves on to the next day (from the 15th to the 2nd tab). Every change
+       re-runs the month check (warnings + hours), as before. Styles: "Shift entry" in app.css. *@
+    <div class="entry-layout">
+        <MudTabs Elevation="0" SliderColor="Color.Primary" Class="report-tabs entry-tabs" TabPanelsClass="entry-tab-panel"
+                 ActivePanelIndex="tab" ActivePanelIndexChanged="OnTabChanged">
+            @foreach (var half in Fortnights())
+            {
+                <MudTabPanel Text="@half.Title">
+                    <MudPaper Elevation="0" Class="fortnight">
+                        @foreach (var day in half.Days)
+                        {
+                            var d = day;   // copy for the click handler
+                            <div class="day-row day-click @RowClass(d) @(IsSelected(d) ? "selected" : "")"
+                                 role="button" aria-pressed="@(IsSelected(d) ? "true" : "false")"
+                                 aria-label="@($"Ημέρα {d.Date.Day}")" @onclick="() => SelectDay(d)">
+                                <div class="day-num">@d.Date.Day</div>
+                                <div class="day-name">
+                                    <span>@Wd[((int)d.Date.DayOfWeek + 6) % 7]</span>
+                                    @if (IsHoliday(d))
+                                    {
+                                        <span class="day-kind">Αργία</span>
+                                    }
+                                </div>
+                                <div class="day-pick">
+                                    @* The chosen code, read-only here: it is changed from the box of codes. *@
+                                    @if (Chosen(d) is { } c)
+                                    {
+                                        <div class="day-code">
+                                            <span class="day-code-num">@c.Code</span>
+                                            <span class="day-code-desc">@c.Description</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="day-code day-code-empty">—</div>
+                                    }
+                                    @if (Warning(d) is string w)
+                                    {
+                                        <div class="day-warn">@w</div>
+                                    }
+                                </div>
+                                @* Kind of the chosen code (empty while the day has no code; the cell keeps the columns aligned). *@
+                                <div class="day-tag @TagClass(d)">@TagText(d)</div>
+                            </div>
+                        }
+                    </MudPaper>
+                </MudTabPanel>
+            }
+        </MudTabs>
+
+        @* Every code in one grid. A code that would give a warning on the picked day gets a
+           coloured frame; it can still be picked (warnings never block). *@
+        <MudPaper Elevation="0" Class="code-panel">
+            <div class="code-panel-head">
+                <div>
+                    <div class="code-panel-title">Πρόγραμμα ημέρας</div>
+                    <div class="code-panel-day">
+                        @if (selected is not null)
+                        {
+                            @($"{Wd[((int)selected.Date.DayOfWeek + 6) % 7]} {selected.Date.Day}/{selected.Date.Month}")
+                        }
+                    </div>
+                </div>
+                @* Trash: empties the picked day (asked first). *@
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" DropShadow="false"
+                           StartIcon="@Icons.Material.Rounded.Delete" Disabled="@(selected?.ShiftCodeId is null)"
+                           OnClick="ClearDayAsync">Κενό</MudButton>
+            </div>
+
+            <div class="code-grid">
+                @foreach (var code in shiftCodes)
+                {
+                    var c = code;   // copy for the click handler
+                    <button type="button" class="code-tile @SegmentClass(c) @(IsChosen(c) ? "chosen" : "") @(WouldWarn(c) ? "wrong" : "")"
+                            title="@c.Label" aria-pressed="@(IsChosen(c) ? "true" : "false")"
+                            disabled="@(selected is null)" @onclick="() => PickAsync(c)">
+                        <span class="code-tile-num">@c.Code</span>
+                        <span class="code-tile-desc">@c.Description</span>
+                    </button>
+                }
+            </div>
+
+            <div class="code-panel-legend">
+                <span class="legend-swatch tag-day"></span>Ημέρα
+                <span class="legend-swatch tag-night"></span>Νύχτα
+                <span class="legend-swatch tag-status"></span>Κατάσταση
+                <span class="legend-swatch wrong"></span>Δεν προβλέπεται για την ημέρα
+            </div>
+        </MudPaper>
+    </div>
+
+    @* Stays at the bottom of the window while the days scroll. *@
+    <MudPaper Elevation="0" Class="save-bar">
+        <div class="save-info">
+            @if (WarningSummary is string summary)
+            {
+                <div class="save-warn">@summary</div>
+            }
+            @if (check is not null)
+            {
+                <div class="save-note">
+                    Προς συμπλήρωση + Αργίας πληρώνονται @Num(CombinedPaid) (κοινό όριο @Num(check.CombinedLimit);
+                    όταν ξεπερνιέται, κόβεται πρώτα το «Προς συμπλήρωση»).
+                    Οι προειδοποιήσεις δεν εμποδίζουν την αποθήκευση.
+                </div>
+            }
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" DropShadow="false"
+                   OnClick="SaveAsync">Αποθήκευση</MudButton>
+    </MudPaper>
+}
+
+@code {
+    private IReadOnlyList<EmployeeListItem> employees = Array.Empty<EmployeeListItem>();
+    private IReadOnlyList<ShiftCodeOption> shiftCodes = Array.Empty<ShiftCodeOption>();
+    private int year = DateTime.Today.Year;
+    private int month = DateTime.Today.Month;
+    private int employeeId;
+    private MonthEntry? entry;
+    private MonthCheck? check;
+
+    /// <summary>Open tab: 0 = days 1–15, 1 = days 16–end.</summary>
+    private int tab;
+
+    /// <summary>The day the next code goes to (null until a month is loaded).</summary>
+    private DayEntry? selected;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load dropdown data once when the page opens (active codes; refined per month on load).
+        employees = await ShiftService.GetEmployeesAsync();
+        shiftCodes = await ShiftService.GetShiftCodesAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        entry = await ShiftService.LoadMonthAsync(employeeId, year, month);// build the month grid
+
+        // Every load starts on the 1st tab with its first day picked.
+        tab = 0;
+        selected = entry.Days.FirstOrDefault();
+
+        // Active codes + any retired code already used this month, so those days don't show "—".
+        var usedIds = entry.Days.Where(d => d.ShiftCodeId.HasValue).Select(d => d.ShiftCodeId!.Value).Distinct().ToList();
+        shiftCodes = await ShiftService.GetShiftCodesAsync(usedIds);
+
+        await RecheckAsync();
+    }
+
+    /// <summary>Re-runs the month check on the current (unsaved) grid.</summary>
+    private async Task RecheckAsync()
+    {
+        if (entry is null) { check = null; return; }
+        check = await ShiftService.CheckMonthAsync(entry);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (entry is null) return;
+        await ShiftService.SaveMonthAsync(entry); // per-day upsert
+        // Brief message at the corner of the window; it goes away by itself.
+        if (check?.HasWarnings == true) Snackbar.Add("Αποθηκεύτηκε (με προειδοποιήσεις).", Severity.Warning);
+        else Snackbar.Add("Αποθηκεύτηκε.", Severity.Success);
+    }
+
+    /// <summary>The two halves of the loaded month: days 1–15 and 16–end (tab titles with the days).</summary>
+    private IEnumerable<(string Title, IEnumerable<DayEntry> Days)> Fortnights()
+    {
+        var last = entry!.Days.Count;
+        yield return ("1ο δεκαπενθήμερο (1–15)", entry!.Days.Where(d => d.Date.Day <= 15));
+        yield return ($"2ο δεκαπενθήμερο (16–{last})", entry!.Days.Where(d => d.Date.Day > 15));
+    }
+
+    /// <summary>True for the half (tab) a day belongs to: 0 = 1–15, 1 = 16–end.</summary>
+    private static int TabOf(DayEntry day) => day.Date.Day <= 15 ? 0 : 1;
+
+    private bool IsSelected(DayEntry day) => ReferenceEquals(day, selected);
+
+    /// <summary>A day row was clicked: the next code goes to it.</summary>
+    private void SelectDay(DayEntry day) => selected = day;
+
+    /// <summary>
+    /// The user opened the other tab: pick its first day, so the box of codes never fills a
+    /// day that is not on screen.
+    /// </summary>
+    private void OnTabChanged(int index)
+    {
+        tab = index;
+        if (entry is null || (selected is not null && TabOf(selected) == index)) return;
+        selected = entry.Days.FirstOrDefault(d => TabOf(d) == index);
+    }
+
+    /// <summary>
+    /// A code was clicked: it goes to the picked day, the month is re-checked, and the next
+    /// day is picked (the 2nd tab opens after the 15th; the last day of the month stays picked).
+    /// </summary>
+    private async Task PickAsync(ShiftCodeOption code)
+    {
+        if (entry is null || selected is null) return;
+
+        selected.ShiftCodeId = code.Id;
+        await RecheckAsync();
+
+        var index = entry.Days.IndexOf(selected);
+        if (index >= 0 && index + 1 < entry.Days.Count)
+        {
+            selected = entry.Days[index + 1];
+            tab = TabOf(selected);
+        }
+    }
+
+    /// <summary>Trash: empties the picked day, after asking. The day stays picked.</summary>
+    private async Task ClearDayAsync()
+    {
+        if (selected?.ShiftCodeId is null) return;
+
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Διαγραφή προγράμματος",
+            $"Είστε σίγουροι; Θα διαγραφεί το πρόγραμμα της {selected.Date.Day}/{selected.Date.Month} και η ημέρα θα μείνει κενή.",
+            yesText: "Διαγραφή", cancelText: "Ακύρωση");
+        if (confirmed != true) return;
+
+        selected.ShiftCodeId = null;
+        await RecheckAsync();
+    }
+
+    /// <summary>True when the code is the one on the picked day (its tile is shown selected).</summary>
+    private bool IsChosen(ShiftCodeOption code) => selected?.ShiftCodeId == code.Id;
+
+    /// <summary>
+    /// True when the code would give a warning on the picked day (wrong kind of day, or a code
+    /// replaced on the 1st): its tile gets a coloured frame. Same rules as the month check.
+    /// </summary>
+    private bool WouldWarn(ShiftCodeOption code) =>
+        selected is not null && check is not null
+        && MonthEntryRules.WouldWarn(code.Code, code.AllowedDays, selected.Date, check.Holidays);
+
+    /// <summary>Colour class of a code tile, the same three kinds as the tags of the days.</summary>
+    private static string SegmentClass(ShiftCodeOption code) => code.Segment switch
+    {
+        ShiftSegment.Night => "tag-night",
+        null => "tag-status",
+        _ => "tag-day"
+    };
+
+    /// <summary>Warning text for a day, or null.</summary>
+    private string? Warning(DayEntry day) =>
+        check is not null && check.DayWarnings.TryGetValue(day.Date, out var w) ? w : null;
+
+    /// <summary>True when the day is a holiday of the loaded month.</summary>
+    private bool IsHoliday(DayEntry day) => check is not null && check.Holidays.Contains(day.Date);
+
+    /// <summary>Row classes: holiday / weekend shading and/or warning highlight.</summary>
+    private string RowClass(DayEntry day) =>
+        string.Join(" ",
+            IsHoliday(day) ? "holiday"
+                : day.Date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday ? "weekend" : "",
+            Warning(day) is null ? "" : "warn").Trim();
+
+    /// <summary>The option chosen for a day, or null (empty day, or an id no longer in the list).</summary>
+    private ShiftCodeOption? Chosen(DayEntry day) =>
+        day.ShiftCodeId is int id ? shiftCodes.FirstOrDefault(c => c.Id == id) : null;
+
+    /// <summary>Tag text for the day's code: its Day/Night classification, or "Κατάσταση" for a status code.</summary>
+    private string TagText(DayEntry day) => Chosen(day) switch
+    {
+        null => "",
+        { Segment: ShiftSegment.Day } => "Ημέρα",
+        { Segment: ShiftSegment.Night } => "Νύχτα",
+        { Segment: ShiftSegment.Intermediate } => "Ενδιάμεση",
+        _ => "Κατάσταση"
+    };
+
+    /// <summary>CSS class (colour) of the tag; matches <see cref="TagText"/>.</summary>
+    private string TagClass(DayEntry day) => Chosen(day) switch
+    {
+        null => "",
+        { Segment: ShiftSegment.Night } => "tag-night",
+        { Segment: null } => "tag-status",
+        _ => "tag-day"
+    };
+
+    /// <summary>
+    /// One line for the save bar: how many days have a warning and whether a limit is exceeded.
+    /// Null when there is nothing to report.
+    /// </summary>
+    private string? WarningSummary
+    {
+        get
+        {
+            if (check is null || !check.HasWarnings) return null;
+            var parts = new List<string>();
+            var days = check.DayWarnings.Count;
+            if (days == 1) parts.Add("1 ημέρα με προειδοποίηση");
+            else if (days > 1) parts.Add($"{days} ημέρες με προειδοποίηση");
+            if (check.Hours.Any(h => h.Excess > 0)) parts.Add("υπέρβαση ορίου ωρών");
+            return string.Join(" · ", parts);
+        }
+    }
+
+    /// <summary>Declared hours as a percentage of the limit, 0–100 (the bar is full at or over the limit).</summary>
+    private static double Percent(CategoryHours h) =>
+        h.Limit <= 0 ? 0 : (double)Math.Min(100m, h.Declared / h.Limit * 100m);
+
+    /// <summary>Paid Προς συμπλήρωση + Αργίας (compared with the combined limit).</summary>
+    private decimal CombinedPaid => check?.Hours
+        .Where(h => h.Category is HourCategory.ToComplete or HourCategory.Holiday)
+        .Sum(h => h.Paid) ?? 0;
+
+    /// <summary>Hours as "6,5" / "120" (current culture, no trailing zeros).</summary>
+    private static string Num(decimal value) => value.ToString("0.##");
+
+    /// <summary>Month name for the text shown in the closed month picker.</summary>
+    private static string MonthName(int m) => m is >= 1 and <= 12 ? Months[m - 1] : "";
+
+    /// <summary>Employee label for the page subtitle.</summary>
+    private string EmployeeName(int id) => employees.FirstOrDefault(e => e.Id == id)?.Display ?? "";
+
+    private static readonly string[] Months =
+        { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",
+          "Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος" };
+    // Greek week order: .NET has Sunday=0, so (+6)%7 shifts Monday to index 0.
+    private static readonly string[] Wd =
+        { "Δευτέρα","Τρίτη","Τετάρτη","Πέμπτη","Παρασκευή","Σάββατο","Κυριακή" };
+}

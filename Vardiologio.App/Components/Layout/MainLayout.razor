@@ -1,0 +1,248 @@
+﻿@inherits LayoutComponentBase
+@using Vardiologio.Application.Auth
+@inject IUserSession Session
+@inject NavigationManager Nav
+@implements IDisposable
+
+@* Shell (top bar + side menu + content) shown only when signed in; otherwise the guard below
+   redirects to /login. Colours and sizes come from Theme/AppTheme.cs; the few extra rules
+   (.app-bar, .app-drawer, ...) are in wwwroot/app.css. *@
+@if (Session.IsAuthenticated)
+{
+    <MudLayout>
+        @* Top bar: brand on the left; help, user and sign-out on the right. *@
+        <MudAppBar Elevation="0" Class="app-bar">
+            @* App icon; a click opens the "about" card (Shared/AboutButton.razor).
+               Its colour follows the section of the current page (see SectionClass below). *@
+            <AboutButton Class="@SectionClass" />
+            <MudText Typo="Typo.h6" Class="brand-name">Βαρδιολόγιο</MudText>
+            <MudSpacer />
+            @* Context help ("?") and message to the developer (pen): each opens / closes its own
+               content in the side drawer at the end of this layout; opening one replaces the other.
+               Not shown to the administrator, whose pages have no help texts. *@
+            @if (!IsAdmin)
+            {
+            <MudIconButton Icon="@Icons.Material.Rounded.QuestionMark" Variant="Variant.Outlined"
+                           Class="@BarButtonClass(SidePanel.Help)"
+                           title="Βοήθεια" aria-label="Βοήθεια" aria-pressed="@Pressed(SidePanel.Help)"
+                           OnClick="() => Toggle(SidePanel.Help)" />
+            <MudIconButton Icon="@Icons.Material.Rounded.Edit" Variant="Variant.Outlined"
+                           Class="@BarButtonClass(SidePanel.Feedback)"
+                           title="Μήνυμα στον προγραμματιστή" aria-label="Μήνυμα στον προγραμματιστή"
+                           aria-pressed="@Pressed(SidePanel.Feedback)"
+                           OnClick="() => Toggle(SidePanel.Feedback)" />
+            }
+            <div class="user-box">
+                @* A user's name opens the user's own details (Shared/UserProfileButton.razor);
+                   the administrator has none, so that name is plain text. *@
+                @if (IsAdmin)
+                {
+                <MudText Typo="Typo.subtitle2">@Session.Current!.DisplayName</MudText>
+                }
+                else
+                {
+                <UserProfileButton />
+                }
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           DropShadow="false" Class="logout-btn" OnClick="Logout">Αποσύνδεση</MudButton>
+            </div>
+        </MudAppBar>
+
+        @* Side menu: always open (the window is always maximised), placed under the top bar. *@
+        <MudDrawer Open="true" Variant="DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always"
+                   Elevation="0" Class="app-drawer">
+            <MudNavMenu Rounded="true" Margin="Margin.Dense" Class="app-nav">
+
+                @* The administrator sees only the administrator's pages (Pages/Admin), and nobody
+                   else sees those; the guard in the code below enforces the same for typed addresses. *@
+                @if (IsAdmin)
+                {
+                <div class="nav-section">
+                    <MudIcon Icon="@Icons.Material.Rounded.AdminPanelSettings" Size="Size.Small" />
+                    <span>Διαχειριστής</span>
+                </div>
+                <MudNavLink Href="admin/activity">Κινήσεις</MudNavLink>
+                <MudNavLink Href="admin/errors">Σφάλματα</MudNavLink>
+                <MudNavLink Href="admin/users">Χρήστες</MudNavLink>
+                <MudNavLink Href="admin/files">Αρχεία</MudNavLink>
+                }
+                else
+                {
+                @* Every section has the same shape: an icon + small title, then its entries. *@
+                <div class="nav-section">
+                    <MudIcon Icon="@Icons.Material.Rounded.GridView" Size="Size.Small" />
+                    <span>Λειτουργίες</span>
+                </div>
+                <MudNavLink Href="employees">Εργαζόμενοι</MudNavLink>
+                @* Match.All so this is active only at "/", not on every route. *@
+                <MudNavLink Href="" Match="NavLinkMatch.All">Προγράμματα</MudNavLink>
+
+                @* Reports and forms together; a thin line separates the official forms
+                   (emblem + signatures) from the plain reports. *@
+                <div class="nav-section">
+                    <MudIcon Icon="@Icons.Material.Rounded.Description" Size="Size.Small" />
+                    <span>Αναφορές - Έντυπα</span>
+                </div>
+                <MudNavLink Href="export">Συνολική Μηνιαία Σ.Ω.</MudNavLink>
+                <MudNavLink Href="individual">Ατομική Μηνιαία</MudNavLink>
+                <MudNavLink Href="hours-report">Ωρών Μηνιαία</MudNavLink>
+                <MudDivider Class="nav-divider" />
+                <MudNavLink Href="shift-table">Πίνακας Βαρδιών Εργασίας</MudNavLink>
+                <MudNavLink Href="attendance-report">Παρουσιών Προσωπικού</MudNavLink>
+                <MudNavLink Href="overtime-certificate">Ατομικής Βεβαίωσης</MudNavLink>
+                <MudNavLink Href="contract-certificate">ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι</MudNavLink>
+
+                <div class="nav-section">
+                    <MudIcon Icon="@Icons.Material.Rounded.Tune" Size="Size.Small" />
+                    <span>Παράμετροι</span>
+                </div>
+                <MudNavLink Href="shift-codes">Βαρδιών</MudNavLink>
+                <MudNavLink Href="employee-parameters">Εργαζομένων</MudNavLink>
+                <MudNavLink Href="hours-parameters">Ωρών</MudNavLink>
+                <MudNavLink Href="report-parameters">Αναφορών</MudNavLink>
+
+                @* Copies of the whole database; the entry opens its dialog (Shared/DbTransferButton.razor). *@
+                <div class="nav-section">
+                    <MudIcon Icon="@Icons.Material.Rounded.Storage" Size="Size.Small" />
+                    <span>Διαχείριση</span>
+                </div>
+                <DbTransferButton OpenChanged="OnDbDialogChanged" />
+                }
+            </MudNavMenu>
+        </MudDrawer>
+
+        <MudMainContent>
+            @* "legacy" gives sensible defaults to the few plain HTML elements left on purpose
+               (rules in app.css, "Plain elements"). *@
+            <div class="app-content legacy">
+                @* Nothing is rendered while the guard redirects a page of the wrong side. *@
+                @if (IsAdmin == OnAdminRoute)
+                {
+                    @Body
+                }
+            </div>
+        </MudMainContent>
+
+        @* Side drawer, right: one drawer with two contents, help or the message form, so only one
+           can be open. Persistent: it sits next to the page (no dimmed background), so the user can
+           read while working; it closes only with "×" or the button that opened it. On navigation
+           it stays open and follows the new page. Width: DrawerWidthRight in Theme/AppTheme.cs. *@
+        <MudDrawer Open="@(panel != SidePanel.None)" OpenChanged="OnDrawerOpenChanged" Anchor="Anchor.End"
+                   Variant="DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always" Elevation="0"
+                   Class="help-drawer">
+            <div class="help-head">
+                <MudIcon Icon="@(panel == SidePanel.Feedback ? Icons.Material.Rounded.Edit : Icons.Material.Rounded.HelpOutline)"
+                         Size="Size.Small" />
+                <MudText Typo="Typo.h6" Class="help-title">
+                    @(panel == SidePanel.Feedback ? "Μήνυμα στον προγραμματιστή" : HelpContent.TitleFor(route))
+                </MudText>
+                <MudIconButton Icon="@Icons.Material.Rounded.Close" Size="Size.Small"
+                               title="Κλείσιμο" aria-label="Κλείσιμο" OnClick="ClosePanel" />
+            </div>
+            @* Help texts of the current page (route -> Shared/HelpContent.razor). *@
+            @if (panel == SidePanel.Help)
+            {
+                <div class="help-body">
+                    <HelpContent Topic="@route" />
+                </div>
+            }
+            @* The form stays rendered (only hidden) while the drawer shows help or is closed, so a
+               half-written message is not lost. *@
+            <div class="help-body" hidden="@(panel != SidePanel.Feedback)">
+                <FeedbackForm Route="@route" />
+            </div>
+        </MudDrawer>
+    </MudLayout>
+}
+
+@code {
+    private string route = "";   // current page, e.g. "" or "shift-codes"; picks help texts and icon colour
+    private SidePanel panel;     // what the side drawer shows; None = drawer closed
+    private bool dbDialogOpen;   // database dialog visible (it has no page of its own)
+
+    /// <summary>
+    /// Colour modifier of the app icon, by section of the side menu: operations keep the brand
+    /// blue (no modifier), reports are green, parameters grey, database management red.
+    /// The classes are defined next to ".brand-mark" in wwwroot/app.css.
+    /// </summary>
+    private string SectionClass => dbDialogOpen || OnAdminRoute ? "brand-mark-admin" : route switch
+    {
+        "export" or "individual" or "hours-report" or "shift-table" or "attendance-report"
+            or "overtime-certificate" or "contract-certificate" => "brand-mark-reports",
+        "shift-codes" or "employee-parameters" or "hours-parameters" or "report-parameters" => "brand-mark-params",
+        _ => ""
+    };
+
+    /// <summary>True when the administrator is signed in.</summary>
+    private bool IsAdmin => Session.Current?.IsAdmin == true;
+
+    /// <summary>True on the administrator's pages ("admin" and everything under it).</summary>
+    private bool OnAdminRoute => route == "admin" || route.StartsWith("admin/", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Keeps each side on its own pages: the administrator goes to the administrator's start
+    /// page from anywhere else, and a user who reaches an administrator's page goes to the roster.
+    /// </summary>
+    private void GuardAdminPages()
+    {
+        if (!Session.IsAuthenticated || IsAdmin == OnAdminRoute) return;
+        Nav.NavigateTo(IsAdmin ? "/admin" : "/");
+    }
+
+    protected override void OnInitialized()
+    {
+        route = CurrentRoute();
+        // No parameters change on navigation, so listen for it to switch help texts and icon colour.
+        Nav.LocationChanged += OnLocationChanged;
+        // React to sign-in/out to refresh the shell.
+        Session.Changed += OnChanged;
+        // Auth guard: no session -> go to the login page.
+        if (!Session.IsAuthenticated) Nav.NavigateTo("/login");
+        GuardAdminPages();
+    }
+    // Session event may arrive off the UI thread -> marshal back with InvokeAsync.
+    private void OnChanged() => InvokeAsync(() => { GuardAdminPages(); StateHasChanged(); });
+    // The next user starts with the help drawer closed.
+    private void Logout() { panel = SidePanel.None; Session.SignOut(); Nav.NavigateTo("/login"); }
+
+    /// <summary>Content of the side drawer.</summary>
+    private enum SidePanel { None, Help, Feedback }
+
+    /// <summary>Top-bar button of a content: a second click closes the drawer, otherwise it shows that content.</summary>
+    private void Toggle(SidePanel target) => panel = panel == target ? SidePanel.None : target;
+
+    private void ClosePanel() => panel = SidePanel.None;
+
+    /// <summary>Raised by the drawer if it closes itself.</summary>
+    private void OnDrawerOpenChanged(bool open) { if (!open) panel = SidePanel.None; }
+
+    /// <summary>CSS classes of a top-bar button; highlighted while its content is shown.</summary>
+    private string BarButtonClass(SidePanel target) => panel == target ? "bar-btn bar-btn-on" : "bar-btn";
+
+    private string Pressed(SidePanel target) => panel == target ? "true" : "false";
+
+    /// <summary>Raised by the database entry when its dialog opens or closes.</summary>
+    private void OnDbDialogChanged(bool open) => dbDialogOpen = open;
+
+    /// <summary>Route relative to the base, without query/fragment, e.g. "" or "shift-codes".</summary>
+    private string CurrentRoute()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri);
+        var cut = path.IndexOfAny(new[] { '?', '#' });
+        return (cut >= 0 ? path[..cut] : path).Trim('/').ToLowerInvariant();
+    }
+
+    // Navigation may be raised off the render cycle -> marshal back with InvokeAsync.
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        route = CurrentRoute();
+        InvokeAsync(() => { GuardAdminPages(); StateHasChanged(); });
+    }
+
+    // Unsubscribe to avoid a memory leak (pairs with the subscribes in OnInitialized).
+    public void Dispose()
+    {
+        Session.Changed -= OnChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+}

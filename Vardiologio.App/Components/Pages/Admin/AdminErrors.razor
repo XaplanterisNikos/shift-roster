@@ -1,0 +1,77 @@
+@page "/admin/errors"
+@using Vardiologio.Application.Logging
+@inject IErrorLogReader Reader
+
+@* Error log: the entries of the daily log files (Documents\Vardiologio\Logs) as a grid, newest
+   first; a line expands to the full exception text. Opens with the last 30 days.
+   Reached only by the administrator (guard in Layout/MainLayout.razor). *@
+
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Σφάλματα</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Τα σφάλματα που έχει καταγράψει η εφαρμογή σε αυτόν τον υπολογιστή.</MudText>
+    </div>
+</div>
+
+<div class="admin-row">
+    <MudDatePicker Label="Από" @bind-Date="from" Variant="Variant.Outlined" Margin="Margin.Dense"
+                   DateFormat="dd/MM/yyyy" Clearable="true" />
+    <MudDatePicker Label="Έως" @bind-Date="to" Variant="Variant.Outlined" Margin="Margin.Dense"
+                   DateFormat="dd/MM/yyyy" Clearable="true" />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" OnClick="LoadAsync">Εμφάνιση</MudButton>
+</div>
+
+<MudTable T="ErrorLogItem" Items="items" Dense="true" Hover="true" Elevation="0" Outlined="true" RowsPerPage="25">
+    <HeaderContent>
+        <MudTh>Ημερομηνία</MudTh>
+        <MudTh>Ώρα</MudTh>
+        <MudTh>Σημείο</MudTh>
+        <MudTh>Μήνυμα</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.Time.ToString("dd/MM/yyyy")</MudTd>
+        <MudTd>@context.Time.ToString("HH:mm:ss")</MudTd>
+        <MudTd>@context.Source</MudTd>
+        <MudTd>@context.Message</MudTd>
+        <MudTd>
+            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => Toggle(context)">
+                @(ReferenceEquals(open, context) ? "Απόκρυψη" : "Πλήρες κείμενο")
+            </MudButton>
+        </MudTd>
+    </RowTemplate>
+    <ChildRowContent>
+        @if (ReferenceEquals(open, context))
+        {
+            <MudTr>
+                <td colspan="5">
+                    <div class="admin-detail"><pre>@context.Details</pre></div>
+                </td>
+            </MudTr>
+        }
+    </ChildRowContent>
+    <NoRecordsContent>
+        <MudText Typo="Typo.body2">Δεν υπάρχουν σφάλματα σε αυτό το διάστημα.</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager RowsPerPageString="Γραμμές ανά σελίδα" InfoFormat="{first_item}-{last_item} από {all_items}" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private IReadOnlyList<ErrorLogItem> items = Array.Empty<ErrorLogItem>();
+    private DateTime? from = DateTime.Today.AddDays(-30);   // filter: first day
+    private DateTime? to;                                   // filter: last day
+    private ErrorLogItem? open;                             // the line whose full text is shown
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        open = null;
+        items = await Reader.ReadAsync(from, to);
+    }
+
+    /// <summary>Shows the full text of a line, or hides it when it is already shown.</summary>
+    private void Toggle(ErrorLogItem item) => open = ReferenceEquals(open, item) ? null : item;
+}

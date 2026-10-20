@@ -1,0 +1,138 @@
+@using Vardiologio.Application.ReportTexts
+@using Vardiologio.Domain.Enums
+@inject IReportTextService TextService
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+
+@* Editor of one form's texts: a card for the header and a card for the footer, each with its
+   blocks of lines (service details, titles, signatures…). Lines can only be changed, never
+   added or removed; a line left empty is not printed. "Επαναφορά" puts back the texts the
+   form had before its last save. *@
+@if (lines is not null)
+{
+    <div class="report-texts">
+        @foreach (var section in lines.GroupBy(l => l.Section))
+        {
+            <MudPaper Elevation="0" Class="report-section">
+                <MudText Typo="Typo.h6">@ReportTextBlocks.SectionName(section.Key)</MudText>
+
+                @foreach (var block in section.GroupBy(l => l.Block))
+                {
+                    <div class="report-block">
+                        <div class="report-block-title">@ReportTextBlocks.Label(block.Key)</div>
+                        @if (Hint(block.Key) is { } hint)
+                        {
+                            <div class="report-block-hint">@hint</div>
+                        }
+
+                        @foreach (var line in block)
+                        {
+                            @* Running text (introduction, declaration, certification) gets a taller box, sized to its text;
+                               a longer text scrolls inside the box (see .report-line in app.css). *@
+                            <MudTextField T="string" @bind-Value="line.Text" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          MaxLength="@ReportTextLine.MaxLength" Lines="@BoxLines(line)"
+                                          Placeholder="(κενή γραμμή – δεν τυπώνεται)" Class="report-line" />
+                        }
+                    </div>
+                }
+            </MudPaper>
+        }
+    </div>
+
+    <MudPaper Elevation="0" Class="save-bar">
+        <MudText Typo="Typo.body2" Class="save-note">
+            Οι αλλαγές ισχύουν από την επόμενη εκτύπωση. Μήνας και ημερομηνίες συμπληρώνονται αυτόματα.
+        </MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@(!canUndo || busy)" OnClick="UndoAsync"
+                   StartIcon="@Icons.Material.Rounded.Undo">Επαναφορά τελευταίας αλλαγής</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Disabled="busy" OnClick="SaveAsync">Αποθήκευση</MudButton>
+    </MudPaper>
+}
+
+@code {
+    /// <summary>The form whose texts are edited.</summary>
+    [Parameter, EditorRequired] public ReportForm Form { get; set; }
+
+    private List<ReportTextLine>? lines;
+
+    /// <summary>True when the form has an earlier state to go back to.</summary>
+    private bool canUndo;
+
+    /// <summary>True while a save / undo runs, so a double click cannot start a second one.</summary>
+    private bool busy;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    /// <summary>Reads the stored texts and whether there is something to undo.</summary>
+    private async Task LoadAsync()
+    {
+        lines = await TextService.GetAsync(Form);
+        canUndo = await TextService.CanUndoAsync(Form);
+    }
+
+    /// <summary>Saves every line of the form, then reloads (texts come back trimmed).</summary>
+    private async Task SaveAsync()
+    {
+        if (lines is null) return;
+
+        busy = true;
+        try
+        {
+            await TextService.SaveAsync(Form, lines);
+            await LoadAsync();
+            Snackbar.Add("Αποθηκεύτηκε.", Severity.Success);
+        }
+        finally { busy = false; }
+    }
+
+    /// <summary>Puts back the texts of the form before its last save and shows them.</summary>
+    private async Task UndoAsync()
+    {
+        // The current values are replaced by the previous ones: ask first.
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Επαναφορά τελευταίας αλλαγής",
+            "Είστε σίγουροι; Τα τωρινά κείμενα θα αντικατασταθούν από τα κείμενα πριν από την τελευταία αποθήκευση.",
+            yesText: "Επαναφορά", cancelText: "Ακύρωση");
+        if (confirmed != true) return;
+
+        busy = true;
+        try
+        {
+            await TextService.UndoLastSaveAsync(Form);
+            await LoadAsync();
+            Snackbar.Add("Επαναφέρθηκαν τα κείμενα πριν από την τελευταία αποθήκευση.", Severity.Info);
+        }
+        finally { busy = false; }
+    }
+
+    /// <summary>Blocks of running text: their lines do not fit on one line of the box.</summary>
+    private static bool IsLong(ReportTextLine line) =>
+        line.Block is ReportTextBlocks.Intro or ReportTextBlocks.Declarations or ReportTextBlocks.Certification;
+
+    /// <summary>
+    /// Height of a line's box in text rows. Single lines get one row. Running text gets enough
+    /// rows to show the whole stored text (about 55 characters fit on a row of the card), plus
+    /// one spare row for typing; between 3 and 10 rows, beyond which the box scrolls.
+    /// The height is fixed when the tab loads, so the box does not jump while typing.
+    /// </summary>
+    private static int BoxLines(ReportTextLine line) =>
+        IsLong(line) ? Math.Clamp(line.Text.Length / 55 + 2, 3, 10) : 1;
+
+    /// <summary>Short note under a block title, for the blocks where something is added automatically.</summary>
+    private string? Hint(string block) => (Form, block) switch
+    {
+        (ReportForm.ShiftTable or ReportForm.MonthlyTotal, ReportTextBlocks.Titles) => "Μετά τους τίτλους τυπώνεται αυτόματα η γραμμή «ΜΗΝΟΣ …».",
+        (ReportForm.OvertimeCertificate or ReportForm.ContractCertificate, ReportTextBlocks.Titles) => "Στο τέλος της πρώτης γραμμής προστίθεται αυτόματα «ΜΗΝΟΣ …».",
+        (ReportForm.OvertimeCertificate or ReportForm.ContractCertificate, ReportTextBlocks.Intro) => "Στο τέλος της τελευταίας γραμμής προστίθεται αυτόματα «από … έως …».",
+        (ReportForm.ContractCertificate, ReportTextBlocks.Department) => "Τυπώνεται μία φορά, πάνω από την πρώτη ομάδα κάθε εντύπου.",
+        (ReportForm.ContractCertificate, ReportTextBlocks.ContractGroups) => "Με τη σειρά: Μόνιμοι, Αορίστου χρόνου (ΙΔΑΧ), Ορισμένου χρόνου (ΙΔΟΧ).",
+        (ReportForm.IndividualMonthly, ReportTextBlocks.DateLabel) => "Μετά την ετικέτα τυπώνεται η ημερομηνία που ορίζεται στη σελίδα «Ατομική μηνιαία» (αρχικά η 1η του επόμενου μήνα).",
+        (ReportForm.IndividualMonthly, ReportTextBlocks.SummaryGroups) => "Με τη σειρά, από αριστερά προς τα δεξιά. Οι υπο-επικεφαλίδες (ΗΜΕΡ., Α΄, Β΄ …) και οι τιμές συμπληρώνονται αυτόματα.",
+        (ReportForm.IndividualMonthly, ReportTextBlocks.Titles) => "Τυπώνεται πάνω από τον πίνακα· η δεύτερη γραμμή είναι προαιρετική.",
+        (ReportForm.IndividualMonthly, _) when block == ReportTextBlocks.SignatureRole(1) => "Υπογραφή του εργαζομένου (αριστερά). Μπαίνει αυτόματα «Ο» ή «Η» μπροστά και από κάτω το ονοματεπώνυμο και η ειδικότητά του. Η δεξιά υπογραφή είναι του προϊσταμένου (Παράμετροι Εργαζομένων → Υπογράφοντες).",
+        (ReportForm.MonthlyTotal, ReportTextBlocks.FixedTermBand) => "Γραμμή σε όλο το πλάτος του πίνακα, πριν από τους ΙΔΟΧ· τυπώνεται μόνο όταν υπάρχει εργαζόμενος ΙΔΟΧ. Το χρώμα της αλλάζει στην καρτέλα «Χρώματα».",
+        (ReportForm.AttendanceStaff or ReportForm.AttendanceFixedTerm or ReportForm.AttendanceDirectorate, ReportTextBlocks.Titles) => "Κάτω από τους τίτλους τυπώνεται αυτόματα η περίοδος «Από … έως …».",
+        _ => null
+    };
+}

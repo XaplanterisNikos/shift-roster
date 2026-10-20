@@ -1,0 +1,106 @@
+﻿@page "/admin/users"
+@using Vardiologio.Application.Auth
+@inject IAuthService Auth
+@inject IDialogService Dialogs
+
+@* Users of this installation: the limit on how many may exist, deletion of one user and
+   deletion of all. A deletion is permanent; the activity log keeps the user's name. Every
+   deletion asks for confirmation first, in a popup.
+   Reached only by the administrator (guard in Layout/MainLayout.razor). *@
+
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Χρήστες</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Οι χρήστες αυτής της εγκατάστασης και το όριό τους.</MudText>
+    </div>
+</div>
+
+@* Limit: once reached, "Δημιουργία νέου χρήστη" on the login screen refuses. *@
+<div class="admin-card">
+    <MudText Typo="Typo.h6">Όριο χρηστών</MudText>
+    <div class="admin-row">
+        <MudNumericField T="int?" Label="Μέγιστος αριθμός χρηστών" @bind-Value="maxUsers" Min="0"
+                         Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                         HelperText="Κενό = χωρίς όριο" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" OnClick="SaveLimitAsync">Αποθήκευση</MudButton>
+    </div>
+    @if (limitSaved)
+    {
+        <MudAlert Severity="Severity.Success" Dense="true">Το όριο αποθηκεύτηκε.</MudAlert>
+    }
+</div>
+
+<div class="admin-card">
+    <MudText Typo="Typo.h6">Χρήστες (@users.Count)</MudText>
+
+    <MudTable T="UserItem" Items="users" Dense="true" Hover="true" Elevation="0" Outlined="true">
+        <HeaderContent>
+            <MudTh>Όνομα χρήστη</MudTh>
+            <MudTh>Ονοματεπώνυμο</MudTh>
+            <MudTh>Email</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Username</MudTd>
+            <MudTd>@context.FullName</MudTd>
+            <MudTd>@context.Email</MudTd>
+            <MudTd Style="text-align: right">
+                <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                           StartIcon="@Icons.Material.Rounded.Delete" OnClick="() => DeleteAsync(context)">Διαγραφή</MudButton>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Typo="Typo.body2">Δεν υπάρχουν χρήστες.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+
+    <div>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="@(users.Count == 0)"
+                   StartIcon="@Icons.Material.Rounded.DeleteSweep" OnClick="DeleteAllAsync">Διαγραφή όλων των χρηστών</MudButton>
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<UserItem> users = Array.Empty<UserItem>();
+    private int? maxUsers;          // the limit as typed; null = no limit
+    private bool limitSaved;        // show the "saved" note
+
+    protected override async Task OnInitializedAsync()
+    {
+        maxUsers = await Auth.GetMaxUsersAsync();
+        users = await Auth.GetUsersAsync();
+    }
+
+    private async Task SaveLimitAsync()
+    {
+        await Auth.SetMaxUsersAsync(maxUsers);
+        limitSaved = true;
+    }
+
+    /// <summary>Deletes one user, after asking (permanent).</summary>
+    private async Task DeleteAsync(UserItem user)
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Διαγραφή χρήστη",
+            $"Είστε σίγουροι; Ο χρήστης «{user.Username}» θα διαγραφεί οριστικά.",
+            yesText: "Διαγραφή", cancelText: "Ακύρωση");
+        if (confirmed != true) return;
+
+        await Auth.DeleteUserAsync(user.Id);
+        users = await Auth.GetUsersAsync();
+    }
+
+    /// <summary>Deletes every user, after asking (permanent; nobody can sign in until a new user is created).</summary>
+    private async Task DeleteAllAsync()
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Διαγραφή όλων των χρηστών",
+            $"Είστε σίγουροι; Θα διαγραφούν οριστικά όλοι οι χρήστες ({users.Count}). " +
+            "Κανείς δεν θα μπορεί να συνδεθεί μέχρι να δημιουργηθεί νέος χρήστης.",
+            yesText: "Διαγραφή όλων", cancelText: "Ακύρωση");
+        if (confirmed != true) return;
+
+        await Auth.DeleteAllUsersAsync();
+        users = await Auth.GetUsersAsync();
+    }
+}

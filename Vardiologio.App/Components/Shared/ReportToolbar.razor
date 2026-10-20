@@ -1,0 +1,97 @@
+@using System.Globalization
+
+@* Row above every report: the month (one picker for year and month), the page's own filters
+   (ChildContent, e.g. the employee picker), and the preview / Excel / PDF buttons.
+   A thin bar under the row runs while the page builds or exports the report.
+   Bound like two plain values: @bind-Year and @bind-Month.
+   Styles: "Reports" block in app.css. *@
+<div class="report-bar">
+    @* OpenTo + FixDay: the picker shows the months only and closes on the pick. *@
+    <MudDatePicker Label="Μήνας" Date="Period" DateChanged="OnPeriodChangedAsync"
+                   OpenTo="OpenTo.Month" FixDay="1" DateFormat="MMMM yyyy" Culture="El"
+                   AutoClose="true" Variant="Variant.Outlined" Margin="Margin.Dense"
+                   Class="report-month" Disabled="Busy" />
+
+    @ChildContent
+
+    @if (OnShow.HasDelegate)
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+                   StartIcon="@Icons.Material.Rounded.TableChart"
+                   Disabled="Blocked" OnClick="OnShow">Εμφάνιση</MudButton>
+    }
+    <MudButton Variant="@(OnShow.HasDelegate ? Variant.Outlined : Variant.Filled)" Color="Color.Primary" DropShadow="false"
+               StartIcon="@Icons.Material.Rounded.Visibility"
+               Disabled="Blocked" OnClick="OnPreview">@PreviewText</MudButton>
+
+    <span class="report-bar-gap"></span>
+
+    <MudButton Variant="Variant.Outlined" Color="Color.Success" DropShadow="false"
+               StartIcon="@Icons.Material.Rounded.GridOn"
+               Disabled="Blocked" OnClick="OnExcel">Εξαγωγή Excel</MudButton>
+    <MudButton Variant="Variant.Outlined" Color="Color.Error" DropShadow="false"
+               StartIcon="@Icons.Material.Rounded.PictureAsPdf"
+               Disabled="Blocked" OnClick="OnPdf">Εξαγωγή PDF</MudButton>
+</div>
+
+@* Fixed height, so the page below does not jump when the bar appears. *@
+<div class="report-progress">
+    @if (Busy)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Rounded="true" Size="Size.Small" />
+    }
+</div>
+
+@code {
+    /// <summary>Month names in Greek whatever the Windows language is.</summary>
+    private static readonly CultureInfo El = CultureInfo.GetCultureInfo("el-GR");
+
+    /// <summary>Year of the report.</summary>
+    [Parameter] public int Year { get; set; }
+
+    /// <summary>Raised when another year is picked.</summary>
+    [Parameter] public EventCallback<int> YearChanged { get; set; }
+
+    /// <summary>Month of the report (1-12).</summary>
+    [Parameter] public int Month { get; set; }
+
+    /// <summary>Raised when another month is picked.</summary>
+    [Parameter] public EventCallback<int> MonthChanged { get; set; }
+
+    /// <summary>The page is building or exporting: buttons are disabled and the bar runs.</summary>
+    [Parameter] public bool Busy { get; set; }
+
+    /// <summary>The buttons cannot be used yet (e.g. no employee picked).</summary>
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Text of the preview button.</summary>
+    [Parameter] public string PreviewText { get; set; } = "Προεπισκόπηση";
+
+    /// <summary>Optional "Εμφάνιση" button (the hours report shows a table on the page as well).</summary>
+    [Parameter] public EventCallback OnShow { get; set; }
+
+    /// <summary>Preview button.</summary>
+    [Parameter] public EventCallback OnPreview { get; set; }
+
+    /// <summary>Excel export button.</summary>
+    [Parameter] public EventCallback OnExcel { get; set; }
+
+    /// <summary>PDF export button.</summary>
+    [Parameter] public EventCallback OnPdf { get; set; }
+
+    /// <summary>The page's own filters, placed between the month and the buttons.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>First day of the picked month: what the picker is bound to.</summary>
+    private DateTime? Period => new DateTime(Year, Month, 1);
+
+    private bool Blocked => Busy || Disabled;
+
+    /// <summary>Passes the pick to the page as a year and a month; a cleared box changes nothing.</summary>
+    private async Task OnPeriodChangedAsync(DateTime? date)
+    {
+        if (date is not DateTime picked) return;
+        if (picked.Year != Year) await YearChanged.InvokeAsync(picked.Year);
+        if (picked.Month != Month) await MonthChanged.InvokeAsync(picked.Month);
+    }
+}

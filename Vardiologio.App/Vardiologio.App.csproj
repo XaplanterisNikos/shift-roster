@@ -1,0 +1,50 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Vardiologio.Application\Vardiologio.Application.csproj" />
+    <ProjectReference Include="..\Vardiologio.Infrastructure\Vardiologio.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.101" />
+    <!-- UI component library (Material Design). Pinned: upgrade deliberately, not by accident. -->
+    <PackageReference Include="MudBlazor" Version="9.11.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Committed demo data: always copied next to the exe. -->
+    <None Update="employees.demo.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Real data: git-ignored; copied only when present on this machine. -->
+    <None Update="employees.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('employees.json')" />
+
+    <!-- Administrator account (salt + hash of the password): the committed file has a public demo
+         password, so it is copied only when there is no real account file. A release must not carry
+         it: with admin.json removed from an installation there is then no administrator at all. -->
+    <None Update="admin.demo.json" CopyToOutputDirectory="PreserveNewest" Condition="!Exists('admin.json')" />
+    <!-- Real administrator account: git-ignored; copied only when present. Made by tools\New-AdminFile.ps1. -->
+    <None Update="admin.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('admin.json')" />
+
+    <!-- Texts of the official forms: the committed file has every block with empty lines. -->
+    <None Update="report-data.demo.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Real texts (service details, signatories) and the emblem: git-ignored; copied only when present. -->
+    <None Update="report-data.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('report-data.json')" />
+    <None Update="emblem.png" CopyToOutputDirectory="PreserveNewest" Condition="Exists('emblem.png')" />
+
+    <!-- Telegram bot token and chat id for the message to the developer: git-ignored; copied only
+         when present. telegram.demo.json only shows the shape of the file and is never copied. -->
+    <None Update="telegram.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('telegram.json')" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- Release number: the ONLY place to change it. Shown on the login screen and read by the
+         installer (installer\Vardiologio.iss) from the built exe. Bump it for every release. -->
+    <Version>1.21.3</Version>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\Vardiologio.ico</ApplicationIcon>
+  </PropertyGroup>
+
+</Project>

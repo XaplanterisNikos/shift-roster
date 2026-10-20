@@ -1,0 +1,21 @@
+@page "/hours-parameters"
+
+@* Hours settings as tabs: holidays (per year) and monthly limits.
+   A tab's editor is created when the tab opens and dropped when it closes, so each tab
+   starts clean. Tab styles: "Report texts" block in app.css. *@
+
+<div class="page-head">
+    <div>
+        <MudText Typo="Typo.h4">Παράμετροι Ωρών</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Οι αργίες κάθε έτους και τα μηνιαία όρια των πληρωτέων ωρών.</MudText>
+    </div>
+</div>
+
+<MudTabs Elevation="0" SliderColor="Color.Primary" Class="report-tabs" TabPanelsClass="report-tab-panel">
+    <MudTabPanel Text="Αργίες">
+        <HolidaysEditor />
+    </MudTabPanel>
+    <MudTabPanel Text="Όρια ωρών">
+        <HourLimitsEditor />
+    </MudTabPanel>
+</MudTabs>

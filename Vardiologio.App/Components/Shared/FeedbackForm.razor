@@ -1,0 +1,247 @@
+@using System.Diagnostics
+@using Vardiologio.Application.Auth
+@using Vardiologio.Application.Feedback
+@inject IFeedbackSender Sender
+@inject IUserSession Session
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+@implements IDisposable
+
+@* Message to the developer: kind (error / addition), the menu it is about, the sender's name and
+   e-mail address (both required: the developer answers by e-mail) and the text. Name and
+   address start as the signed-in user's own details (Shared/UserProfileButton.razor) and can
+   be changed for one message; they are empty for a user who has not given them yet. "Αποστολή" hands the message to IFeedbackSender, which packs it with the error logs
+   of the last days into a zip and posts it to the developer (Telegram bot, see
+   Infrastructure/Feedback/TelegramFeedbackSender.cs). No mail program is involved.
+   When it cannot be sent (no internet, blocked, not configured) the zip stays in
+   Documents\Vardiologio\Feedback; the form then shows where it is, with a button that opens the
+   folder, so the user can send the file by hand.
+   Shown in the side drawer of Layout/MainLayout.razor. *@
+<div class="feedback-form">
+    @* Kind of message: exactly one of the two. *@
+    <MudRadioGroup T="string" @bind-Value="kind">
+        <MudRadio T="string" Value="@KindError" Color="Color.Error" Dense="true">Σφάλμα</MudRadio>
+        <MudRadio T="string" Value="@KindAddition" Color="Color.Primary" Dense="true">Προσθήκη</MudRadio>
+    </MudRadioGroup>
+
+    @* The menu the message is about; it becomes the subject of the e-mail. *@
+    <MudSelect T="string" Label="Μενού" Value="@menu" ValueChanged="OnMenuPicked" Variant="Variant.Outlined"
+               Margin="Margin.Dense">
+        @foreach (var m in Menus)
+        {
+            <MudSelectItem T="string" Value="@m.Label">@m.Label</MudSelectItem>
+        }
+    </MudSelect>
+
+    @* The sender's full name (not the sign-in name); required. *@
+    <MudTextField T="string" Label="Ονοματεπώνυμο" @bind-Value="name" Immediate="true" Required="true"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="80" />
+
+    @* Required, and checked with UserRules.IsValidEmail; the error shows once something is typed. *@
+    <MudTextField T="string" Label="Email (για να σας απαντήσω)" @bind-Value="email" Immediate="true" Required="true"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="100" InputType="InputType.Email"
+                  Error="@EmailInvalid" ErrorText="Το email δεν είναι έγκυρο (π.χ. onoma@example.gr)." />
+
+    @* Immediate => the send button follows every keystroke. *@
+    <MudTextField T="string" Label="Πείτε μου το πρόβλημα που έχετε" @bind-Value="text" Immediate="true"
+                  Variant="Variant.Outlined" Lines="9" MaxLength="@MaxTextLength" Counter="@MaxTextLength" />
+
+    @if (kind == KindError)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" Class="feedback-note">
+            Μαζί με το μήνυμα στέλνονται αυτόματα και τα αρχεία καταγραφής σφαλμάτων (logs) των τελευταίων ημερών.
+        </MudAlert>
+    }
+
+    @* Shown after a failed send, until the next attempt or "Καθαρισμός". *@
+    @if (unsentPath is not null)
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="feedback-note">
+            Το μήνυμα δεν στάλθηκε (ελέγξτε τη σύνδεση στο internet). Αποθηκεύτηκε στο αρχείο:
+            <span class="feedback-path">@unsentPath</span>
+            Μπορείτε να το στείλετε στο @AppInfo.AuthorEmail ή να δοκιμάσετε ξανά αργότερα.
+        </MudAlert>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
+                   StartIcon="@Icons.Material.Rounded.FolderOpen" OnClick="ShowUnsent">Άνοιγμα φακέλου</MudButton>
+    }
+
+    @if (!CanSend && !sending)
+    {
+        <div class="feedback-hint">Συμπληρώστε ονοματεπώνυμο, έγκυρο email και κείμενο για να στείλετε το μήνυμα.</div>
+    }
+
+    @* Actions, one under the other: send, clear. *@
+    <div class="feedback-actions">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" FullWidth="true"
+                   Disabled="@(!CanSend || sending)" StartIcon="@Icons.Material.Rounded.Send"
+                   OnClick="SendAsync">@(sending ? "Αποστολή..." : "Αποστολή")</MudButton>
+        <MudButton Variant="Variant.Text" FullWidth="true" Disabled="@sending" OnClick="AskClearAsync">Καθαρισμός</MudButton>
+    </div>
+</div>
+
+@code {
+    private const string KindError = "Σφάλμα";
+    private const string KindAddition = "Προσθήκη";
+    private const string GeneralMenu = "Γενικά";
+
+    /// <summary>Longest message text; plenty for a description, and it keeps the zip small.</summary>
+    private const int MaxTextLength = 3000;
+
+    /// <summary>
+    /// The entries of the picker: page route (null = no page of its own) and label, in side-menu order.
+    /// Keep in step with the side menu of Layout/MainLayout.razor.
+    /// </summary>
+    private static readonly (string? Route, string Label)[] Menus =
+    [
+        (null, GeneralMenu),
+        ("employees", "Λειτουργίες - Εργαζόμενοι"),
+        ("", "Λειτουργίες - Προγράμματα"),
+        ("export", "Αναφορές - Συνολική Μηνιαία Σ.Ω."),
+        ("individual", "Αναφορές - Ατομική Μηνιαία"),
+        ("hours-report", "Αναφορές - Ωρών Μηνιαία"),
+        ("shift-table", "Έντυπα - Πίνακας Βαρδιών Εργασίας"),
+        ("attendance-report", "Έντυπα - Παρουσιών Προσωπικού"),
+        ("overtime-certificate", "Έντυπα - Ατομικής Βεβαίωσης"),
+        ("contract-certificate", "Έντυπα - ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι"),
+        ("shift-codes", "Παράμετροι - Βαρδιών"),
+        ("employee-parameters", "Παράμετροι - Εργαζομένων"),
+        ("hours-parameters", "Παράμετροι - Ωρών"),
+        ("report-parameters", "Παράμετροι - Αναφορών"),
+        (null, "Διαχείριση - Εισαγωγή / Εξαγωγή βάσης"),
+        (null, "Σύνδεση")
+    ];
+
+    /// <summary>Route of the current page; preselects its menu until the user picks one.</summary>
+    [Parameter] public string Route { get; set; } = "";
+
+    private string kind = KindError;
+    private string menu = GeneralMenu;
+    private bool menuPicked;        // the user chose a menu: stop following the current page
+    private string name = "";
+    private string email = "";
+    private string text = "";
+    private bool sending;           // a send is in progress: buttons disabled
+    private string? unsentPath;     // zip of the last message that could not be sent
+
+    /// <summary>True when the typed e-mail address has a valid shape.</summary>
+    private bool EmailValid => UserRules.IsValidEmail(email);
+
+    /// <summary>True when something is typed and it is not a valid address (an empty box shows no error).</summary>
+    private bool EmailInvalid => !string.IsNullOrWhiteSpace(email) && !EmailValid;
+
+    /// <summary>The sender's name, a valid e-mail address and the text are all required.</summary>
+    private bool CanSend => !string.IsNullOrWhiteSpace(name) && EmailValid && !string.IsNullOrWhiteSpace(text);
+
+    /// <summary>
+    /// The session details the name and e-mail boxes were last filled from; when they change
+    /// (another user signs in, or the user edits the details) the boxes are filled again.
+    /// </summary>
+    private (string Username, string FullName, string Email)? filledFrom;
+
+    protected override void OnInitialized()
+    {
+        Session.Changed += OnSessionChanged;
+        FillFromSession();
+    }
+
+    // The session event may arrive off the UI thread -> marshal back with InvokeAsync.
+    private void OnSessionChanged() => InvokeAsync(() => { FillFromSession(); StateHasChanged(); });
+
+    /// <summary>Puts the signed-in user's full name and e-mail in the boxes, once per change of them.</summary>
+    private void FillFromSession()
+    {
+        var user = Session.Current;
+        (string, string, string)? current = user is null ? null : (user.Username, user.FullName, user.Email);
+        if (current == filledFrom) return;
+
+        filledFrom = current;
+        name = user?.FullName ?? "";
+        email = user?.Email ?? "";
+    }
+
+    // Unsubscribe to avoid a memory leak (pairs with the subscribe in OnInitialized).
+    public void Dispose() => Session.Changed -= OnSessionChanged;
+
+    protected override void OnParametersSet()
+    {
+        if (!menuPicked) menu = MenuOf(Route);
+    }
+
+    /// <summary>Menu label of a page route; "Γενικά" for a route that is not in the list.</summary>
+    private static string MenuOf(string route)
+    {
+        foreach (var m in Menus)
+            if (m.Route == route) return m.Label;
+        return GeneralMenu;
+    }
+
+    private void OnMenuPicked(string value)
+    {
+        menu = value;
+        menuPicked = true;
+    }
+
+    /// <summary>"Καθαρισμός": asks first, then empties the form (nothing to ask when it is already empty).</summary>
+    private async Task AskClearAsync()
+    {
+        if (text.Trim().Length > 0)
+        {
+            var confirmed = await Dialogs.ShowMessageBoxAsync(
+                "Καθαρισμός φόρμας",
+                "Είστε σίγουροι; Το κείμενο που γράψατε θα σβηστεί.",
+                yesText: "Καθαρισμός", cancelText: "Ακύρωση");
+            if (confirmed != true) return;
+        }
+        Clear();
+    }
+
+    /// <summary>Empties the text and returns the menu to the current page; kind, name and e-mail stay.</summary>
+    private void Clear()
+    {
+        text = "";
+        unsentPath = null;
+        menuPicked = false;
+        menu = MenuOf(Route);
+    }
+
+    /// <summary>
+    /// Sends the message. On success the text is emptied; otherwise the form keeps it and shows
+    /// where the zip was left. The sender never throws, so there is nothing to catch here.
+    /// </summary>
+    private async Task SendAsync()
+    {
+        if (!CanSend) return;   // the button is disabled then; guards against a double click
+        sending = true;
+        unsentPath = null;
+
+        // The typed name, plus the sign-in name when it differs (nobody is signed in on the login screen).
+        var user = Session.Current?.Username;
+        var sender = string.IsNullOrEmpty(user) || user == name.Trim() ? name.Trim() : $"{name.Trim()} ({user})";
+
+        var result = await Sender.SendAsync(new FeedbackMessage(kind, menu, sender, email.Trim(), text.Trim(), AppInfo.Version));
+        sending = false;
+
+        if (result.Sent)
+        {
+            Snackbar.Add("Το μήνυμα στάλθηκε. Ευχαριστώ!", Severity.Success);
+            Clear();
+        }
+        else if (result.ArchivePath is not null)
+        {
+            unsentPath = result.ArchivePath;
+            Snackbar.Add("Το μήνυμα δεν στάλθηκε. Δείτε τις οδηγίες στη φόρμα.", Severity.Warning);
+        }
+        else
+        {
+            Snackbar.Add("Το μήνυμα δεν στάλθηκε και δεν αποθηκεύτηκε. Δοκιμάστε ξανά.", Severity.Error);
+        }
+    }
+
+    /// <summary>Opens the Feedback folder in Explorer with the unsent zip selected.</summary>
+    private void ShowUnsent()
+    {
+        if (unsentPath is null) return;
+        try { Process.Start("explorer.exe", $"/select,\"{unsentPath}\""); }
+        catch (System.ComponentModel.Win32Exception) { /* Explorer did not start: the path is on screen */ }
+    }
+}
