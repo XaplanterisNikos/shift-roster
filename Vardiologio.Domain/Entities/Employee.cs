@@ -49,6 +49,14 @@ public class Employee
 	/// </summary>
 	public int? SignatoryId { get; set; }
 
+	/// <summary>
+	/// Where the employee is placed ("Τοποθέτηση υπαλλήλου", a <see cref="Placement"/> id); null
+	/// until one is chosen. Optional, and a plain column on purpose like <see cref="SignatoryId"/>:
+	/// no navigation and no database foreign key, so adding it is a simple ALTER TABLE that never
+	/// rebuilds the Employees table. Placements are only ever soft-deleted, so the id always resolves.
+	/// </summary>
+	public int? PlacementId { get; set; }
+
 	/// <summary>All daily shift entries associated with this employee.</summary>
 	public ICollection<ShiftDay> ShiftDays { get; set; } = new List<ShiftDay>();
 }

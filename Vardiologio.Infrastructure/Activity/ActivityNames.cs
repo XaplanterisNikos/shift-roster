@@ -14,6 +14,7 @@ internal static class ActivityNames
 		"EmploymentTypes" => "Είδη εργασίας",
 		"WorkPositions" => "Θέσεις εργασίας",
 		"Signatories" => "Υπογράφοντες",
+		"Placements" => "Τοποθετήσεις",
 		"Holidays" => "Αργίες",
 		"HourLimits" => "Όρια ωρών",
 		"ReportTexts" => "Κείμενα αναφορών",
@@ -38,6 +39,7 @@ internal static class ActivityNames
 		"PasswordSalt" or "PasswordHash" => "Κωδικός πρόσβασης",
 		"MaxUsers" => "Όριο χρηστών",
 		"SignatoryId" => "Υπογράφων προϊστάμενος",
+		"PlacementId" => "Τοποθέτηση υπαλλήλου",
 		"Role" => "Ιδιότητα",
 		"Title" => "Ειδικότητα / βαθμός",
 		_ => property

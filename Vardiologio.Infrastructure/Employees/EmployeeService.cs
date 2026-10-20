@@ -57,6 +57,7 @@ public class EmployeeService : IEmployeeService
 				EmploymentTypeId = e.EmploymentTypeId,
 				WorkPositionId = e.WorkPositionId,
 				SignatoryId = e.SignatoryId,
+				PlacementId = e.PlacementId,
 				IsActive = e.IsActive
 			})
 			.FirstOrDefaultAsync();
@@ -82,7 +83,10 @@ public class EmployeeService : IEmployeeService
 			.OrderBy(o => o.Name)
 			.ToList();
 
-		return new EmployeeLookups(specs, types, positions, signatories);
+		var placements = await db.Placements.OrderBy(p => p.Name)
+			.Select(p => new LookupOption(p.Id, p.Name, p.IsActive)).ToListAsync();
+
+		return new EmployeeLookups(specs, types, positions, signatories, placements);
 	}
 
 	/// <inheritdoc/>
@@ -98,6 +102,7 @@ public class EmployeeService : IEmployeeService
 			EmploymentTypeId = d.EmploymentTypeId,
 			WorkPositionId = d.WorkPositionId,
 			SignatoryId = d.SignatoryId,
+			PlacementId = d.PlacementId,
 			IsActive = true                     // new employees start active
 		};
 		db.Employees.Add(entity);
@@ -121,6 +126,7 @@ public class EmployeeService : IEmployeeService
 		entity.EmploymentTypeId = d.EmploymentTypeId;
 		entity.WorkPositionId = d.WorkPositionId;
 		entity.SignatoryId = d.SignatoryId;
+		entity.PlacementId = d.PlacementId;
 		// Note: IsActive is changed only via SetActiveAsync, not here.
 
 		await db.SaveChangesAsync();

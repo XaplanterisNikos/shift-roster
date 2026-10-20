@@ -1,7 +1,7 @@
 @page "/employee-parameters"
 @using Vardiologio.Application.Parameters
 
-@* Employee lookups (ειδικότητες / συμβάσεις / θέσεις) as tabs over one reusable editor, and
+@* Employee lookups (ειδικότητες / συμβάσεις / θέσεις / τοποθετήσεις) as tabs over one reusable editor, and
    the supervisors who sign the individual monthly sheet (own editor, last tab).
    A tab's editor is created when the tab opens and dropped when it closes, so each tab
    starts clean. Tab styles: "Report texts" block in app.css. *@
@@ -9,7 +9,7 @@
 <div class="page-head">
     <div>
         <MudText Typo="Typo.h4">Παράμετροι Εργαζομένων</MudText>
-        <MudText Typo="Typo.body2" Class="page-sub">Οι ειδικότητες, οι συμβάσεις, οι θέσεις και οι υπογράφοντες προϊστάμενοι που επιλέγονται στην καρτέλα κάθε εργαζομένου.</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Οι ειδικότητες, οι συμβάσεις, οι θέσεις, οι τοποθετήσεις και οι υπογράφοντες προϊστάμενοι που επιλέγονται στην καρτέλα κάθε εργαζομένου.</MudText>
     </div>
 </div>
 
@@ -31,6 +31,7 @@
     {
         (LookupKind.Speciality, "Ειδικότητες"),
         (LookupKind.EmploymentType, "Συμβάσεις"),
-        (LookupKind.WorkPosition, "Θέσεις")
+        (LookupKind.WorkPosition, "Θέσεις"),
+        (LookupKind.Placement, "Τοποθετήσεις")
     };
 }

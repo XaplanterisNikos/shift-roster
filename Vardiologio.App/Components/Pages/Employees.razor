@@ -145,6 +145,17 @@ else
                             }
                         </MudSelect>
 
+                        @* Where the employee is placed (Παράμετροι Εργαζομένων → Τοποθετήσεις); optional. *@
+                        <MudSelect T="int?" Label="Τοποθέτηση υπαλλήλου" @bind-Value="form.PlacementId"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense"
+                                   ToStringFunc="@(id => NameOf(lookups!.Placements, id))">
+                            <MudSelectItem T="int?" Value="@((int?)null)">—</MudSelectItem>
+                            @foreach (var pl in Visible(lookups!.Placements, form.PlacementId))
+                            {
+                                <MudSelectItem T="int?" Value="@pl.Id">@OptionLabel(pl)</MudSelectItem>
+                            }
+                        </MudSelect>
+
                         @* Who signs this employee's individual monthly sheet (Παράμετροι Εργαζομένων → Υπογράφοντες). *@
                         <MudSelect T="int?" Label="Προϊστάμενος (υπογράφει την ατομική)" @bind-Value="form.SignatoryId"
                                    Variant="Variant.Outlined" Margin="Margin.Dense"

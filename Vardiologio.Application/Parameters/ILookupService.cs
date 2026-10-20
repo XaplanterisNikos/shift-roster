@@ -2,7 +2,7 @@ namespace Vardiologio.Application.Parameters;
 
 /// <summary>
 /// CRUD (with soft-delete) for the employee lookup tables: specialities,
-/// employment types and work positions. The <see cref="LookupKind"/> argument picks the table.
+/// employment types, work positions and placements. The <see cref="LookupKind"/> argument picks the table.
 /// </summary>
 public interface ILookupService
 {

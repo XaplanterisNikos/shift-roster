@@ -7,7 +7,7 @@ namespace Vardiologio.Infrastructure.Parameters;
 
 /// <summary>EF Core implementation of <see cref="ILookupService"/>.</summary>
 /// <remarks>
-/// The three lookup tables have no global IsActive query filter (see AppDbContext),
+/// The lookup tables have no global IsActive query filter (see AppDbContext),
 /// so "active only" is always an explicit Where(x => x.IsActive) here.
 /// </remarks>
 public class LookupService : ILookupService
@@ -55,6 +55,7 @@ public class LookupService : ILookupService
 			LookupKind.Speciality     => await db.Employees.CountAsync(e => e.SpecialityId == id),
 			LookupKind.EmploymentType => await db.Employees.CountAsync(e => e.EmploymentTypeId == id),
 			LookupKind.WorkPosition   => await db.Employees.CountAsync(e => e.WorkPositionId == id),
+			LookupKind.Placement      => await db.Employees.CountAsync(e => e.PlacementId == id),
 			_ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
 		};
 	}
@@ -85,6 +86,12 @@ public class LookupService : ILookupService
 				db.WorkPositions.Add(position);
 				await db.SaveChangesAsync();
 				return position.Id;
+
+			case LookupKind.Placement:
+				var placement = new Placement { Name = name, IsActive = true };
+				db.Placements.Add(placement);
+				await db.SaveChangesAsync();
+				return placement.Id;
 
 			default:
 				throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
@@ -117,6 +124,12 @@ public class LookupService : ILookupService
 				var position = await db.WorkPositions.FirstOrDefaultAsync(x => x.Id == item.Id)
 					?? throw new InvalidOperationException($"WorkPosition {item.Id} not found.");
 				position.Name = name;
+				break;
+
+			case LookupKind.Placement:
+				var placement = await db.Placements.FirstOrDefaultAsync(x => x.Id == item.Id)
+					?? throw new InvalidOperationException($"Placement {item.Id} not found.");
+				placement.Name = name;
 				break;
 
 			default:
@@ -152,6 +165,12 @@ public class LookupService : ILookupService
 				position.IsActive = isActive;
 				break;
 
+			case LookupKind.Placement:
+				var placement = await db.Placements.FirstOrDefaultAsync(x => x.Id == id)
+					?? throw new InvalidOperationException($"Placement {id} not found.");
+				placement.IsActive = isActive;
+				break;
+
 			default:
 				throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
 		}
@@ -174,6 +193,10 @@ public class LookupService : ILookupService
 			Id = x.Id, Code = x.Code, Name = x.Name, IsActive = x.IsActive
 		}),
 		LookupKind.WorkPosition => db.WorkPositions.Select(x => new LookupItem
+		{
+			Id = x.Id, Code = null, Name = x.Name, IsActive = x.IsActive
+		}),
+		LookupKind.Placement => db.Placements.Select(x => new LookupItem
 		{
 			Id = x.Id, Code = null, Name = x.Name, IsActive = x.IsActive
 		}),

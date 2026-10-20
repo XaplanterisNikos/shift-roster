@@ -152,4 +152,10 @@ public static partial class SeedData
 		"ΠΛΥΝΤΗΡΙΟ", "ΒΟΗΘΟΣ", "ΕΠΟΠΤΗΣ", "ΔΙΕΥΘΥΝΤΗΣ", "ΠΡΟΪΣΤΑΜΕΝΟΣ",
 		"ΚΑΘΑΡΙΣΤΡΙΑ", "ΔΙΟΙΚΗΤΙΚΟΥ", "ΤΟΠΙΚΟΙ",
 	};
+
+	/// <summary>Placement values ("Τοποθέτηση υπαλλήλου"), as the users asked for them.</summary>
+	public static readonly string[] Placements =
+	{
+		"ΔΙΕΥΘΥΝΣΗ ΣΜΑ", "ΤΜΗΜΑ Κ. ΣΜΑ", "ΤΜΗΜΑ Τ. ΣΜΑ",
+	};
 }

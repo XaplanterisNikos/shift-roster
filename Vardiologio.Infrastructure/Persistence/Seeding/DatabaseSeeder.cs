@@ -27,6 +27,7 @@ public static class DatabaseSeeder
 		SeedSpecialities(db);
 		SeedEmploymentTypes(db);   
 		SeedWorkPositions(db);
+		SeedPlacements(db);   // also fills the new table of an older database on its first start
 		SeedShiftCodes(db);
 		SeedShiftCodeRules(db); // after codes: fixes/adds codes once, then their hour split
 		SeedHolidays(db);
@@ -62,6 +63,17 @@ public static class DatabaseSeeder
 		if (db.WorkPositions.Any()) return;
 		db.WorkPositions.AddRange(
 			SeedData.WorkPositions.Select(n => new WorkPosition { Name = n }));
+		db.SaveChanges();
+	}
+
+	/// <summary>
+	/// Seeds the placement lookup ("Τοποθέτηση υπαλλήλου"). Idempotent: only while the table is
+	/// empty, so values the user renamed, added or retired are never touched.
+	/// </summary>
+	private static void SeedPlacements(AppDbContext db)
+	{
+		if (db.Placements.Any()) return;
+		db.Placements.AddRange(SeedData.Placements.Select(n => new Placement { Name = n }));
 		db.SaveChanges();
 	}
 

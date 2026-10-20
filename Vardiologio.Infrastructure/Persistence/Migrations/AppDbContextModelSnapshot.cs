@@ -152,6 +152,9 @@ namespace Vardiologio.Infrastructure.Persistence.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("PlacementId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int?>("SignatoryId")
                         .HasColumnType("INTEGER");
 
@@ -250,6 +253,30 @@ namespace Vardiologio.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("HourLimits");
+                });
+
+            modelBuilder.Entity("Vardiologio.Domain.Entities.Placement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Placements");
                 });
 
             modelBuilder.Entity("Vardiologio.Domain.Entities.ReportColor", b =>

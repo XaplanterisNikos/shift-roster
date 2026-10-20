@@ -35,6 +35,9 @@ public class EmployeeDetail
 	// Optional supervisor who signs the individual monthly sheet (— = null: none chosen yet).
 	public int? SignatoryId { get; set; }
 
+	// Optional placement ("Τοποθέτηση υπαλλήλου"; — = null: none chosen yet).
+	public int? PlacementId { get; set; }
+
 	public bool IsActive { get; set; } = true;
 }
 
@@ -46,8 +49,10 @@ public record LookupOption(int Id, string Name, bool IsActive = true);
 
 /// <summary>All lookup lists needed to populate the employee form dropdowns.</summary>
 /// <param name="Signatories">Supervisors who sign the individual monthly sheet ("Name — role").</param>
+/// <param name="Placements">Where an employee can be placed ("Τοποθέτηση υπαλλήλου").</param>
 public record EmployeeLookups(
 	IReadOnlyList<LookupOption> Specialities,
 	IReadOnlyList<LookupOption> EmploymentTypes,
 	IReadOnlyList<LookupOption> WorkPositions,
-	IReadOnlyList<LookupOption> Signatories);
+	IReadOnlyList<LookupOption> Signatories,
+	IReadOnlyList<LookupOption> Placements);

@@ -38,6 +38,9 @@ public class AppDbContext : DbContext
 	/// <summary>Supervisors who sign the individual monthly sheet (Παράμετροι Εργαζομένων → Υπογράφοντες).</summary>
 	public DbSet<Signatory> Signatories => Set<Signatory>();
 
+	/// <summary>Placement lookup (ΤΟΠΟΘΕΤΗΣΗ ΥΠΑΛΛΗΛΟΥ), e.g. ΔΙΕΥΘΥΝΣΗ ΣΜΑ / ΤΜΗΜΑ Κ. ΣΜΑ.</summary>
+	public DbSet<Placement> Placements => Set<Placement>();
+
 	/// <summary>Hours per pay category that each shift code yields on each kind of day.</summary>
 	public DbSet<ShiftCodeHours> ShiftCodeHours => Set<ShiftCodeHours>();
 
@@ -212,6 +215,19 @@ public class AppDbContext : DbContext
 
 			// Soft-delete flag, no global query filter (same reason as Speciality).
 			e.Property(x => x.IsActive).HasDefaultValue(true);
+		});
+
+		b.Entity<Placement>(e =>
+		{
+			// Same shape as WorkPosition: unique name (active and inactive), soft-delete flag.
+			e.Property(x => x.Name).IsRequired().HasMaxLength(60);
+			e.HasIndex(x => x.Name).IsUnique();
+
+			// Soft-delete flag, no global query filter (employees keep pointing at it).
+			e.Property(x => x.IsActive).HasDefaultValue(true);
+
+			// Employee.PlacementId is deliberately NOT a relationship (no navigation, no FK):
+			// see Employee.PlacementId.
 		});
 
 		// --- Editable texts of the official forms ---

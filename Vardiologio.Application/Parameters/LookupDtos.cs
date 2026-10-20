@@ -12,11 +12,14 @@ public enum LookupKind
 	EmploymentType = 2,
 
 	/// <summary>Θέση εργασίας (WorkPosition).</summary>
-	WorkPosition = 3
+	WorkPosition = 3,
+
+	/// <summary>Τοποθέτηση υπαλλήλου (Placement).</summary>
+	Placement = 4
 }
 
 /// <summary>
-/// Editable state of one lookup row, shared by all three kinds.
+/// Editable state of one lookup row, shared by all kinds.
 /// Code is used only for <see cref="LookupKind.EmploymentType"/> and is null for the others;
 /// its "required" rule depends on the kind, so the UI checks it before saving.
 /// </summary>
@@ -30,8 +33,8 @@ public class LookupItem
 	public string? Code { get; set; }
 
 	/// <summary>
-	/// Display name. 60 = the smallest DB limit of the three tables
-	/// (EmploymentType/WorkPosition are 60, Speciality is 100), so one rule fits all.
+	/// Display name. 60 = the smallest DB limit of the tables
+	/// (EmploymentType/WorkPosition/Placement are 60, Speciality is 100), so one rule fits all.
 	/// </summary>
 	[Required(ErrorMessage = "Το όνομα είναι υποχρεωτικό.")]
 	[StringLength(60, ErrorMessage = "Το όνομα μπορεί να έχει έως 60 χαρακτήρες.")]

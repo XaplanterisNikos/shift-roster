@@ -10,7 +10,8 @@ staff and producing the official attendance/shift reports.
 ## What it does
 
 - **Employee management** — full CRUD with soft-delete (deactivate/restore),
-  organized by specialty; contract type and work position per employee.
+  organized by specialty; contract type, work position and placement (Τοποθέτηση υπαλλήλου,
+  optional) per employee.
 - **Shift-code parameters** — shift/status codes and their optional extra hours
   are editable from a dedicated settings screen (Παράμετροι Βαρδιών), with
   soft-delete instead of removal: a code is never physically deleted or reused
@@ -275,7 +276,17 @@ administrator password, which is public: create `admin.json` before any real use
 
 ## Status
 
-Current release: **1.21.3**.
+Current release: **1.22.0**.
+
+New in 1.22.0:
+
+- Every printed form shows "Σελίδα X από Y", and the signatures never print on a page without
+  employees (see "Page rules of every printed form" above).
+- Employees: new optional field «Τοποθέτηση υπαλλήλου», chosen from an editable list (Παράμετροι
+  Εργαζομένων → Τοποθετήσεις; seeded with ΔΙΕΥΘΥΝΣΗ ΣΜΑ, ΤΜΗΜΑ Κ. ΣΜΑ, ΤΜΗΜΑ Τ. ΣΜΑ). Not used by
+  any report yet. Database: one additive migration (AddPlacements) — a new table and a new empty
+  column on Employees; no existing row changes. As after every migration, database copies exported
+  by an older version cannot be imported into this one: export once again after upgrading.
 
 New in 1.21.3:
 
