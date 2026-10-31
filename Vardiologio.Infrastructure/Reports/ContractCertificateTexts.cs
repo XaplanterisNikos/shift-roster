@@ -16,9 +16,8 @@ internal static class ContractCertificateTexts
 	/// <summary>Header of the speciality column, as on the collective form.</summary>
 	public const string HeadSpeciality = "Ειδικότητα";
 
-	/// <summary>Worksheet name of each form.</summary>
-	public static string SheetName(ContractCertificateSheet sheet) =>
-		sheet == ContractCertificateSheet.FixedTerm ? "ΙΔΟΧ" : "ΜΟΝΙΜΟΙ - ΙΔΑΧ";
+	/// <summary>Worksheet name of the form ("/" is not allowed in a worksheet name).</summary>
+	public const string SheetName = "ΜΟΝΙΜΟΙ - ΙΔΑΧ - ΙΔΟΧ";
 
 	/// <summary>Band above the first group ("ΤΜΗΜΑ: …"); "" when it was left empty (then it is not printed).</summary>
 	public static string Department(ReportTextSet texts) => texts.Line(ReportTextBlocks.Department, 0);

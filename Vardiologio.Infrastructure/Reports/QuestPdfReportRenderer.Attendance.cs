@@ -20,7 +20,6 @@ public partial class QuestPdfReportRenderer
 	/// <inheritdoc/>
 	public byte[] Render(AttendanceReportModel m)
 	{
-		// The tables are the same for both fortnights; only the days differ.
 		var tables = m.Tables();
 
 		var doc = Document.Create(container =>
@@ -28,12 +27,8 @@ public partial class QuestPdfReportRenderer
 			var fortnight = 0;
 			foreach (var (from, to) in m.Fortnights())
 			{
-				// The pages of each fortnight are numbered on their own ("Σελίδα 1 από 2" twice),
-				// because each fortnight is a document of its own with its own signatures.
 				var section = $"fortnight-{++fortnight}";
 
-				// One page definition per fortnight: its content flows over as many pages as it
-				// needs, and the only thing on every page is the page number.
 				container.Page(page =>
 				{
 					page.Size(PageSizes.A4.Landscape());
@@ -46,15 +41,13 @@ public partial class QuestPdfReportRenderer
 
 						for (var i = 0; i < tables.Count; i++)
 						{
-							var index = i;   // own copy for the lambda below
+							var index = i;
 
-							// The signatures under the last table. The table sizes leave room for them;
-							// should the rows still run long, the last employee goes with them.
 							Action<IContainer>? closing = index == tables.Count - 1
 								? s => AttSignatures(s, m.Sheet, m.Texts)
 								: null;
 
-							if (index > 0) col.Item().PageBreak();   // every table after the first starts a page
+							if (index > 0) col.Item().PageBreak();
 							col.Item().PaddingTop(6).Element(c => AttTable(c, index + 1, from, to, tables[index], closing));
 						}
 					});
@@ -72,14 +65,12 @@ public partial class QuestPdfReportRenderer
 	{
 		var formal = AttendanceSheetTexts.IsFormal(sheet);
 
-		// Directorate only: addressee above everything, bold and centred.
 		var addressee = AttendanceSheetTexts.Addressee(texts);
 		if (addressee is not null)
 			col.Item().PaddingBottom(4).AlignCenter().Text(addressee).Bold().FontSize(10);
 
 		col.Item().Row(row =>
 		{
-			// Emblem above the letterhead, as on the original sheet.
 			row.ConstantItem(AttSideWidth).Column(left =>
 			{
 				left.Item().Width(46).Height(44).Element(EmblemImage);
@@ -92,14 +83,12 @@ public partial class QuestPdfReportRenderer
 				}
 			});
 
-			// Titles start level with the letterhead (under the emblem's height).
 			row.RelativeItem().PaddingTop(47).Column(mid =>
 			{
 				foreach (var title in AttendanceSheetTexts.Titles(texts))
 					mid.Item().AlignCenter().Text(title).Bold().FontSize(9.5f);
 				if (formal)
 				{
-					// "Από [date] έως [date]" with the dates bold and underlined, as on the directorate sheet.
 					mid.Item().PaddingTop(12).AlignCenter().Row(period =>
 					{
 						period.AutoItem().AlignBottom().Text("Από").FontSize(9);
@@ -116,7 +105,6 @@ public partial class QuestPdfReportRenderer
 				}
 			});
 
-			// Empty mirror of the letterhead column.
 			row.ConstantItem(AttSideWidth);
 		});
 	});
@@ -135,24 +123,21 @@ public partial class QuestPdfReportRenderer
 
 		col.Item().Table(t =>
 		{
-			// A local function, because the last row is drawn in a table of its own with the same columns.
 			void Columns(TableColumnsDefinitionDescriptor cols)
 			{
-				cols.ConstantColumn(120);                              // ΟΝΟΜΑΤΕΠΩΝΥΜΟ
-				cols.ConstantColumn(140);                              // ΕΙΔΙΚΟΤΗΤΑ (longest specialities)
-				for (var i = 0; i < days; i++) cols.RelativeColumn();  // days of the fortnight
+				cols.ConstantColumn(120);
+				cols.ConstantColumn(140);
+				for (var i = 0; i < days; i++) cols.RelativeColumn();
 			}
 			t.ColumnsDefinition(Columns);
 
 			t.Header(h =>
 			{
-				// Row 1 — name / speciality (two rows high) + day numbers.
 				h.Cell().RowSpan(2).Element(AttH).Text("ΟΝΟΜΑΤΕΠΩΝΥΜΟ").Bold();
 				h.Cell().RowSpan(2).Element(AttH).Text("ΕΙΔΙΚΟΤΗΤΑ").Bold();
 				for (var i = 0; i < days; i++)
 					h.Cell().Element(AttH).Text(from.AddDays(i).Day.ToString()).Bold();
 
-				// Row 2 — weekday name under each day number.
 				for (var i = 0; i < days; i++)
 					h.Cell().Element(AttHDayName).Text(AttendanceSheetTexts.DayName(from.AddDays(i))).FontSize(5.3f);
 			});
@@ -175,10 +160,9 @@ public partial class QuestPdfReportRenderer
 		var signatures = AttendanceSheetTexts.Signatures(texts);
 		var roleRows = signatures.Select(s => s.Role.Length).DefaultIfEmpty(0).Max();
 		var formal = AttendanceSheetTexts.IsFormal(sheet);
-		var size = formal ? 9.5f : 8.5f;   // formal: bold, slightly larger, taller signing space
+		var size = formal ? 9.5f : 8.5f;
 		var gap = formal ? 70f : 34f;
 
-		// A single signature goes to the right half, as on the original sheet.
 		if (signatures.Length == 1) row.RelativeItem();
 
 		foreach (var (role, name) in signatures)
@@ -188,7 +172,6 @@ public partial class QuestPdfReportRenderer
 				foreach (var line in role)
 					SignatureLine(col, line, size, formal);
 
-				// Keep the name lines of every block level, whatever its number of role lines.
 				col.Item().Height((roleRows - role.Length) * 11 + gap);
 
 				foreach (var line in name)
@@ -204,9 +187,8 @@ public partial class QuestPdfReportRenderer
 		if (bold) span.Bold();
 	}
 
-	// Attendance cell styles (no shading: the original sheet is plain black and white).
-	private static IContainer AttH(IContainer c) => c.Border(0.75f).Padding(2).AlignCenter().AlignMiddle();                        // header cell
-	private static IContainer AttHDayName(IContainer c) => c.Border(0.75f).PaddingVertical(2).AlignCenter().AlignMiddle();              // weekday name: no side padding, "ΠΑΡΑΣΚΕΥΗ" needs the full width
-	private static IContainer AttD(IContainer c) => c.Border(0.5f).MinHeight(16).PaddingHorizontal(1).AlignCenter().AlignMiddle(); // day mark
-	private static IContainer AttDLeft(IContainer c) => c.Border(0.5f).MinHeight(16).PaddingHorizontal(3).AlignLeft().AlignMiddle(); // name / speciality
+	private static IContainer AttH(IContainer c) => c.Border(0.75f).Padding(2).AlignCenter().AlignMiddle();
+	private static IContainer AttHDayName(IContainer c) => c.Border(0.75f).PaddingVertical(2).AlignCenter().AlignMiddle();
+	private static IContainer AttD(IContainer c) => c.Border(0.5f).MinHeight(16).PaddingHorizontal(1).AlignCenter().AlignMiddle();
+	private static IContainer AttDLeft(IContainer c) => c.Border(0.5f).MinHeight(16).PaddingHorizontal(3).AlignLeft().AlignMiddle();
 }

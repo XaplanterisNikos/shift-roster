@@ -8,12 +8,12 @@ namespace Vardiologio.Infrastructure.Reports;
 /// calculation. One mapping for the individual certificate and for the collective one per
 /// contract, so a row of the collective form always agrees with the employee's own certificate.
 /// </summary>
-/// <param name="AfternoonOvertime">Υπερωριακή — Απογευματινή έως 22:00 (paid Απλή hours).</param>
-/// <param name="NightOvertime">Υπερωριακή — Νυχτερινή 22:00–06:00 (paid Νυχτερινή hours).</param>
-/// <param name="SundayDayOvertime">Κυριακές και εξαιρέσιμες — Ημερήσιες (paid Κυριακής hours).</param>
-/// <param name="SundayNightOvertime">Κυριακές και εξαιρέσιμες — Νυχτερινή (no pay category feeds it yet).</param>
-/// <param name="WeekdayNightToComplete">Προς συμπλήρωση — Νυχτερινή εργασίμων (paid Προς συμπλήρωση hours).</param>
-/// <param name="SundayHolidayToComplete">Προς συμπλήρωση — Κυριακών και εξαιρέσιμων (paid Αργίας hours).</param>
+/// <param name="AfternoonOvertime">Afternoon overtime until 22:00 (paid "simple" hours).</param>
+/// <param name="NightOvertime">Night overtime 22:00–06:00 (paid night hours).</param>
+/// <param name="SundayDayOvertime">Sunday and holiday overtime by day (paid Sunday hours).</param>
+/// <param name="SundayNightOvertime">Sunday and holiday overtime at night (no pay category feeds it yet).</param>
+/// <param name="WeekdayNightToComplete">Work "to complete" on working days (paid "to complete" hours).</param>
+/// <param name="SundayHolidayToComplete">Work "to complete" on Sundays and holidays (paid holiday hours).</param>
 internal readonly record struct CertificateHours(
 	decimal AfternoonOvertime,
 	decimal NightOvertime,
@@ -34,7 +34,7 @@ internal readonly record struct CertificateHours(
 			AfternoonOvertime: Paid(HourCategory.Simple),
 			NightOvertime: Paid(HourCategory.Night),
 			SundayDayOvertime: Paid(HourCategory.Sunday),
-			SundayNightOvertime: 0,   // no pay category feeds this column yet
+			SundayNightOvertime: 0,
 			WeekdayNightToComplete: Paid(HourCategory.ToComplete),
 			SundayHolidayToComplete: Paid(HourCategory.Holiday));
 	}

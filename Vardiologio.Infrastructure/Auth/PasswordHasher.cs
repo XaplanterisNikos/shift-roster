@@ -10,9 +10,12 @@ namespace Vardiologio.Infrastructure.Auth;
 /// </summary>
 public static class PasswordHasher
 {
-	private const int Iterations = 100_000;// PBKDF2 work factor
-	private const int SaltSize = 16;// bytes of random salt
-	private const int HashSize = 32;// bytes of derived key
+	/// <summary>PBKDF2 work factor.</summary>
+	private const int Iterations = 100_000;
+	/// <summary>Bytes of random salt.</summary>
+	private const int SaltSize = 16;
+	/// <summary>Bytes of derived key.</summary>
+	private const int HashSize = 32;
 
 	/// <summary>
 	/// Hashes a password with a fresh random salt. Returns both as Base64.

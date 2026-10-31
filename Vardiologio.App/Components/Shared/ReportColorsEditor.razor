@@ -18,7 +18,6 @@
                 {
                     var entry = ReportColorCatalog.Find(color.Key);
                     <div class="color-row">
-                        @* The browser's own colour dialog; it always returns "#rrggbb". *@
                         <input type="color" class="color-input" value="@color.Hex.ToLowerInvariant()"
                                @onchange="e => color.Hex = (e.Value?.ToString() ?? color.Hex).ToUpperInvariant()"
                                title="Επιλογή χρώματος" />
@@ -28,7 +27,6 @@
                                 @color.Hex
                                 @if (entry is not null && !string.Equals(entry.DefaultHex, color.Hex, StringComparison.OrdinalIgnoreCase))
                                 {
-                                    @* A changed colour can go back to the one the application ships with. *@
                                     <button type="button" class="color-default" @onclick="() => color.Hex = entry.DefaultHex">
                                         αρχικό χρώμα <span class="color-swatch" style="background:@entry.DefaultHex"></span>
                                     </button>
@@ -88,7 +86,6 @@
     /// <summary>Puts back the colours before the last save and shows them.</summary>
     private async Task UndoAsync()
     {
-        // The current values are replaced by the previous ones: ask first.
         var confirmed = await Dialogs.ShowMessageBoxAsync(
             "Επαναφορά τελευταίας αλλαγής",
             "Είστε σίγουροι; Τα τωρινά χρώματα θα αντικατασταθούν από τα χρώματα πριν από την τελευταία αποθήκευση.",

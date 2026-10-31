@@ -14,7 +14,6 @@
     </div>
 </div>
 
-@* Tabs only choose the epoch; the grid below is shared, so the filters stay when the tab changes. *@
 <MudTabs Elevation="0" SliderColor="Color.Primary" ActivePanelIndex="tab" ActivePanelIndexChanged="OnTabChanged">
     @foreach (var epoch in epochs)
     {
@@ -63,7 +62,6 @@
         <MudTd>@context.Subject</MudTd>
         <MudTd>@context.Details</MudTd>
         <MudTd>
-            @* Only a save has field changes to show. *@
             @if (context.ChangeCount > 0)
             {
                 <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => ToggleAsync(context.Id)">
@@ -120,23 +118,28 @@
     private IReadOnlyList<ActivityEntryItem> entries = Array.Empty<ActivityEntryItem>();
     private IReadOnlyList<ActivityChangeItem> changes = Array.Empty<ActivityChangeItem>();
 
-    private int tab;              // index of the open epoch in epochs
-    private string? username;     // filter: one user; null = everybody
-    private DateTime? from;       // filter: first day
-    private DateTime? to;         // filter: last day
-    private int? openEntryId;     // the line whose field changes are shown
+    /// <summary>Index of the open epoch in epochs.</summary>
+    private int tab;
+    /// <summary>Filter: one user; null = everybody.</summary>
+    private string? username;
+    /// <summary>Filter: first day.</summary>
+    private DateTime? from;
+    /// <summary>Filter: last day.</summary>
+    private DateTime? to;
+    /// <summary>The line whose field changes are shown.</summary>
+    private int? openEntryId;
 
     protected override async Task OnInitializedAsync()
     {
         epochs = await Activity.GetEpochsAsync();
-        tab = Math.Max(0, epochs.Count - 1);   // newest epoch first
+        tab = Math.Max(0, epochs.Count - 1);
         await LoadEpochAsync();
     }
 
     private async Task OnTabChanged(int index)
     {
         tab = index;
-        username = null;   // the users differ from epoch to epoch
+        username = null;
         await LoadEpochAsync();
     }
 

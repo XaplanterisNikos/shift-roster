@@ -16,7 +16,6 @@
 </div>
 
 <div class="md-grid">
-    @* LEFT: rows of this lookup. The list marks the row of selectedId. *@
     <MudPaper Elevation="0" Class="md-list">
         <div class="md-list-head">@list.Count @(list.Count == 1 ? "εγγραφή" : "εγγραφές")</div>
         @if (list.Count == 0)
@@ -43,7 +42,6 @@
         }
     </MudPaper>
 
-    @* RIGHT: create/edit form *@
     @if (form is null)
     {
         <MudPaper Elevation="0" Class="empty-state md-hint">
@@ -170,7 +168,6 @@
 
         if (HasCode)
         {
-            // Code is required only for employment types, so it is checked here, not by an attribute.
             if (string.IsNullOrWhiteSpace(form.Code))
             {
                 errorMessage = "Ο κωδικός είναι υποχρεωτικός.";
@@ -187,7 +184,6 @@
 
         if (await LookupService.NameExistsAsync(Kind, name, form.Id))
         {
-            // Unique across inactive rows too: point the user to "restore" instead of a duplicate.
             errorMessage = $"Το όνομα \"{name}\" υπάρχει ήδη. Αν είναι ανενεργό, κάνε επαναφορά.";
             return;
         }
@@ -217,7 +213,6 @@
 
         if (!isActive)
         {
-            // Check-then-act: a value in use by active employees cannot be deactivated.
             var inUse = await LookupService.CountActiveEmployeesAsync(Kind, form.Id);
             if (inUse > 0)
             {
@@ -226,7 +221,6 @@
                 return;
             }
 
-            // Asked after the check, so the user is not asked about something that cannot be done.
             var confirmed = await Dialogs.ShowMessageBoxAsync(
                 "Διαγραφή εγγραφής",
                 $"Είστε σίγουροι; Η εγγραφή «{form.Name}» θα γίνει ανενεργή. " +
@@ -240,7 +234,6 @@
         Snackbar.Add(isActive ? "Επαναφέρθηκε." : "Διαγράφηκε.", Severity.Success);
         await ReloadListAsync();
 
-        // If it became inactive and we're not showing inactive, clear the form.
         if (!isActive && !includeInactive) { form = null; selectedId = 0; }
     }
 

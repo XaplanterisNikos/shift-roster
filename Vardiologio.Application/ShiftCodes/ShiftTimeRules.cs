@@ -21,7 +21,6 @@ public static class ShiftTimeRules
 	/// <summary>Night window end (06:00 of the next day).</summary>
 	public static readonly TimeOnly NightEnd = new(6, 0);
 
-	// Accepted input formats: "7:30" and "07:30". Always 24h, never AM/PM.
 	private static readonly string[] InputFormats = { "H:mm", "HH:mm" };
 
 	/// <summary>
@@ -31,7 +30,7 @@ public static class ShiftTimeRules
 	public static bool TryParse(string? text, out TimeOnly? time)
 	{
 		time = null;
-		if (string.IsNullOrWhiteSpace(text)) return true;   // "no time" is allowed
+		if (string.IsNullOrWhiteSpace(text)) return true;
 
 		if (TimeOnly.TryParseExact(text.Trim(), InputFormats, CultureInfo.InvariantCulture,
 				DateTimeStyles.None, out var parsed))
@@ -66,16 +65,15 @@ public static class ShiftTimeRules
 		double s = start.ToTimeSpan().TotalMinutes;
 		double e = s + Duration(start, end).TotalMinutes;
 
-		double nightStart = NightStart.ToTimeSpan().TotalMinutes;   // 1320
-		double nightEnd = NightEnd.ToTimeSpan().TotalMinutes;       // 360
+		double nightStart = NightStart.ToTimeSpan().TotalMinutes;
+		double nightEnd = NightEnd.ToTimeSpan().TotalMinutes;
 		const double day = 24 * 60;
 
-		// Night windows on the two-day timeline (start day + next day).
 		var windows = new (double From, double To)[]
 		{
-			(0, nightEnd),                              // 00:00–06:00 start day
-			(nightStart, day + nightEnd),               // 22:00–06:00 next day
-			(day + nightStart, 2 * day),                // 22:00–24:00 next day
+			(0, nightEnd),
+			(nightStart, day + nightEnd),
+			(day + nightStart, 2 * day),
 		};
 
 		double minutes = 0;

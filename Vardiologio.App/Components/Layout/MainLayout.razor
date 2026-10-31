@@ -10,16 +10,10 @@
 @if (Session.IsAuthenticated)
 {
     <MudLayout>
-        @* Top bar: brand on the left; help, user and sign-out on the right. *@
         <MudAppBar Elevation="0" Class="app-bar">
-            @* App icon; a click opens the "about" card (Shared/AboutButton.razor).
-               Its colour follows the section of the current page (see SectionClass below). *@
             <AboutButton Class="@SectionClass" />
             <MudText Typo="Typo.h6" Class="brand-name">Βαρδιολόγιο</MudText>
             <MudSpacer />
-            @* Context help ("?") and message to the developer (pen): each opens / closes its own
-               content in the side drawer at the end of this layout; opening one replaces the other.
-               Not shown to the administrator, whose pages have no help texts. *@
             @if (!IsAdmin)
             {
             <MudIconButton Icon="@Icons.Material.Rounded.QuestionMark" Variant="Variant.Outlined"
@@ -33,8 +27,6 @@
                            OnClick="() => Toggle(SidePanel.Feedback)" />
             }
             <div class="user-box">
-                @* A user's name opens the user's own details (Shared/UserProfileButton.razor);
-                   the administrator has none, so that name is plain text. *@
                 @if (IsAdmin)
                 {
                 <MudText Typo="Typo.subtitle2">@Session.Current!.DisplayName</MudText>
@@ -48,13 +40,10 @@
             </div>
         </MudAppBar>
 
-        @* Side menu: always open (the window is always maximised), placed under the top bar. *@
         <MudDrawer Open="true" Variant="DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always"
                    Elevation="0" Class="app-drawer">
             <MudNavMenu Rounded="true" Margin="Margin.Dense" Class="app-nav">
 
-                @* The administrator sees only the administrator's pages (Pages/Admin), and nobody
-                   else sees those; the guard in the code below enforces the same for typed addresses. *@
                 @if (IsAdmin)
                 {
                 <div class="nav-section">
@@ -68,17 +57,13 @@
                 }
                 else
                 {
-                @* Every section has the same shape: an icon + small title, then its entries. *@
                 <div class="nav-section">
                     <MudIcon Icon="@Icons.Material.Rounded.GridView" Size="Size.Small" />
                     <span>Λειτουργίες</span>
                 </div>
                 <MudNavLink Href="employees">Εργαζόμενοι</MudNavLink>
-                @* Match.All so this is active only at "/", not on every route. *@
                 <MudNavLink Href="" Match="NavLinkMatch.All">Προγράμματα</MudNavLink>
 
-                @* Reports and forms together; a thin line separates the official forms
-                   (emblem + signatures) from the plain reports. *@
                 <div class="nav-section">
                     <MudIcon Icon="@Icons.Material.Rounded.Description" Size="Size.Small" />
                     <span>Αναφορές - Έντυπα</span>
@@ -101,7 +86,6 @@
                 <MudNavLink Href="hours-parameters">Ωρών</MudNavLink>
                 <MudNavLink Href="report-parameters">Αναφορών</MudNavLink>
 
-                @* Copies of the whole database; the entry opens its dialog (Shared/DbTransferButton.razor). *@
                 <div class="nav-section">
                     <MudIcon Icon="@Icons.Material.Rounded.Storage" Size="Size.Small" />
                     <span>Διαχείριση</span>
@@ -112,10 +96,7 @@
         </MudDrawer>
 
         <MudMainContent>
-            @* "legacy" gives sensible defaults to the few plain HTML elements left on purpose
-               (rules in app.css, "Plain elements"). *@
             <div class="app-content legacy">
-                @* Nothing is rendered while the guard redirects a page of the wrong side. *@
                 @if (IsAdmin == OnAdminRoute)
                 {
                     @Body
@@ -123,10 +104,6 @@
             </div>
         </MudMainContent>
 
-        @* Side drawer, right: one drawer with two contents, help or the message form, so only one
-           can be open. Persistent: it sits next to the page (no dimmed background), so the user can
-           read while working; it closes only with "×" or the button that opened it. On navigation
-           it stays open and follows the new page. Width: DrawerWidthRight in Theme/AppTheme.cs. *@
         <MudDrawer Open="@(panel != SidePanel.None)" OpenChanged="OnDrawerOpenChanged" Anchor="Anchor.End"
                    Variant="DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always" Elevation="0"
                    Class="help-drawer">
@@ -139,15 +116,12 @@
                 <MudIconButton Icon="@Icons.Material.Rounded.Close" Size="Size.Small"
                                title="Κλείσιμο" aria-label="Κλείσιμο" OnClick="ClosePanel" />
             </div>
-            @* Help texts of the current page (route -> Shared/HelpContent.razor). *@
             @if (panel == SidePanel.Help)
             {
                 <div class="help-body">
                     <HelpContent Topic="@route" />
                 </div>
             }
-            @* The form stays rendered (only hidden) while the drawer shows help or is closed, so a
-               half-written message is not lost. *@
             <div class="help-body" hidden="@(panel != SidePanel.Feedback)">
                 <FeedbackForm Route="@route" />
             </div>
@@ -156,9 +130,12 @@
 }
 
 @code {
-    private string route = "";   // current page, e.g. "" or "shift-codes"; picks help texts and icon colour
-    private SidePanel panel;     // what the side drawer shows; None = drawer closed
-    private bool dbDialogOpen;   // database dialog visible (it has no page of its own)
+    /// <summary>Current page, e.g. "" or "shift-codes"; picks help texts and icon colour.</summary>
+    private string route = "";
+    /// <summary>What the side drawer shows; None = drawer closed.</summary>
+    private SidePanel panel;
+    /// <summary>Database dialog visible (it has no page of its own).</summary>
+    private bool dbDialogOpen;
 
     /// <summary>
     /// Colour modifier of the app icon, by section of the side menu: operations keep the brand
@@ -192,17 +169,12 @@
     protected override void OnInitialized()
     {
         route = CurrentRoute();
-        // No parameters change on navigation, so listen for it to switch help texts and icon colour.
         Nav.LocationChanged += OnLocationChanged;
-        // React to sign-in/out to refresh the shell.
         Session.Changed += OnChanged;
-        // Auth guard: no session -> go to the login page.
         if (!Session.IsAuthenticated) Nav.NavigateTo("/login");
         GuardAdminPages();
     }
-    // Session event may arrive off the UI thread -> marshal back with InvokeAsync.
     private void OnChanged() => InvokeAsync(() => { GuardAdminPages(); StateHasChanged(); });
-    // The next user starts with the help drawer closed.
     private void Logout() { panel = SidePanel.None; Session.SignOut(); Nav.NavigateTo("/login"); }
 
     /// <summary>Content of the side drawer.</summary>
@@ -232,14 +204,12 @@
         return (cut >= 0 ? path[..cut] : path).Trim('/').ToLowerInvariant();
     }
 
-    // Navigation may be raised off the render cycle -> marshal back with InvokeAsync.
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         route = CurrentRoute();
         InvokeAsync(() => { GuardAdminPages(); StateHasChanged(); });
     }
 
-    // Unsubscribe to avoid a memory leak (pairs with the subscribes in OnInitialized).
     public void Dispose()
     {
         Session.Changed -= OnChanged;

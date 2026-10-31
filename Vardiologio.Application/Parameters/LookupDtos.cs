@@ -5,16 +5,16 @@ namespace Vardiologio.Application.Parameters;
 /// <summary>Which employee lookup table a parameters call targets.</summary>
 public enum LookupKind
 {
-	/// <summary>Ειδικότητα (Speciality).</summary>
+	/// <summary>Speciality.</summary>
 	Speciality = 1,
 
-	/// <summary>Σύμβαση (EmploymentType) — the only kind that also has a short Code.</summary>
+	/// <summary>Contract (EmploymentType); the only kind that also has a short code.</summary>
 	EmploymentType = 2,
 
-	/// <summary>Θέση εργασίας (WorkPosition).</summary>
+	/// <summary>Work position.</summary>
 	WorkPosition = 3,
 
-	/// <summary>Τοποθέτηση υπαλλήλου (Placement).</summary>
+	/// <summary>Placement of the employee.</summary>
 	Placement = 4
 }
 

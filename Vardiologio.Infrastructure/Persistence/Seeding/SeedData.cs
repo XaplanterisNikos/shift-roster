@@ -36,7 +36,6 @@ public static partial class SeedData
 		"ΥΕ Προσωπικού Καθαριότητας Εσωτ. Χώρων",
 	};
 
-	// Short aliases to keep the seed tables below readable.
 	private const DayType W = DayType.Weekday;
 	private const DayType Sat = DayType.Saturday;
 	private const DayType Sun = DayType.Sunday;
@@ -61,9 +60,9 @@ public static partial class SeedData
 		("10", "11:30 – 18:00", new TimeOnly(11, 30),new TimeOnly(18, 0), ShiftSegment.Day,   W),
 		("11", "15:30 – 22:00", new TimeOnly(15, 30),new TimeOnly(22, 0), ShiftSegment.Day,   W),
 		("12", "22:00 – 06:00", new TimeOnly(22, 0), new TimeOnly(6, 0),  ShiftSegment.Night, Sat),
-		("13", "22:00 – 06:00", new TimeOnly(22, 0), new TimeOnly(6, 0),  ShiftSegment.Night, W),   // was 22:00–04:30 (corrected)
-		("14", "03:00 – 11:30", new TimeOnly(3, 0),  new TimeOnly(11, 30),ShiftSegment.Day,   W),   // new
-		("15", "22:00 – 06:00", new TimeOnly(22, 0), new TimeOnly(6, 0),  ShiftSegment.Night, W),   // new: Thursday -> Friday
+		("13", "22:00 – 06:00", new TimeOnly(22, 0), new TimeOnly(6, 0),  ShiftSegment.Night, W),
+		("14", "03:00 – 11:30", new TimeOnly(3, 0),  new TimeOnly(11, 30),ShiftSegment.Day,   W),
+		("15", "22:00 – 06:00", new TimeOnly(22, 0), new TimeOnly(6, 0),  ShiftSegment.Night, W),
 		("Υ.Δ.", "Ν105", null, null, null, DayType.None),
 		("Α",    "ΑΣΘΕΝΕΙΑ", null, null, null, DayType.None),
 		("ΑΡ.",  "ΑΡΓΙΑ", null, null, null, DayType.None),
@@ -83,7 +82,6 @@ public static partial class SeedData
 	/// </summary>
 	public static readonly (string Code, DayType Day, HourCategory Category, decimal Hours)[] ShiftCodeHours =
 	{
-		// Weekday: night hours of the regular schedule (+ overtime beyond 6.5h).
 		("1",  W, HourCategory.ToComplete, 6m),
 		("3",  W, HourCategory.ToComplete, 3m),
 		("4",  W, HourCategory.ToComplete, 2m),
@@ -95,19 +93,16 @@ public static partial class SeedData
 		("15", W, HourCategory.ToComplete, 6m),
 		("15", W, HourCategory.Night,      2m),
 
-		// Saturday: everything is overtime.
 		("12", Sat, HourCategory.Night,  8m),
 		("2",  Sat, HourCategory.Night,  6m),
 		("6",  Sat, HourCategory.Simple, 6.5m),
 		("7",  Sat, HourCategory.Simple, 8m),
 		("8",  Sat, HourCategory.Simple, 10m),
 
-		// Sunday.
 		("6", Sun, HourCategory.Sunday, 6.5m),
 		("7", Sun, HourCategory.Sunday, 8m),
 		("8", Sun, HourCategory.Sunday, 10m),
 
-		// Holiday (code 2 = Good Friday night, counted as Προς συμπλήρωση).
 		("2", Hol, HourCategory.ToComplete, 6m),
 		("6", Hol, HourCategory.Holiday,    6.5m),
 		("7", Hol, HourCategory.Holiday,    8m),

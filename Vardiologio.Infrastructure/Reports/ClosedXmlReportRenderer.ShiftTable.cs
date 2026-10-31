@@ -12,7 +12,6 @@ namespace Vardiologio.Infrastructure.Reports;
 /// </summary>
 public partial class ClosedXmlReportRenderer
 {
-	// Fonts of the original sheet.
 	private const string StTitleFont = "Segoe UI", StTextFont = "Candara", StCodeFont = "Calibri";
 
 	/// <inheritdoc/>
@@ -20,10 +19,9 @@ public partial class ClosedXmlReportRenderer
 	{
 		using var wb = new XLWorkbook();
 		var ws = wb.AddWorksheet("Shift table");
-		var shade = XLColor.FromHtml(m.Colors[ReportColorCatalog.ShiftTableWeekend]);   // Παράμετροι → Αναφορών → Χρώματα
+		var shade = XLColor.FromHtml(m.Colors[ReportColorCatalog.ShiftTableWeekend]);
 		var center = XLAlignmentHorizontalValues.Center;
 
-		// Columns: narrow margin, name, speciality, one per day, one per work code, the two hour columns.
 		const int cName = 2, cSpec = 3, cDay0 = 4;
 		var days = m.DaysInMonth;
 		var cCount0 = cDay0 + days;
@@ -32,7 +30,6 @@ public partial class ClosedXmlReportRenderer
 		var cSunHol = cDaily + 1;
 		var lastCol = cSunHol;
 
-		// ---- Header: emblem + letterhead (left), titles (centre), addressee (right) ----
 		for (var r = 1; r <= 3; r++) ws.Row(r).Height = 16;
 		AddEmblem(ws, "Emblem", 1, cName, 30, 2, 62, 60);
 
@@ -43,12 +40,11 @@ public partial class ClosedXmlReportRenderer
 			var (plain, bold) = letterhead[i];
 			ws.Range(lh0 + i, cName, lh0 + i, cSpec).Merge();
 			var cell = ws.Cell(lh0 + i, cName);
-			// Rich text so that only the bold part is bold (e.g. just the e-mail address).
 			var rich = cell.GetRichText();
 			if (plain.Length > 0) rich.AddText(plain).SetFontName(StTextFont).SetFontSize(11);
 			if (bold.Length > 0) rich.AddText(bold).SetFontName(StTextFont).SetFontSize(11).SetBold();
 			cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-			ws.Row(lh0 + i).Height = 18;   // same height for every letterhead row (titles share rows 4–6)
+			ws.Row(lh0 + i).Height = 18;
 		}
 
 		var tFrom = cDay0 + 6;
@@ -57,14 +53,11 @@ public partial class ClosedXmlReportRenderer
 		int[] titleRows = { 2, 4, 5, 6 };
 		for (var i = 0; i < titles.Length; i++)
 			StMerge(ws, titleRows[i], tFrom, titleRows[i], tTo, titles[i].Text, StTitleFont, titles[i].Large ? 20 : 13, titles[i].Bold, center);
-		ws.Row(titleRows[0]).Height = 28;   // first title is the largest; the others fit the 18pt letterhead rows
+		ws.Row(titleRows[0]).Height = 28;
 		var addressee = ShiftTableTexts.Addressee(m.Texts);
 		for (var i = 0; i < addressee.Length; i++)
 			StMerge(ws, 3 + i, cCount0 - 6, 3 + i, lastCol, addressee[i], StTitleFont, 13, true, center);
 
-		// ---- Table header (two rows) ----
-		// Under the letterhead; at least three rows down, so a short letterhead cannot pull the
-		// table up onto the title rows.
 		var h1 = lh0 + Math.Max(letterhead.Length, 3) + 1;
 		var h2 = h1 + 1;
 		StMerge(ws, h1, cName, h2, cName, ShiftTableTexts.HeadName, StTitleFont, 13, true, center);
@@ -88,7 +81,6 @@ public partial class ClosedXmlReportRenderer
 		header.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
 		header.Style.Border.InsideBorder = XLBorderStyleValues.Medium;
 
-		// ---- One row per employee ----
 		var r0 = h2 + 1;
 		var row = r0;
 		foreach (var e in m.Rows)
@@ -110,7 +102,6 @@ public partial class ClosedXmlReportRenderer
 		}
 		var lastData = Math.Max(row - 1, r0);
 
-		// Borders: thin grid for names / days, medium boxes for the count and hour columns (as on the form).
 		var body = ws.Range(r0, cName, lastData, lastCol);
 		body.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 		body.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
@@ -118,7 +109,6 @@ public partial class ClosedXmlReportRenderer
 		totals.Style.Border.InsideBorder = XLBorderStyleValues.Medium;
 		totals.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
 
-		// ---- Legend (name / speciality columns) ----
 		var lt = lastData + 2;
 		StMerge(ws, lt, cName, lt, cSpec, ShiftTableTexts.LegendTitle, StTextFont, 13, false, center);
 		ws.Row(lt).Height = 22;
@@ -134,13 +124,12 @@ public partial class ClosedXmlReportRenderer
 		legend.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
 		legend.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 
-		// ---- Signatures, beside the legend: role, space to sign, name / title ----
 		var roleRow = lt + 4;
 		var nameRow = Math.Max(roleRow + 8, lr - 4);
 		(int From, int To)[] blocks =
 		{
-			(cDay0 + 5, cDay0 + 13),                                   // Ο συντάξας
-			(cDay0 + 18, Math.Max(cDay0 + 26, cCount0 + codes / 2))    // Ο Αν. Προϊστάμενος
+			(cDay0 + 5, cDay0 + 13),
+			(cDay0 + 18, Math.Max(cDay0 + 26, cCount0 + codes / 2))
 		};
 		var signatures = ShiftTableTexts.Signatures(m.Texts);
 		for (var s = 0; s < signatures.Length && s < blocks.Length; s++)
@@ -151,11 +140,9 @@ public partial class ClosedXmlReportRenderer
 			for (var i = 0; i < name.Length; i++)
 				StMerge(ws, nameRow + i, from, nameRow + i, to, name[i], StTextFont, 14, true, center);
 		}
-		// The print area reaches the last name line of the longest signature block.
 		var nameLines = signatures.Select(block => block.Name.Length).DefaultIfEmpty(0).Max();
 		var lastRow = Math.Max(lr - 1, nameRow + Math.Max(nameLines, 2) - 1);
 
-		// ---- Widths and page: A3 landscape, everything on one page ----
 		ws.Column(1).Width = 1.5;
 		ws.Column(cName).Width = 34;
 		ws.Column(cSpec).Width = 28;

@@ -44,7 +44,6 @@ public class DatabaseTransferService : IDatabaseTransferService
 		{
 			var backup = WriteBackup();
 
-			// Same file name in Documents\Vardiologio\Database, for the user to keep or carry.
 			var copy = Path.Combine(AppFolders.Database, Path.GetFileName(backup));
 			File.Copy(backup, copy, overwrite: true);
 			return copy;
@@ -74,20 +73,18 @@ public class DatabaseTransferService : IDatabaseTransferService
 
 		return await Task.Run(() =>
 		{
-			// Work on a private copy: the chosen file is never modified.
 			var temp = CopyToTemp(path);
 			try
 			{
 				var check = Check(temp, known);
 				if (check != DatabaseFileCheck.Ok) return check;
 
-				WriteBackup();   // safety copy of the current data, before anything changes
+				WriteBackup();
 
 				KeepLocalTables(temp);
 				StartEpoch(temp, Path.GetFileNameWithoutExtension(path), user);
 
-				// Overwrite the live database with the prepared copy in one step.
-				SqliteConnection.ClearAllPools();   // release idle pooled connections to the live file
+				SqliteConnection.ClearAllPools();
 				using (var source = Open(temp))
 				using (var live = Open(AppPaths.DbPath))
 					source.BackupDatabase(live);
@@ -121,14 +118,11 @@ public class DatabaseTransferService : IDatabaseTransferService
 		{
 			live.BackupDatabase(copy);
 
-			// A single self-contained file: without this the copy would need its -wal / -shm
-			// companions, which are easy to leave behind when the file is carried elsewhere.
 			using var cmd = copy.CreateCommand();
 			cmd.CommandText = "PRAGMA journal_mode=DELETE;";
 			cmd.ExecuteNonQuery();
 		}
 
-		// The name starts with the date, so ordering by name is ordering by time.
 		foreach (var old in Directory.GetFiles(AppPaths.BackupsDir, "vardiologio_*.db")
 			         .OrderByDescending(f => Path.GetFileName(f), StringComparer.Ordinal)
 			         .Skip(KeptBackups))
@@ -157,7 +151,6 @@ public class DatabaseTransferService : IDatabaseTransferService
 		}
 		catch (SqliteException)
 		{
-			// Not a SQLite file, or a SQLite file without EF's migrations table.
 			return DatabaseFileCheck.NotDatabase;
 		}
 	}
@@ -169,14 +162,12 @@ public class DatabaseTransferService : IDatabaseTransferService
 	/// </summary>
 	private static void KeepLocalTables(string path)
 	{
-		// Foreign keys off for this connection: the tables are emptied and refilled as a set.
 		var connectionString = new SqliteConnectionStringBuilder
 			{ DataSource = path, Pooling = false, ForeignKeys = false }.ToString();
 
 		using var conn = new SqliteConnection(connectionString);
 		conn.Open();
 
-		// ATTACH cannot run inside a transaction.
 		using (var attach = conn.CreateCommand())
 		{
 			attach.CommandText = "ATTACH DATABASE $live AS live;";
@@ -186,8 +177,7 @@ public class DatabaseTransferService : IDatabaseTransferService
 
 		using (var tx = conn.BeginTransaction())
 		{
-			// Table names come from the constant list above, never from input.
-			foreach (var table in Enumerable.Reverse(LocalTables))   // Enumerable: on an array, .Reverse() is the in-place span method
+			foreach (var table in Enumerable.Reverse(LocalTables))
 				Execute(conn, tx, $"DELETE FROM main.\"{table}\";");
 			foreach (var table in LocalTables)
 				Execute(conn, tx, $"INSERT INTO main.\"{table}\" SELECT * FROM live.\"{table}\";");
@@ -217,7 +207,7 @@ public class DatabaseTransferService : IDatabaseTransferService
 			.UseSqlite(ConnectionString(path))
 			.Options;
 
-		using var db = new AppDbContext(options);   // no interceptor: this context writes the log itself
+		using var db = new AppDbContext(options);
 		var now = DateTime.Now;
 		db.ActivityEntries.Add(new ActivityEntry
 		{

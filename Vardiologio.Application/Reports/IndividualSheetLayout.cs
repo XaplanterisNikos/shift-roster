@@ -70,7 +70,6 @@ public static class IndividualSheetLayout
 		var weekday = isShift && !r.IsSundayOrHoliday;
 		var sunday = isShift && r.IsSundayOrHoliday;
 
-		// Start / end go to exactly one of the four schedule groups; the others stay empty.
 		string In(bool here, string? value) => here ? value ?? "" : "";
 
 		return
@@ -79,24 +78,24 @@ public static class IndividualSheetLayout
 			r.Index.ToString(CultureInfo.InvariantCulture),
 			m.EmployeeName,
 			m.WorkType,
-			r.StatusCode ?? r.ShiftStart ?? "",                    // ΩΡΑΡΙΟ ΒΑΡΔΙΑΣ – ΕΝΑΡΞΗ (or the status code)
-			isShift ? r.ShiftEnd ?? "" : "",                       // ΩΡΑΡΙΟ ΒΑΡΔΙΑΣ – ΛΗΞΗ
-			r.OvertimeStart ?? "",                                 // ΩΡΑΡΙΟ ΥΠΕΡΩΡΙΑΣ – ΕΝΑΡΞΗ
-			r.OvertimeEnd ?? "",                                   // ΩΡΑΡΙΟ ΥΠΕΡΩΡΙΑΣ – ΛΗΞΗ
-			Number(r.SupplementWeekday),                           // ΣΥΜΠΛΗΡ. ΕΡΓΑΣΙΑ – ΗΜΕΡ.
-			Number(r.SupplementSunday),                            // ΣΥΜΠΛΗΡ. ΕΡΓΑΣΙΑ – ΚΥΡΙΑΚΗΣ
-			r.Code ?? "",                                          // ΩΡΑΡΙΑ (the code)
-			r.Presence,                                            // ΠΑΡΟΥΣΙΕΣ
-			"",                                                    // ΣΤΑΣΕΙΣ (no data)
-			In(weekday && !r.IsNight, Clock(r.RegularHours)),      // ΗΜΕΡΗΣΙΟ (Δ–Σ)
+			r.StatusCode ?? r.ShiftStart ?? "",
+			isShift ? r.ShiftEnd ?? "" : "",
+			r.OvertimeStart ?? "",
+			r.OvertimeEnd ?? "",
+			Number(r.SupplementWeekday),
+			Number(r.SupplementSunday),
+			r.Code ?? "",
+			r.Presence,
+			"",
+			In(weekday && !r.IsNight, Clock(r.RegularHours)),
 			In(weekday && !r.IsNight, r.ShiftStart),
 			In(weekday && !r.IsNight, r.ShiftEnd),
-			In(weekday && r.IsNight, Clock(r.RegularHours)),       // ΝΥΚΤΕΡΙΝΟ (Δ–Σ)
+			In(weekday && r.IsNight, Clock(r.RegularHours)),
 			In(weekday && r.IsNight, r.ShiftStart),
 			In(weekday && r.IsNight, r.ShiftEnd),
-			In(sunday && !r.IsNight, r.ShiftStart),                // ΗΜΕΡ. ΚΥΡ.
+			In(sunday && !r.IsNight, r.ShiftStart),
 			In(sunday && !r.IsNight, r.ShiftEnd),
-			In(sunday && r.IsNight, r.ShiftStart),                 // ΝΥΚΤ. ΚΥΡ.
+			In(sunday && r.IsNight, r.ShiftStart),
 			In(sunday && r.IsNight, r.ShiftEnd)
 		];
 	}
@@ -115,15 +114,13 @@ public static class IndividualSheetLayout
 
 		return
 		[
-			// On the organisation's sheet this block held the overtime read from the time-clock
-			// card. The application has no card data, so it shows the roster's overtime instead.
 			new("Δηλωμένες υπερωρίες μήνα",
 				"Από τους κωδικούς βάρδιας του μήνα, πριν από τα όρια (στο έντυπο: «από κάρτα»).",
 				[
 					("Εργάσιμων / Σαββάτου – ημερήσιες", Clock(Declared(HourCategory.Simple), zero: true)),
 					("Εργάσιμων / Σαββάτου – νυχτερινές", Clock(Declared(HourCategory.Night), zero: true)),
 					("Κυριακών – ημερήσιες", Clock(Declared(HourCategory.Sunday), zero: true)),
-					("Κυριακών – νυχτερινές", Clock(0, zero: true))   // no pay category feeds this column yet
+					("Κυριακών – νυχτερινές", Clock(0, zero: true))
 				]),
 			new("Εργασία προς συμπλήρωση (εβδομαδιαία)",
 				"Δηλωμένες ώρες «Προς συμπλήρωση» ανά δεκαπενθήμερο, πριν από τα όρια.",

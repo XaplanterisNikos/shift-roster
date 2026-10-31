@@ -59,7 +59,6 @@ internal static class OvertimeCertificateTexts
 		return lines;
 	}
 
-	// Table headers: four single columns, then three groups of two sub-columns.
 	public const string HeadIndex = "A/A", HeadLastName = "Επίθετο", HeadFirstName = "Όνομα", HeadSpeciality = "κλάδος/ειδικότητα";
 
 	/// <summary>Group headers, each over two sub-columns.</summary>

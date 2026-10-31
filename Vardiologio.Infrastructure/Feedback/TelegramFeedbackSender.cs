@@ -45,7 +45,6 @@ public class TelegramFeedbackSender : IFeedbackSender
 			return new FeedbackResult(false, null);
 		}
 
-		// No settings file in this installation: the zip is all there is.
 		var settings = _settings;
 		if (settings is null) return new FeedbackResult(false, zipPath);
 
@@ -64,7 +63,6 @@ public class TelegramFeedbackSender : IFeedbackSender
 
 				if (!response.IsSuccessStatusCode)
 				{
-					// Telegram explains the refusal in the response text (e.g. "chat not found").
 					var reason = await response.Content.ReadAsStringAsync();
 					_errors.Error("Message to the developer / send",
 						new InvalidOperationException($"Telegram answered {(int)response.StatusCode}: {reason}"));
@@ -72,14 +70,11 @@ public class TelegramFeedbackSender : IFeedbackSender
 				}
 			}
 
-			// Delivered: the copy on disk is no longer needed. A failed delete is harmless.
 			try { File.Delete(zipPath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
 			return new FeedbackResult(true, null);
 		}
 		catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
 		{
-			// No internet, blocked address or timeout. Only type and message are logged, with the
-			// token masked: the request address holds it and the logs travel in later messages.
 			_errors.Error("Message to the developer / send",
 				new InvalidOperationException($"{ex.GetType().Name}: {ex.Message.Replace(settings.BotToken, "***")}"));
 			return new FeedbackResult(false, zipPath);
@@ -95,16 +90,14 @@ public class TelegramFeedbackSender : IFeedbackSender
 	{
 		var now = DateTime.Now;
 		var zipPath = Path.Combine(AppFolders.Feedback, $"{now:yyyy-MM-dd_HHmmss}.zip");
-		File.Delete(zipPath);   // same second twice: replace (no error when it does not exist)
+		File.Delete(zipPath);
 
 		using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
 
 		var entry = zip.CreateEntry("message.txt", CompressionLevel.Optimal);
-		// UTF-8 with BOM, so Notepad shows the Greek text correctly.
 		using (var writer = new StreamWriter(entry.Open(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true)))
 			writer.Write(FullText(message, now));
 
-		// Log files are named yyyy-MM-dd.log (see ErrorLogFile); anything else in the folder is skipped.
 		var firstDay = now.Date.AddDays(-(LogDays - 1));
 		foreach (var log in Directory.EnumerateFiles(AppFolders.Logs, "*.log"))
 		{
@@ -112,7 +105,6 @@ public class TelegramFeedbackSender : IFeedbackSender
 				CultureInfo.InvariantCulture, DateTimeStyles.None, out var day);
 			if (!named || day < firstDay) continue;
 
-			// Read with sharing: today's log may be written to at this very moment.
 			using var source = new FileStream(log, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
 			using var target = zip.CreateEntry($"Logs/{Path.GetFileName(log)}", CompressionLevel.Optimal).Open();
 			source.CopyTo(target);

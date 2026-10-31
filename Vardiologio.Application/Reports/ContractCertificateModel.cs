@@ -3,20 +3,12 @@ using Vardiologio.Application.ReportTexts;
 
 namespace Vardiologio.Application.Reports;
 
-/// <summary>Which of the two collective certificates a model holds (one printed form each).</summary>
-public enum ContractCertificateSheet
-{
-	/// <summary>Permanent staff, then open-ended contracts (ΙΔΑΧ) — one form, two groups.</summary>
-	PermanentAndOpenEnded,
-
-	/// <summary>Fixed-term contracts (ΙΔΟΧ) — one form, one group.</summary>
-	FixedTerm
-}
-
 /// <summary>
 /// Data for one collective "ΠΙΣΤΟΠΟΙΗΣΗ ΥΠΕΡΩΡΙΑΚΗΣ ΚΑΙ ΛΟΙΠΗΣ ΕΡΓΑΣΙΑΣ" per contract: the same six
 /// hour columns as the individual certificate, one row per employee, grouped by contract.
 /// The hours are the <b>paid</b> hours, so every row agrees with that employee's own certificate.
+/// One form for all three contracts: permanent, then open-ended (ΙΔΑΧ), then fixed-term (ΙΔΟΧ),
+/// one under the other, each under its own band.
 /// </summary>
 public class ContractCertificateModel
 {
@@ -26,14 +18,14 @@ public class ContractCertificateModel
 	/// <summary>Certificate month (1–12).</summary>
 	public int Month { get; set; }
 
-	/// <summary>Which of the two forms this is.</summary>
-	public ContractCertificateSheet Sheet { get; set; }
-
-	/// <summary>The contract groups of the form, in print order (a group may have no rows).</summary>
+	/// <summary>
+	/// The contract groups of the form, in print order (permanent, open-ended, fixed-term).
+	/// A contract without employees this month has no group, so its band is not printed.
+	/// </summary>
 	public List<ContractCertificateGroup> Groups { get; set; } = new();
 
 	/// <summary>
-	/// Active employees left out of both forms because their contract is missing or is not one
+	/// Active employees left out of the form because their contract is missing or is not one
 	/// of the three kinds ("Επώνυμο Όνομα"). The page lists them so the user can fix the contract.
 	/// </summary>
 	public List<string> WithoutContract { get; set; } = new();
@@ -64,28 +56,28 @@ public class ContractCertificateGroup
 /// <summary>One employee's row on a collective certificate.</summary>
 public class ContractCertificateRow
 {
-	/// <summary>Α/Α: runs on from one group to the next inside a form.</summary>
+	/// <summary>Α/Α: runs on through the whole form, from one group to the next.</summary>
 	public int Index { get; set; }
 
 	public string LastName { get; set; } = "";
 	public string FirstName { get; set; } = "";
 	public string Speciality { get; set; } = "";
 
-	/// <summary>Υπερωριακή εργασία — Απογευματινή έως 22:00 (paid Απλή hours).</summary>
+	/// <summary>Afternoon overtime until 22:00 (paid "simple" hours).</summary>
 	public decimal AfternoonOvertime { get; set; }
 
-	/// <summary>Υπερωριακή εργασία — Νυχτερινή 22:00–06:00 (paid Νυχτερινή hours).</summary>
+	/// <summary>Night overtime 22:00–06:00 (paid night hours).</summary>
 	public decimal NightOvertime { get; set; }
 
-	/// <summary>Υπερωριακή εργασία Κυριακές και εξαιρέσιμες — Ημερήσιες 6:00–22:00 (paid Κυριακής hours).</summary>
+	/// <summary>Sunday and holiday overtime by day, 06:00–22:00 (paid Sunday hours).</summary>
 	public decimal SundayDayOvertime { get; set; }
 
-	/// <summary>Υπερωριακή εργασία Κυριακές και εξαιρέσιμες — Νυχτερινή 22:00–06:00 (no pay category feeds it yet).</summary>
+	/// <summary>Sunday and holiday overtime at night, 22:00–06:00 (no pay category feeds it yet).</summary>
 	public decimal SundayNightOvertime { get; set; }
 
-	/// <summary>Εργασία προς Συμπλήρωση — Νυχτερινή εργασίμων ημερών (paid Προς συμπλήρωση hours).</summary>
+	/// <summary>Work "to complete" on working days (paid "to complete" hours).</summary>
 	public decimal WeekdayNightToComplete { get; set; }
 
-	/// <summary>Εργασία προς Συμπλήρωση — Κυριακών και εξαιρέσιμων ημερών (paid Αργίας hours).</summary>
+	/// <summary>Work "to complete" on Sundays and holidays (paid holiday hours).</summary>
 	public decimal SundayHolidayToComplete { get; set; }
 }

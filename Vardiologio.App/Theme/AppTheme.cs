@@ -21,19 +21,16 @@ public static class AppTheme
 	{
 		PaletteLight = new PaletteLight
 		{
-			// Brand
 			Primary = "#4338CA",
 			PrimaryContrastText = "#FFFFFF",
 			Secondary = "#2F279C",
 			SecondaryContrastText = "#FFFFFF",
 
-			// Status colours (dark enough for white text and for text on a light tint)
 			Info = "#1D5FBF",
 			Success = "#17693F",
 			Warning = "#B45309",
 			Error = "#B3261E",
 
-			// Surfaces
 			Background = "#F5F4FB",
 			BackgroundGray = "#ECEBFB",
 			Surface = "#FFFFFF",
@@ -43,12 +40,10 @@ public static class AppTheme
 			DrawerText = "#3B3852",
 			DrawerIcon = "#5C5A73",
 
-			// Text
 			TextPrimary = "#1D1B2E",
 			TextSecondary = "#5C5A73",
 			ActionDefault = "#5C5A73",
 
-			// Lines
 			LinesDefault = "#E3E1EF",
 			LinesInputs = "#CFCCE2",
 			TableLines = "#E3E1EF",
@@ -57,12 +52,10 @@ public static class AppTheme
 
 		Typography = new Typography
 		{
-			// Every style names the font: MudBlazor does not inherit the family from Default.
 			Default = new DefaultTypography { FontFamily = Fonts },
 			H1 = new H1Typography { FontFamily = Fonts, FontWeight = "800" },
 			H2 = new H2Typography { FontFamily = Fonts, FontWeight = "800" },
 			H3 = new H3Typography { FontFamily = Fonts, FontWeight = "800" },
-			// h4 = page title, h5 = section title, h6 = card title / brand.
 			H4 = new H4Typography { FontFamily = Fonts, FontWeight = "800", FontSize = "1.75rem", LetterSpacing = "-.02em" },
 			H5 = new H5Typography { FontFamily = Fonts, FontWeight = "800", FontSize = "1.375rem", LetterSpacing = "-.01em" },
 			H6 = new H6Typography { FontFamily = Fonts, FontWeight = "800", FontSize = "1.125rem", LetterSpacing = "-.01em" },
@@ -70,7 +63,6 @@ public static class AppTheme
 			Subtitle2 = new Subtitle2Typography { FontFamily = Fonts, FontWeight = "700" },
 			Body1 = new Body1Typography { FontFamily = Fonts, FontSize = ".9375rem" },
 			Body2 = new Body2Typography { FontFamily = Fonts },
-			// Buttons keep the text as typed (MudBlazor's default is upper case).
 			Button = new ButtonTypography { FontFamily = Fonts, FontWeight = "700", TextTransform = "none", LetterSpacing = "0" },
 			Caption = new CaptionTypography { FontFamily = Fonts },
 			Overline = new OverlineTypography { FontFamily = Fonts, FontWeight = "700" }
@@ -80,7 +72,7 @@ public static class AppTheme
 		{
 			DefaultBorderRadius = "12px",
 			DrawerWidthLeft = "264px",
-			DrawerWidthRight = "400px",   // help drawer (Layout/MainLayout.razor)
+			DrawerWidthRight = "400px",
 			AppbarHeight = "64px"
 		}
 	};

@@ -10,32 +10,25 @@ public class EmployeeDetail
 {
 	public int Id { get; set; }
 
-	// Required surname, 3–20 chars. Allowed: letters (any language), digits, . - / space.
 	[Required(ErrorMessage = "Το επώνυμο είναι υποχρεωτικό.")]
 	[StringLength(20, MinimumLength = 3, ErrorMessage = "Το επώνυμο πρέπει να έχει 3–20 χαρακτήρες.")]
-	[RegularExpression(@"^[\p{L}\p{N}.\-/ ]+$", ErrorMessage = "Το επώνυμο περιέχει μη έγκυρους χαρακτήρες.")]// 0 = new (not yet persisted)
+	[RegularExpression(@"^[\p{L}\p{N}.\-/ ]+$", ErrorMessage = "Το επώνυμο περιέχει μη έγκυρους χαρακτήρες.")]
 
 	public string LastName { get; set; } = "";
-	// Optional first name (often abbreviated like "Γ." or blank in the source), max 20.
 	[StringLength(20, ErrorMessage = "Το όνομα δεν πρέπει να ξεπερνά τους 20 χαρακτήρες.")]
 	[RegularExpression(@"^[\p{L}\p{N}.\-/ ]*$", ErrorMessage = "Το όνομα περιέχει μη έγκυρους χαρακτήρες.")]
 	public string FirstName { get; set; } = "";
 
-	// Must pick a real specialty (0 = none selected).
 	[Range(1, int.MaxValue, ErrorMessage = "Επίλεξε ειδικότητα.")]
 	public int SpecialityId { get; set; }
 
-	// Must pick an employment type (— = null is invalid).
 	[Required(ErrorMessage = "Επίλεξε σύμβαση.")]
 	public int? EmploymentTypeId { get; set; }
 
-	// Optional work position (— = null: the employee has none).
 	public int? WorkPositionId { get; set; }
 
-	// Optional supervisor who signs the individual monthly sheet (— = null: none chosen yet).
 	public int? SignatoryId { get; set; }
 
-	// Optional placement ("Τοποθέτηση υπαλλήλου"; — = null: none chosen yet).
 	public int? PlacementId { get; set; }
 
 	public bool IsActive { get; set; } = true;

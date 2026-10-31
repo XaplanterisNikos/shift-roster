@@ -21,7 +21,6 @@ public class OvertimeCertificateService : IOvertimeCertificateService
 
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Active employees in the order of the other reports: the position gives the Α/Α.
 		var employees = await db.Employees
 			.OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
 			.Select(e => new { e.Id, e.LastName, e.FirstName, Speciality = e.Speciality.Name })
@@ -30,7 +29,6 @@ public class OvertimeCertificateService : IOvertimeCertificateService
 		if (index < 0) throw new InvalidOperationException($"Employee {employeeId} not found.");
 		var emp = employees[index];
 
-		// The employee's entries of the month and the rule data — same inputs as the hours report.
 		var entries = await db.ShiftDays
 			.AsNoTracking()
 			.Where(s => s.EmployeeId == employeeId && s.Date >= first && s.Date <= last)
@@ -44,8 +42,6 @@ public class OvertimeCertificateService : IOvertimeCertificateService
 		var limits = await db.HourLimits.AsNoTracking().OrderBy(l => l.Id).FirstOrDefaultAsync()
 			?? throw new InvalidOperationException("HourLimits row not found.");
 
-		// Same calculation as the hours report, so the certificate always matches its "Πληρ." column.
-		// The six columns come from one shared mapping (also used by the certificate per contract).
 		var paid = CertificateHours.FromPaid(
 			MonthlyHoursCalculator.Calculate(year, month, entries, hours, holidays, limits));
 

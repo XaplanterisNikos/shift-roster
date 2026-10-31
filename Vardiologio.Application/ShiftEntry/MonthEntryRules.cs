@@ -79,21 +79,18 @@ public static class MonthEntryRules
 
 		foreach (var day in entry.Days)
 		{
-			if (day.ShiftCodeId is not int codeId) continue;   // empty day: nothing to check
+			if (day.ShiftCodeId is not int codeId) continue;
 
-			// Input for the hours calculation (only Date and ShiftCodeId are used).
 			days.Add(new ShiftDay { EmployeeId = entry.EmployeeId, Date = day.Date, ShiftCodeId = codeId });
 
-			if (!codes.TryGetValue(codeId, out var code)) continue;   // unknown id: no rules to apply
+			if (!codes.TryGetValue(codeId, out var code)) continue;
 
 			var messages = new List<string>();
 
-			// (1) Allowed kinds of day (status codes have None = allowed anywhere).
 			var dayType = DayTypeRules.Resolve(day.Date, holidays);
 			if (!IsAllowedOn(code.AllowedDays, day.Date, holidays))
 				messages.Add($"Ο κωδικός {code.Code} δεν προβλέπεται για {HoursLabels.Day(dayType)}.");
 
-			// (2) Codes replaced on the 1st of the month (12 -> 2).
 			if (IsReplacedOnFirst(code.Code, day.Date) && FirstOfMonthReplacements.TryGetValue(code.Code, out var replacement))
 				messages.Add($"Την 1η του μήνα μπαίνει ο κωδικός {replacement} αντί για τον {code.Code} " +
 				             $"(ο {code.Code} ξεκινά στον προηγούμενο μήνα).");
@@ -101,7 +98,6 @@ public static class MonthEntryRules
 			if (messages.Count > 0) warnings[day.Date] = string.Join(" ", messages);
 		}
 
-		// (3) Monthly hours per category with the limits applied.
 		var result = MonthlyHoursCalculator.Calculate(entry.Year, entry.Month, days, hours, holidays, limits);
 
 		return new MonthCheck
@@ -109,7 +105,6 @@ public static class MonthEntryRules
 			DayWarnings = warnings,
 			Hours = result,
 			CombinedLimit = limits.ToCompletePlusHolidayMonthly,
-			// Only this month's holidays: the caller may pass a whole year (or more).
 			Holidays = holidays.Where(h => h.Year == entry.Year && h.Month == entry.Month).ToHashSet()
 		};
 	}

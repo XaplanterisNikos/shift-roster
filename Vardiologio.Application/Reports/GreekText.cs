@@ -17,7 +17,6 @@ public static class GreekText
 	/// </summary>
 	public static string Upper(string text)
 	{
-		// Decompose (ά → α + ´), drop the accent marks, recompose, then upper-case with Greek rules.
 		var decomposed = text.Trim().Normalize(NormalizationForm.FormD);
 		var sb = new StringBuilder(decomposed.Length);
 		foreach (var ch in decomposed)
@@ -41,7 +40,6 @@ public static class GreekText
 		return name.Length > 0 && Vowels.Contains(name[^1]);
 	}
 
-	// Greek → Latin (ELOT 743 style), for file names. Two-letter groups are checked first.
 	private static readonly (string Greek, string Latin)[] Pairs =
 		{ ("ΟΥ", "OU"), ("ΑΥ", "AV"), ("ΕΥ", "EV") };
 
@@ -63,14 +61,13 @@ public static class GreekText
 		var sb = new StringBuilder(upper.Length);
 		for (var i = 0; i < upper.Length; i++)
 		{
-			// Two-letter groups first (ΟΥ → OU, ΑΥ → AV, ΕΥ → EV).
 			var pair = Pairs.FirstOrDefault(p => string.CompareOrdinal(upper, i, p.Greek, 0, 2) == 0);
 			if (pair.Greek is not null) { sb.Append(pair.Latin); i++; continue; }
 
 			var ch = upper[i];
 			if (Letters.TryGetValue(ch, out var latin)) sb.Append(latin);
 			else if (ch is >= 'A' and <= 'Z' or >= '0' and <= '9') sb.Append(ch);
-			else if (sb.Length > 0 && sb[^1] != '_') sb.Append('_');   // spaces, dashes, dots → one "_"
+			else if (sb.Length > 0 && sb[^1] != '_') sb.Append('_');
 		}
 		return sb.ToString().Trim('_');
 	}

@@ -23,10 +23,8 @@
     </div>
 </div>
 
-@* Month, preview and export buttons (Shared/ReportToolbar.razor). *@
 <ReportToolbar @bind-Year="year" @bind-Month="month" Busy="busy" Disabled="@(employeeId == 0)"
                OnPreview="PreviewAsync" OnExcel="ExportExcelAsync" OnPdf="ExportPdfAsync">
-    @* Search box: type part of the surname or first name (Shared/EmployeePicker.razor). *@
     <EmployeePicker Employees="employees" @bind-Value="employeeId" Class="report-employee" />
 </ReportToolbar>
 
@@ -37,7 +35,6 @@
 
 @if (pdfDataUri is null && error is null && !busy)
 {
-    @* Shown until an employee is picked and the report is asked for. *@
     <MudPaper Elevation="0" Class="empty-state">
         <MudIcon Icon="@Icons.Material.Rounded.PersonSearch" Size="Size.Large" />
         <MudText Typo="Typo.body1">Επιλέξτε μήνα και εργαζόμενο και πατήστε «Προεπισκόπηση».</MudText>

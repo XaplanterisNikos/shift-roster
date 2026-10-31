@@ -15,7 +15,6 @@ public class HourLimitsService : IHourLimitsService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// The seeder always creates exactly one row; a missing row is a setup error.
 		return await db.HourLimits
 			.OrderBy(l => l.Id)
 			.Select(l => new HourLimitsDetail

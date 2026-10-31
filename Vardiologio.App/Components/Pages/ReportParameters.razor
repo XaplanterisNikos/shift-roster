@@ -14,7 +14,6 @@
     </div>
 </div>
 
-@* KeepPanelsAlive: a tab keeps what was typed in it while another tab is open. *@
 <MudTabs Elevation="0" SliderColor="Color.Primary" KeepPanelsAlive="true"
          Class="report-tabs" TabPanelsClass="report-tab-panel">
     @foreach (var form in Forms)
@@ -23,7 +22,6 @@
             <ReportTextsEditor Form="form" />
         </MudTabPanel>
     }
-    @* Last tab: the colours of the reports (Shared/ReportColorsEditor.razor). *@
     <MudTabPanel Text="Χρώματα">
         <ReportColorsEditor />
     </MudTabPanel>

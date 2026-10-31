@@ -1099,7 +1099,7 @@ table.indiv td.lft {
 	text-align: left;
 }
 
-/* The individual sheet sets --sun-bg from Παράμετροι → Αναφορών → Χρώματα. */
+/* The individual sheet sets --sun-bg from the report colours (report parameters page). */
 table.indiv tr.sun td {
 	background: var(--sun-bg, #fce4d6);
 }
@@ -1183,7 +1183,7 @@ table.hours-report td.lft {
 	white-space: nowrap;
 }
 
-/* The two fills follow Παράμετροι → Αναφορών → Χρώματα (variables set on the table). */
+/* The two fills follow the report colours (variables set on the table). */
 table.hours-report td.over {
 	background: var(--hours-over, #fde2e1);
 	font-weight: 600;

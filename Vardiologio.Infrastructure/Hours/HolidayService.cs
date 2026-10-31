@@ -16,7 +16,6 @@ public class HolidayService : IHolidayService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Range on the date (not Date.Year) so the query stays a simple comparison in SQLite.
 		var first = new DateOnly(year, 1, 1);
 		var last = new DateOnly(year, 12, 31);
 
@@ -66,7 +65,6 @@ public class HolidayService : IHolidayService
 		var entity = await db.Holidays.FirstOrDefaultAsync(h => h.Id == id)
 			?? throw new InvalidOperationException($"Holiday {id} not found.");
 
-		// Hard delete is fine: no table has an FK to Holiday.
 		db.Holidays.Remove(entity);
 		await db.SaveChangesAsync();
 	}
@@ -79,7 +77,6 @@ public class HolidayService : IHolidayService
 		var first = new DateOnly(year, 1, 1);
 		var last = new DateOnly(year, 12, 31);
 
-		// Dates already in the list for that year: never duplicated, never overwritten.
 		var existing = (await db.Holidays
 			.Where(h => h.Date >= first && h.Date <= last)
 			.Select(h => h.Date)

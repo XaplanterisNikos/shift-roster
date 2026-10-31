@@ -11,8 +11,6 @@ namespace Vardiologio.Infrastructure.Reports;
 /// </summary>
 public partial class ClosedXmlReportRenderer
 {
-	// Column layout shared by every table: name, speciality, then up to 16 day slots
-	// (days 1–15 in the first fortnight, 16–end in the second).
 	private const int AttName = 1, AttSpec = 2, AttDay0 = 3, AttDaySlots = 16;
 	private const int AttLastCol = AttDay0 + AttDaySlots - 1;
 
@@ -22,10 +20,8 @@ public partial class ClosedXmlReportRenderer
 		using var wb = new XLWorkbook();
 		var ws = wb.AddWorksheet(AttendanceSheetTexts.SheetName(m.Sheet));
 
-		// The tables are the same for both fortnights; only the days differ.
 		var tables = m.Tables();
 
-		// Fortnights one under the other, each starting on a new printed page.
 		var row = 1;
 		var fortnightNo = 0;
 		foreach (var (from, to) in m.Fortnights())
@@ -33,7 +29,6 @@ public partial class ClosedXmlReportRenderer
 			if (fortnightNo > 0) ws.PageSetup.AddHorizontalPageBreak(row - 1);
 			row = AttendanceHead(ws, m, from, to, row, ++fortnightNo);
 
-			// One table per printed page: a manual page break before every table after the first.
 			for (var i = 0; i < tables.Count; i++)
 			{
 				if (i > 0) ws.PageSetup.AddHorizontalPageBreak(row - 1);
@@ -44,9 +39,8 @@ public partial class ClosedXmlReportRenderer
 		}
 		var lastRow = row - 1;
 
-		// Column widths chosen so a page is one A4 landscape wide.
 		ws.Column(AttName).Width = 26;
-		ws.Column(AttSpec).Width = 30;   // longest specialities ("ΥΕ Προσωπικού Καθαριότητας Εξωτ. Χώρων")
+		ws.Column(AttSpec).Width = 30;
 		for (var c = AttDay0; c <= AttLastCol; c++) ws.Column(c).Width = 7;
 
 		ws.PageSetup.PageOrientation = XLPageOrientation.Landscape;
@@ -57,7 +51,7 @@ public partial class ClosedXmlReportRenderer
 		ws.PageSetup.Margins.Left = 0.3; ws.PageSetup.Margins.Right = 0.3;
 		ws.PageSetup.Margins.Top = 0.3; ws.PageSetup.Margins.Bottom = 0.3;
 		ws.PageSetup.Margins.Header = 0;
-		AddPageNumbers(ws);   // the whole sheet: both fortnights are on it
+		AddPageNumbers(ws);
 
 		using var ms = new MemoryStream();
 		wb.SaveAs(ms);
@@ -73,11 +67,10 @@ public partial class ClosedXmlReportRenderer
 		DateOnly from, DateOnly to, int top, int fortnightNo)
 	{
 		var r = top;
-		var titleFrom = AttDay0 + 2;       // centre titles span the middle day columns
+		var titleFrom = AttDay0 + 2;
 		var titleTo = AttLastCol - 2;
 		var formal = AttendanceSheetTexts.IsFormal(m.Sheet);
 
-		// Directorate only: addressee line above everything, bold and centred.
 		var addressee = AttendanceSheetTexts.Addressee(m.Texts);
 		if (addressee is not null)
 		{
@@ -86,12 +79,10 @@ public partial class ClosedXmlReportRenderer
 			r++;
 		}
 
-		// Emblem: three rows high, top left, above the letterhead (as on the original sheet).
 		for (var i = 0; i < 3; i++) ws.Row(r + i).Height = 15;
 		AddEmblem(ws, $"Emblem{fortnightNo}", r, AttName, 6, 2, 58, 56);
 		r += 3;
 
-		// Letterhead (left) and centre titles + period, on the same rows.
 		var lh = AttendanceSheetTexts.Letterhead(m.Texts);
 		for (var i = 0; i < lh.Length; i++)
 		{
@@ -102,13 +93,12 @@ public partial class ClosedXmlReportRenderer
 		var titles = AttendanceSheetTexts.Titles(m.Texts);
 		for (var i = 0; i < titles.Length; i++)
 			Merge(ws, r + i, titleFrom, r + i, titleTo, titles[i], 11, true, XLAlignmentHorizontalValues.Center, null);
-		var periodRow = r + titles.Length + (formal ? 1 : 0);   // formal: a blank line before the period
+		var periodRow = r + titles.Length + (formal ? 1 : 0);
 		if (formal)
 			AttendanceFormalPeriod(ws, periodRow, from, to);
 		else
 			Merge(ws, periodRow, titleFrom, periodRow, titleTo,
 				AttendanceSheetTexts.Period(from, to), 10, false, XLAlignmentHorizontalValues.Center, null);
-		// Continue under whichever is longer: the letterhead or the titles with their period line.
 		return Math.Max(r + lh.Length, periodRow + 1);
 	}
 
@@ -121,7 +111,6 @@ public partial class ClosedXmlReportRenderer
 	{
 		var r = top;
 
-		// Spacer + table caption ("ΠΙΝΑΚΑΣ 1").
 		ws.Row(r).Height = 6;
 		r++;
 		Put(ws, r, AttName, AttendanceSheetTexts.TableCaption(table), 10, true, null)
@@ -129,7 +118,6 @@ public partial class ClosedXmlReportRenderer
 		ws.Row(r).Height = 15;
 		r++;
 
-		// Table header: name / speciality over two rows, then day number + weekday per day.
 		var days = to.Day - from.Day + 1;
 		var lastDayCol = AttDay0 + days - 1;
 		var headerTop = r;
@@ -145,7 +133,6 @@ public partial class ClosedXmlReportRenderer
 		ws.Row(r + 1).Height = 12;
 		r += 2;
 
-		// One row per employee of this table.
 		foreach (var row in rows)
 		{
 			Put(ws, r, AttName, row.FullName, 9, false, null)
@@ -158,7 +145,6 @@ public partial class ClosedXmlReportRenderer
 			r++;
 		}
 
-		// Borders: medium frame, thin grid (only the days of this fortnight).
 		var grid = ws.Range(headerTop, AttName, Math.Max(r - 1, headerTop + 1), lastDayCol);
 		grid.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 		grid.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
@@ -180,7 +166,7 @@ public partial class ClosedXmlReportRenderer
 		var signatures = AttendanceSheetTexts.Signatures(m.Texts);
 		var roleRows = signatures.Select(s => s.Role.Length).DefaultIfEmpty(0).Max();
 		var nameRows = signatures.Select(s => s.Name.Length).DefaultIfEmpty(0).Max();
-		var gapRows = formal ? 5 : 2;   // blank rows left for the handwritten signatures
+		var gapRows = formal ? 5 : 2;
 		for (var k = 0; k < signatures.Length; k++)
 		{
 			var (c1, c2) = SignatureColumns(k, signatures.Length);

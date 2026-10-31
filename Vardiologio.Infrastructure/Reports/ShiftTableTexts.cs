@@ -37,11 +37,10 @@ internal static class ShiftTableTexts
 			if (part == BoldPart.All) return ("", l.Text);
 			if (part == BoldPart.None) return (l.Text, "");
 
-			// "E-mail: name@example.gr" -> plain "E-mail: ", bold "name@example.gr"; no colon -> all plain.
 			var colon = l.Text.IndexOf(':');
 			if (colon < 0) return (l.Text, "");
 			var start = colon + 1;
-			while (start < l.Text.Length && l.Text[start] == ' ') start++;   // keep the space with the label
+			while (start < l.Text.Length && l.Text[start] == ' ') start++;
 			return (l.Text[..start], l.Text[start..]);
 		}).ToArray();
 
@@ -58,7 +57,6 @@ internal static class ShiftTableTexts
 	/// <summary>Addressee lines on the right of the titles (bold).</summary>
 	public static string[] Addressee(ReportTextSet texts) => texts.Texts(ReportTextBlocks.Addressee);
 
-	// Table headers.
 	public const string HeadName = "ΟΝΟΜΑΤΕΠΩΝΥΜΟ", HeadSpeciality = "ΕΙΔΙΚΟΤΗΤΑ", HeadShifts = "ΒΑΡΔΙΑ ΕΡΓΑΣΙΑΣ";
 	public const string HeadToComplete = "ΕΡΓΑΣΙΑ ΠΡΟΣ ΣΥΜΠΛΗΡΩΣΗ", HeadDaily = "ΗΜΕΡΗΣΙΑ", HeadSundayHoliday = "ΚΥΡΙΑΚΩΝ ΕΞΑΙΡΕΣΙΜΩΝ";
 
@@ -72,7 +70,7 @@ internal static class ShiftTableTexts
 	/// <summary>Day header as on the form ("1/8").</summary>
 	public static string DayHeader(int year, int month, int day) => $"{day}/{month}";
 
-	/// <summary>Name as on the form: upper case, no accents ("ΑΛΙΜΑΝΤΗΡΗΣ ΓΕΩΡΓΙΟΣ").</summary>
+	/// <summary>Name as on the form: upper case, no accents ("ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΕΩΡΓΙΟΣ").</summary>
 	public static string Name(ShiftTableRow r) => GreekText.Upper($"{r.LastName.Trim()} {r.FirstName.Trim()}");
 
 	/// <summary>A count, blank when zero (keeps the table readable).</summary>
@@ -80,4 +78,13 @@ internal static class ShiftTableTexts
 
 	/// <summary>Hours, blank when zero ("32,5").</summary>
 	public static string Hours(decimal h) => h == 0 ? "" : h.ToString("0.##", CultureInfo.GetCultureInfo("el-GR"));
+
+	/// <summary>
+	/// Σ.Ω. only: text of the separator row before a contract group (Παράμετροι → Αναφορών) —
+	/// "ΑΟΡΙΣΤΟΥ ΧΡΟΝΟΥ" before the open-ended, "ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ" before the fixed-term.
+	/// </summary>
+	/// <param name="texts">The Σ.Ω. texts.</param>
+	/// <param name="group">The group that starts after the separator.</param>
+	public static string MonthlyTotalBand(ReportTextSet texts, ContractKind group) => texts.Line(
+		group == ContractKind.FixedTerm ? ReportTextBlocks.FixedTermBand : ReportTextBlocks.OpenEndedBand, 0);
 }

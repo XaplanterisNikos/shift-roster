@@ -10,8 +10,6 @@
 <MudButton Variant="Variant.Text" Class="user-name-btn" StartIcon="@Icons.Material.Rounded.AccountCircle"
            title="Τα στοιχεία μου" OnClick="Open">@Session.Current?.DisplayName</MudButton>
 
-@* Inline dialog: MudBlazor renders it in MudDialogProvider (Routes.razor).
-   Escape or a click on the dimmed background closes it (-> OnVisibleChanged). *@
 <MudDialog Visible="open" VisibleChanged="OnVisibleChanged" Options="DialogOptions">
     <TitleContent>
         <MudText Typo="Typo.h6">Τα στοιχεία μου</MudText>
@@ -47,11 +45,14 @@
     private static readonly DialogOptions DialogOptions =
         new() { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseOnEscapeKey = true };
 
-    private bool open;          // dialog visible
-    private bool busy;          // a save is running: ignore a second click
+    /// <summary>Dialog visible.</summary>
+    private bool open;
+    /// <summary>A save is running: ignore a second click.</summary>
+    private bool busy;
     private string fullName = "";
     private string email = "";
-    private string? error;      // why the form was not accepted
+    /// <summary>Why the form was not accepted.</summary>
+    private string? error;
 
     /// <summary>Opens the dialog with the stored details of the signed-in user.</summary>
     private void Open()
@@ -103,7 +104,6 @@
             busy = false;
         }
 
-        // Same user with the new details; the session notifies whoever shows them.
         Session.SignIn(user with { FullName = fullName.Trim(), Email = email.Trim() });
         Close();
         Snackbar.Add("Τα στοιχεία σας αποθηκεύτηκαν.", Severity.Success);

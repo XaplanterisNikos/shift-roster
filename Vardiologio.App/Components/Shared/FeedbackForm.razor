@@ -18,13 +18,11 @@
    folder, so the user can send the file by hand.
    Shown in the side drawer of Layout/MainLayout.razor. *@
 <div class="feedback-form">
-    @* Kind of message: exactly one of the two. *@
     <MudRadioGroup T="string" @bind-Value="kind">
         <MudRadio T="string" Value="@KindError" Color="Color.Error" Dense="true">Σφάλμα</MudRadio>
         <MudRadio T="string" Value="@KindAddition" Color="Color.Primary" Dense="true">Προσθήκη</MudRadio>
     </MudRadioGroup>
 
-    @* The menu the message is about; it becomes the subject of the e-mail. *@
     <MudSelect T="string" Label="Μενού" Value="@menu" ValueChanged="OnMenuPicked" Variant="Variant.Outlined"
                Margin="Margin.Dense">
         @foreach (var m in Menus)
@@ -33,16 +31,13 @@
         }
     </MudSelect>
 
-    @* The sender's full name (not the sign-in name); required. *@
     <MudTextField T="string" Label="Ονοματεπώνυμο" @bind-Value="name" Immediate="true" Required="true"
                   Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="80" />
 
-    @* Required, and checked with UserRules.IsValidEmail; the error shows once something is typed. *@
     <MudTextField T="string" Label="Email (για να σας απαντήσω)" @bind-Value="email" Immediate="true" Required="true"
                   Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="100" InputType="InputType.Email"
                   Error="@EmailInvalid" ErrorText="Το email δεν είναι έγκυρο (π.χ. onoma@example.gr)." />
 
-    @* Immediate => the send button follows every keystroke. *@
     <MudTextField T="string" Label="Πείτε μου το πρόβλημα που έχετε" @bind-Value="text" Immediate="true"
                   Variant="Variant.Outlined" Lines="9" MaxLength="@MaxTextLength" Counter="@MaxTextLength" />
 
@@ -53,7 +48,6 @@
         </MudAlert>
     }
 
-    @* Shown after a failed send, until the next attempt or "Καθαρισμός". *@
     @if (unsentPath is not null)
     {
         <MudAlert Severity="Severity.Warning" Dense="true" Class="feedback-note">
@@ -70,7 +64,6 @@
         <div class="feedback-hint">Συμπληρώστε ονοματεπώνυμο, έγκυρο email και κείμενο για να στείλετε το μήνυμα.</div>
     }
 
-    @* Actions, one under the other: send, clear. *@
     <div class="feedback-actions">
         <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" FullWidth="true"
                    Disabled="@(!CanSend || sending)" StartIcon="@Icons.Material.Rounded.Send"
@@ -116,12 +109,15 @@
 
     private string kind = KindError;
     private string menu = GeneralMenu;
-    private bool menuPicked;        // the user chose a menu: stop following the current page
+    /// <summary>The user chose a menu: stop following the current page.</summary>
+    private bool menuPicked;
     private string name = "";
     private string email = "";
     private string text = "";
-    private bool sending;           // a send is in progress: buttons disabled
-    private string? unsentPath;     // zip of the last message that could not be sent
+    /// <summary>A send is in progress: buttons disabled.</summary>
+    private bool sending;
+    /// <summary>Zip of the last message that could not be sent.</summary>
+    private string? unsentPath;
 
     /// <summary>True when the typed e-mail address has a valid shape.</summary>
     private bool EmailValid => UserRules.IsValidEmail(email);
@@ -144,7 +140,6 @@
         FillFromSession();
     }
 
-    // The session event may arrive off the UI thread -> marshal back with InvokeAsync.
     private void OnSessionChanged() => InvokeAsync(() => { FillFromSession(); StateHasChanged(); });
 
     /// <summary>Puts the signed-in user's full name and e-mail in the boxes, once per change of them.</summary>
@@ -159,7 +154,6 @@
         email = user?.Email ?? "";
     }
 
-    // Unsubscribe to avoid a memory leak (pairs with the subscribe in OnInitialized).
     public void Dispose() => Session.Changed -= OnSessionChanged;
 
     protected override void OnParametersSet()
@@ -210,11 +204,10 @@
     /// </summary>
     private async Task SendAsync()
     {
-        if (!CanSend) return;   // the button is disabled then; guards against a double click
+        if (!CanSend) return;
         sending = true;
         unsentPath = null;
 
-        // The typed name, plus the sign-in name when it differs (nobody is signed in on the login screen).
         var user = Session.Current?.Username;
         var sender = string.IsNullOrEmpty(user) || user == name.Trim() ? name.Trim() : $"{name.Trim()} ({user})";
 
@@ -242,6 +235,6 @@
     {
         if (unsentPath is null) return;
         try { Process.Start("explorer.exe", $"/select,\"{unsentPath}\""); }
-        catch (System.ComponentModel.Win32Exception) { /* Explorer did not start: the path is on screen */ }
+        catch (System.ComponentModel.Win32Exception) { }
     }
 }

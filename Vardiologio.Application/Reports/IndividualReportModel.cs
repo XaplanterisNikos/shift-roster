@@ -25,13 +25,16 @@ public class IndividualReportModel
 
 	public List<IndividualDayRow> Days { get; set; } = new();
 
-	// "Εργασία προς Συμπλήρωση" totals, split per fortnight (Α' = days 1-15, Β' = days 16-end).
-	public decimal WeekdayFirstHalf { get; set; }   // ΕΒΔΟΜΑΔΙΑΙΑ Α'
-	public decimal WeekdaySecondHalf { get; set; }  // ΕΒΔΟΜΑΔΙΑΙΑ Β'
+	/// <summary>Weekly "to complete" hours of the first fortnight.</summary>
+	public decimal WeekdayFirstHalf { get; set; }
+	/// <summary>Weekly "to complete" hours of the second fortnight.</summary>
+	public decimal WeekdaySecondHalf { get; set; }
 	public decimal WeekdayTotal => WeekdayFirstHalf + WeekdaySecondHalf;
 
-	public decimal SundayFirstHalf { get; set; }    // ΚΥΡΙΑΚΩΝ Α'
-	public decimal SundaySecondHalf { get; set; }   // ΚΥΡΙΑΚΩΝ Β'
+	/// <summary>Sunday and holiday "to complete" hours of the first fortnight.</summary>
+	public decimal SundayFirstHalf { get; set; }
+	/// <summary>Sunday and holiday "to complete" hours of the second fortnight.</summary>
+	public decimal SundaySecondHalf { get; set; }
 	public decimal SundayTotal => SundayFirstHalf + SundaySecondHalf;
 
 	/// <summary>
@@ -41,10 +44,8 @@ public class IndividualReportModel
 	/// </summary>
 	public IReadOnlyList<CategoryHours> Hours { get; set; } = [];
 
-	/// <summary>The report's colours, as set in Παράμετροι → Αναφορών → Χρώματα (defaults until a service fills it).</summary>
+	/// <summary>The report's colours, as set on the report parameters page (defaults until a service fills them).</summary>
 	public ReportColorSet Colors { get; set; } = ReportColorSet.Default;
-
-	// ---- Official print only (Excel / PDF export); the on-screen preview does not use these ----
 
 	/// <summary>First name as stored (the employee signs with "First Last").</summary>
 	public string FirstName { get; set; } = "";
@@ -81,7 +82,8 @@ public sealed record IndividualSigner(string[] Role, string FullName, string Tit
 public class IndividualDayRow
 {
 	public DateOnly Date { get; set; }
-	public int Index { get; set; }                    // Α/Α (plain sequential number)
+	/// <summary>Sequential row number.</summary>
+	public int Index { get; set; }
 
 	/// <summary>Shift start "HH:mm" when the day is a work shift; otherwise null.</summary>
 	public string? ShiftStart { get; set; }
@@ -99,12 +101,12 @@ public class IndividualDayRow
 	/// <summary>ΩΡΑΡΙΟ ΥΠΕΡΩΡΙΑΣ — end "HH:mm" of the overtime part; null when none.</summary>
 	public string? OvertimeEnd { get; set; }
 
-	/// <summary>ΣΥΜΠΛΗΡ. ΕΡΓΑΣΙΑ ΗΜΕΡ. — the day's Προς συμπλήρωση hours (pay category ToComplete).</summary>
+	/// <summary>The day's "to complete" hours (pay category ToComplete).</summary>
 	public decimal? SupplementWeekday { get; set; }
 
 	/// <summary>
-	/// ΣΥΜΠΛΗΡ. ΕΡΓΑΣΙΑ ΚΥΡΙΑΚΗΣ — the day's Αργίας hours (pay category Holiday), i.e. the
-	/// "Κυριακών και εξαιρέσιμων" column of the overtime certificate.
+	/// The day's holiday hours (pay category Holiday), i.e. the Sunday and holiday column of the
+	/// overtime certificate.
 	/// </summary>
 	public decimal? SupplementSunday { get; set; }
 

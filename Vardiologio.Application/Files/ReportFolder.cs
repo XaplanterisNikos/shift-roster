@@ -6,24 +6,24 @@ namespace Vardiologio.Application.Files;
 /// </summary>
 public enum ReportFolder
 {
-	/// <summary>Σ.Ω. — Συνολική μηνιαία.</summary>
+	/// <summary>Monthly roster ("Συνολική μηνιαία Σ.Ω.").</summary>
 	MonthlyTotal,
 
-	/// <summary>Μηνιαία αναφορά ωρών.</summary>
+	/// <summary>Monthly hours report.</summary>
 	MonthlyHours,
 
-	/// <summary>Αναφορά παρουσιών προσωπικού (staff and directorate).</summary>
+	/// <summary>Staff attendance report (staff and directorate).</summary>
 	StaffAttendance,
 
-	/// <summary>Βεβαίωση ατομική (overtime certificate).</summary>
+	/// <summary>Individual overtime certificate.</summary>
 	OvertimeCertificate,
 
-	/// <summary>Πίνακας βαρδιών εργασίας (official shift table, A3).</summary>
+	/// <summary>Official shift table (A3).</summary>
 	ShiftTable,
 
-	/// <summary>Ατομική μηνιαία (individual analytical sheet of one employee).</summary>
+	/// <summary>Individual monthly sheet of one employee.</summary>
 	IndividualSheet,
 
-	/// <summary>ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι (collective overtime certificate per contract).</summary>
+	/// <summary>Collective overtime certificate per contract.</summary>
 	ContractCertificate
 }

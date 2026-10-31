@@ -10,8 +10,8 @@ public static class ShiftHoursRules
 	/// <summary>Length of a shift in hours; a shift that ends at or before its start ends the next day (22:00–06:00 = 8).</summary>
 	public static decimal Duration(TimeOnly start, TimeOnly end)
 	{
-		var minutes = (end - start).TotalMinutes;   // TimeOnly subtraction already wraps past midnight
-		if (minutes == 0) minutes = 24 * 60;        // same start and end = a full day, not zero
+		var minutes = (end - start).TotalMinutes;
+		if (minutes == 0) minutes = 24 * 60;
 		return (decimal)minutes / 60m;
 	}
 
@@ -26,7 +26,6 @@ public static class ShiftHoursRules
 		if (overtimeHours <= 0) return null;
 		if (overtimeHours >= Duration(start, end)) return (start, end);
 
-		// TimeOnly.AddHours wraps around midnight, which is what a night shift needs.
 		return (end.AddHours(-(double)overtimeHours), end);
 	}
 

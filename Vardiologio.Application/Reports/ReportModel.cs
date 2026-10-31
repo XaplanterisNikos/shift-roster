@@ -11,32 +11,53 @@ public class ReportModel
 	public int DaysInMonth { get; set; }
 	public List<ReportRow> Rows { get; set; } = new();
 
-	/// <summary>Work-shift codes in numeric order with their times: first part of the legend under the table.</summary>
+	/// <summary>
+	/// Work-shift codes in numeric order with their times (Παράμετροι → Βαρδιών): the count
+	/// columns of the table ("ΒΑΡΔΙΑ ΕΡΓΑΣΙΑΣ", one per code, in this order) and the first part
+	/// of the legend under the table. Status codes (leave, rest…) are not counted.
+	/// </summary>
 	public List<(string Code, string Description)> WorkCodes { get; set; } = new();
 
 	/// <summary>Status codes (leave, rest, holiday…): second part of the legend.</summary>
 	public List<(string Code, string Description)> StatusCodes { get; set; } = new();
 
+	/// <summary>
+	/// Active employees without a recognisable contract ("Επώνυμο Όνομα"). They print with the
+	/// permanent staff; the page lists them so the user can set their contract.
+	/// </summary>
+	public List<string> WithoutContract { get; set; } = new();
+
 	/// <summary>The form's editable texts (letterhead, titles, addressee, signatures), as set in Παράμετροι → Αναφορών.</summary>
 	public ReportTextSet Texts { get; set; } = ReportTextSet.Empty;
 
-	/// <summary>The report's colours, as set in Παράμετροι → Αναφορών → Χρώματα (defaults until a service fills it).</summary>
+	/// <summary>The report's colours, as set on the report parameters page (defaults until a service fills them).</summary>
 	public ReportColorSet Colors { get; set; } = ReportColorSet.Default;
 }
 
 /// <summary>One employee's row in the monthly roster.</summary>
 public class ReportRow
 {
-	public int Index { get; set; }                 // Α/Α (sequential row number; not printed on the Σ.Ω.)
+	/// <summary>Sequential row number (not printed on the monthly roster).</summary>
+	public int Index { get; set; }
 
 	/// <summary>
-	/// True for a fixed-term (ΙΔΟΧ) employee. These rows come last, after the permanent /
-	/// open-ended ones (and those without a contract), under the separator row of the table.
+	/// The contract group the row prints in: permanent first, then open-ended (ΙΔΑΧ), then
+	/// fixed-term (ΙΔΟΧ), each group alphabetical and after a separator row (except the first).
+	/// An employee without a recognisable contract is in the permanent group.
 	/// </summary>
-	public bool IsFixedTerm { get; set; }
+	public ContractKind Group { get; set; }
 	public string LastName { get; set; } = "";
 	public string FirstName { get; set; } = "";
 	public string Speciality { get; set; } = "";
-	public string?[] DayCodes { get; set; } = [];  // length = DaysInMonth; code per day or null
-	public int[] ProgramCounts { get; set; } = new int[7]; // times programs 1..7 were worked this month
+	/// <summary>Length = DaysInMonth; code per day or null.</summary>
+	public string?[] DayCodes { get; set; } = [];
+
+	/// <summary>Times each work code was worked this month, aligned with <see cref="ReportModel.WorkCodes"/>.</summary>
+	public int[] ProgramCounts { get; set; } = [];
+
+	/// <summary>Paid "to complete" hours (the daily column; same value as on the shift table).</summary>
+	public decimal DailyToComplete { get; set; }
+
+	/// <summary>Paid holiday hours (the Sunday and holiday column; same value as on the shift table).</summary>
+	public decimal SundayHolidayToComplete { get; set; }
 }

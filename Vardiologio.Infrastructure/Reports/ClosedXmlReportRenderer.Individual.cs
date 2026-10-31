@@ -23,7 +23,6 @@ public partial class ClosedXmlReportRenderer
 		var left = XLAlignmentHorizontalValues.Left;
 		var lastCol = IndividualSheetTexts.ColumnCount;
 
-		// ---- Emblem (rows 1–3) and letterhead under it (columns of date … contract) ----
 		for (var i = 1; i <= 3; i++) ws.Row(i).Height = 18;
 		AddEmblem(ws, "Emblem", 1, 1, 30, 2, 62, 60);
 
@@ -32,11 +31,10 @@ public partial class ClosedXmlReportRenderer
 		for (var i = 0; i < letterhead.Length; i++)
 		{
 			Merge(ws, lh0 + i, 1, lh0 + i, 4, letterhead[i], 9, false, left, null);
-			ws.Cell(lh0 + i, 1).Style.Alignment.WrapText = false;   // one line, may run over
+			ws.Cell(lh0 + i, 1).Style.Alignment.WrapText = false;
 			ws.Row(lh0 + i).Height = 14;
 		}
 
-		// Date label and date at the top right, level with the directorate line (as on the sheet).
 		var dateRow = lh0 + IndividualSheetTexts.DateRow;
 		var dateLabel = IndividualSheetTexts.DateLabel(m.Texts);
 		if (dateLabel.Length > 0)
@@ -47,7 +45,6 @@ public partial class ClosedXmlReportRenderer
 				IndividualSheetTexts.Date(m.IssueDate), 12, true, left, null);
 		}
 
-		// ---- Title, under the letterhead (at least four letterhead rows, so it never climbs) ----
 		var row = lh0 + Math.Max(letterhead.Length, 4) + 1;
 		foreach (var title in IndividualSheetTexts.Titles(m.Texts))
 		{
@@ -57,7 +54,6 @@ public partial class ClosedXmlReportRenderer
 		}
 		row++;
 
-		// ---- Band over the schedule columns, then the two header rows ----
 		var band = row;
 		foreach (var (text, from, to) in IndividualSheetTexts.ScheduleBands)
 			Merge(ws, band, from, band, to, text, 8, true, center, null);
@@ -81,11 +77,10 @@ public partial class ClosedXmlReportRenderer
 			col += header.Span;
 		}
 		ws.Row(h1).Height = 20;
-		ws.Row(h2).Height = 30;   // two-line sub-headers ("ΩΡΑΡΙΟ ΕΡΓΑΣΙΑΣ", "ΣΥΝ. ΩΡ. ΚΥΡΙΑΚΗΣ")
+		ws.Row(h2).Height = 30;
 
-		// ---- One row per day ----
 		row = h2 + 1;
-		var sunday = XLColor.FromHtml(m.Colors[ReportColorCatalog.IndividualSunday]);   // Παράμετροι → Αναφορών → Χρώματα
+		var sunday = XLColor.FromHtml(m.Colors[ReportColorCatalog.IndividualSunday]);
 		foreach (var day in m.Days)
 		{
 			var cells = IndividualSheetTexts.Cells(m, day);
@@ -99,7 +94,6 @@ public partial class ClosedXmlReportRenderer
 		}
 		var lastDay = row - 1;
 
-		// ---- Overtime row: three rows, the same columns as the days ----
 		var s1 = row;
 		var s2 = row + 1;
 		var s3 = row + 2;
@@ -107,11 +101,10 @@ public partial class ClosedXmlReportRenderer
 		{
 			if (group.Caption)
 			{
-				Merge(ws, s1, group.From, s3, group.To, group.Text, 7, true, center, null);   // narrow column
+				Merge(ws, s1, group.From, s3, group.To, group.Text, 7, true, center, null);
 				continue;
 			}
 
-			// A single column: header two rows high, value under it. A group: header, sub-headers, values.
 			var single = group.Columns.Length == 1 && group.Columns[0].Header.Length == 0;
 			if (single)
 				Merge(ws, s1, group.From, s2, group.To, group.Text, 8, true, center, null);
@@ -129,7 +122,6 @@ public partial class ClosedXmlReportRenderer
 		ws.Row(s2).Height = 30;
 		ws.Row(s3).Height = 18;
 
-		// Thin lines inside, a thicker frame round the band, the day table and the overtime rows.
 		foreach (var (_, from, to) in IndividualSheetTexts.ScheduleBands)
 			ws.Range(band, from, band, to).Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
 		var table = ws.Range(h1, 1, lastDay, lastCol);
@@ -140,11 +132,10 @@ public partial class ClosedXmlReportRenderer
 		summary.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 		summary.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
 
-		// ---- Signatures: role, space to sign, name, title ----
 		var roleRow = s3 + 2;
 		var signatures = IndividualSheetTexts.Signatures(m);
 		var roleLines = Math.Max(1, signatures.Max(s => s.Role.Length));
-		var nameRow = roleRow + roleLines + 4;   // four empty rows to sign in
+		var nameRow = roleRow + roleLines + 4;
 		for (var k = 0; k < signatures.Length && k < IndividualSheetTexts.SignatureColumns.Length; k++)
 		{
 			var (from, to) = IndividualSheetTexts.SignatureColumns[k];
@@ -156,9 +147,8 @@ public partial class ClosedXmlReportRenderer
 		}
 		var lastRow = nameRow + 1;
 
-		// ---- Widths (the sheet's proportions) and page: A4 landscape, everything on one page ----
 		for (var c = 1; c <= lastCol; c++)
-			ws.Column(c).Width = Math.Max(6.5, Math.Round(IndividualSheetTexts.Widths[c - 1] * 0.62, 1));   // 6.5: "ΕΝΑΡΞΗ" fits
+			ws.Column(c).Width = Math.Max(6.5, Math.Round(IndividualSheetTexts.Widths[c - 1] * 0.62, 1));
 
 		ws.PageSetup.PageOrientation = XLPageOrientation.Landscape;
 		ws.PageSetup.PaperSize = XLPaperSize.A4Paper;

@@ -34,8 +34,17 @@ public static class ReportTextBlocks
 	public const string ContractGroups = "ContractGroups";
 
 	/// <summary>
+	/// Σ.Ω. only: the separator row inside the table that starts the open-ended (ΙΔΑΧ) employees,
+	/// who follow the permanent ones in a second alphabetical list.
+	/// </summary>
+	public const string OpenEndedBand = "OpenEndedBand";
+
+	/// <summary>Default text of <see cref="OpenEndedBand"/> (seeded once, then edited by the user).</summary>
+	public const string OpenEndedBandDefault = "ΑΟΡΙΣΤΟΥ ΧΡΟΝΟΥ";
+
+	/// <summary>
 	/// Σ.Ω. only: the separator row inside the table that starts the fixed-term (ΙΔΟΧ) employees,
-	/// who follow the permanent / open-ended ones in a second alphabetical list.
+	/// who follow the open-ended ones in a third alphabetical list.
 	/// </summary>
 	public const string FixedTermBand = "FixedTermBand";
 
@@ -74,7 +83,6 @@ public static class ReportTextBlocks
 			"Υπερωριακή Εργασία Κυριακές και εξαιρέσιμες",
 			"Εργασία προς Συμπλήρωση"
 		]),
-		// The employee's own role; "Ο" / "Η" and his name / speciality are added when printing.
 		(SignatureRole(1), true, ["Υπάλληλος Τμήματος Κεντρικών Σ.Μ.Α."])
 	};
 
@@ -96,7 +104,7 @@ public static class ReportTextBlocks
 	/// <summary>Blocks in the order they are listed on the settings page (signatures come after them).</summary>
 	private static readonly string[] DisplayOrder =
 	{
-		Letterhead, HandFilled, DateLabel, Titles, Addressee, Intro, Department, ContractGroups, FixedTermBand,
+		Letterhead, HandFilled, DateLabel, Titles, Addressee, Intro, Department, ContractGroups, OpenEndedBand, FixedTermBand,
 		SummaryGroups, DeclarationTitle, Declarations, Certification
 	};
 
@@ -114,7 +122,7 @@ public static class ReportTextBlocks
 			if (block == SignatureRole(n)) return 100 + n * 2;
 			if (block == SignatureName(n)) return 100 + n * 2 + 1;
 		}
-		return int.MaxValue;   // unknown key: last
+		return int.MaxValue;
 	}
 
 	/// <summary>Greek label of a block, shown above its lines on the settings page.</summary>
@@ -129,6 +137,7 @@ public static class ReportTextBlocks
 			case Intro: return "Εισαγωγικό κείμενο";
 			case Department: return "Τμήμα (ζώνη πάνω από τον πίνακα)";
 			case ContractGroups: return "Τίτλοι ομάδων σύμβασης (ζώνες του πίνακα)";
+			case OpenEndedBand: return "Χώρισμα αορίστου χρόνου (γραμμή μέσα στον πίνακα)";
 			case FixedTermBand: return "Χώρισμα ορισμένου χρόνου (γραμμή μέσα στον πίνακα)";
 			case DateLabel: return "Ετικέτα ημερομηνίας (πάνω δεξιά)";
 			case SummaryGroups: return "Επικεφαλίδες πίνακα υπερωριών (κάτω από τις ημέρες)";
@@ -137,18 +146,17 @@ public static class ReportTextBlocks
 			case Certification: return "Βεβαίωση";
 		}
 
-		// Signature blocks: "Signature2Role" -> "Υπογραφή 2 – ιδιότητα υπογράφοντος".
 		const string prefix = "Signature";
 		if (block.StartsWith(prefix, StringComparison.Ordinal))
 		{
 			var isRole = block.EndsWith("Role", StringComparison.Ordinal);
-			var number = block[prefix.Length..^4];   // both suffixes ("Role", "Name") are 4 letters
+			var number = block[prefix.Length..^4];
 			return isRole
 				? $"Υπογραφή {number} – τίτλος πάνω από την υπογραφή"
 				: $"Υπογραφή {number} – ονοματεπώνυμο και ιδιότητα";
 		}
 
-		return block;   // unknown key: show it as stored
+		return block;
 	}
 
 	/// <summary>Greek name of a form (tab title on the settings page).</summary>

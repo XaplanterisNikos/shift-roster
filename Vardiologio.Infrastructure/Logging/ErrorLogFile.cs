@@ -35,7 +35,7 @@ public static class ErrorLogFile
 		}
 		catch
 		{
-			return null;   // last resort: nowhere left to report it
+			return null;
 		}
 	}
 }

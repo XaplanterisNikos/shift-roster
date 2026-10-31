@@ -13,7 +13,6 @@ namespace Vardiologio.Infrastructure.Reports;
 /// </summary>
 public partial class QuestPdfReportRenderer
 {
-	// Relative column widths: name, speciality, one per day, one per count, the two hour columns.
 	private const float StName = 5.2f, StSpec = 4.4f, StDay = 1f, StCount = 0.85f, StDaily = 1.9f, StSunHol = 2.1f;
 
 	/// <inheritdoc/>
@@ -27,7 +26,6 @@ public partial class QuestPdfReportRenderer
 				page.Margin(20);
 				page.DefaultTextStyle(x => x.FontFamily("Lato").FontSize(8));
 
-				// Everything on one page: scaled down if needed.
 				page.Content().ScaleToFit().Column(col =>
 				{
 					col.Item().Element(c => StHead(c, m));
@@ -35,7 +33,6 @@ public partial class QuestPdfReportRenderer
 					col.Item().PaddingTop(10).Element(c => StBottom(c, m));
 				});
 
-				// Outside the scaled content, so the page number keeps its size.
 				page.Footer().PaddingTop(4).Element(c => PageNumbers(c));
 			});
 		});
@@ -52,7 +49,6 @@ public partial class QuestPdfReportRenderer
 			left.Item().Height(4);
 			foreach (var (plain, bold) in ShiftTableTexts.Letterhead(m.Texts))
 			{
-				// Only the bold part is bold (whole line, nothing, or just the e-mail address).
 				left.Item().Text(t =>
 				{
 					if (plain.Length > 0) t.Span(plain).FontSize(8);
@@ -83,7 +79,7 @@ public partial class QuestPdfReportRenderer
 	{
 		var days = m.DaysInMonth;
 		var codes = m.WorkCodes.Count;
-		var shadeBg = m.Colors[ReportColorCatalog.ShiftTableWeekend];   // Παράμετροι → Αναφορών → Χρώματα
+		var shadeBg = m.Colors[ReportColorCatalog.ShiftTableWeekend];
 
 		t.ColumnsDefinition(cols =>
 		{
@@ -97,12 +93,11 @@ public partial class QuestPdfReportRenderer
 
 		t.Header(h =>
 		{
-			// Row 1: name / speciality / days (two rows high), code group, hour headers.
 			h.Cell().RowSpan(2).Element(StH).Text(ShiftTableTexts.HeadName).Bold().FontSize(9);
 			h.Cell().RowSpan(2).Element(StH).Text(ShiftTableTexts.HeadSpeciality).Bold().FontSize(9);
 			for (var d = 1; d <= days; d++)
 			{
-				var shaded = m.IsShaded(d);   // copied before the lambda
+				var shaded = m.IsShaded(d);
 				h.Cell().RowSpan(2).Element(x => StH(StShade(x, shaded, shadeBg)))
 					.Text(ShiftTableTexts.DayHeader(m.Year, m.Month, d)).Bold().FontSize(7.5f);
 			}
@@ -111,7 +106,6 @@ public partial class QuestPdfReportRenderer
 			h.Cell().Element(StH).Text(ShiftTableTexts.HeadToComplete).Bold().FontSize(6);
 			h.Cell().RowSpan(2).Element(StH).Text(ShiftTableTexts.HeadSundayHoliday).Bold().FontSize(6.5f);
 
-			// Row 2: code numbers, "ΗΜΕΡΗΣΙΑ".
 			foreach (var (code, _) in m.WorkCodes)
 				h.Cell().Element(StH).Text(code).Bold().FontSize(8.5f);
 			h.Cell().Element(StH).Text(ShiftTableTexts.HeadDaily).Bold().FontSize(6.5f);
@@ -123,7 +117,7 @@ public partial class QuestPdfReportRenderer
 			t.Cell().Element(StD).Text(GreekText.Upper(e.Speciality)).FontSize(6.5f);
 			for (var d = 1; d <= days; d++)
 			{
-				var shaded = m.IsShaded(d);   // copied before the lambda
+				var shaded = m.IsShaded(d);
 				t.Cell().Element(x => StD(StShade(x, shaded, shadeBg))).Text(e.DayCodes[d - 1] ?? "").Bold().FontSize(8.5f);
 			}
 			foreach (var n in e.Counts)
@@ -136,7 +130,6 @@ public partial class QuestPdfReportRenderer
 	/// <summary>Legend under name / speciality; the signatures beside it (as on the form).</summary>
 	private static void StBottom(IContainer c, ShiftTableModel m) => c.Row(row =>
 	{
-		// Same proportions as the table, so the legend sits exactly under name + speciality.
 		var rest = m.DaysInMonth * StDay + m.WorkCodes.Count * StCount + StDaily + StSunHol;
 
 		row.RelativeItem(StName + StSpec).Table(t =>
@@ -152,22 +145,21 @@ public partial class QuestPdfReportRenderer
 
 		row.RelativeItem(rest).PaddingTop(40).Row(sig =>
 		{
-			sig.RelativeItem(1);   // gap after the legend
+			sig.RelativeItem(1);
 			foreach (var (role, name) in ShiftTableTexts.Signatures(m.Texts))
 			{
 				sig.RelativeItem(4).Column(block =>
 				{
 					block.Item().AlignCenter().Text(role).Bold().FontSize(10);
-					block.Item().Height(90);   // space to sign
+					block.Item().Height(90);
 					foreach (var line in name)
 						block.Item().AlignCenter().Text(line).Bold().FontSize(10);
 				});
-				sig.RelativeItem(1);   // gap between / after the blocks
+				sig.RelativeItem(1);
 			}
 		});
 	});
 
-	// Shift-table cell styles (borders as on the form: medium for headers and totals, thin for the grid).
 	private static IContainer StH(IContainer c) => c.Border(1.2f).Padding(2).AlignCenter().AlignMiddle();
 	private static IContainer StD(IContainer c) => c.Border(0.5f).MinHeight(13).Padding(1).AlignCenter().AlignMiddle();
 	private static IContainer StNameCell(IContainer c) => c.Border(0.5f).MinHeight(13).PaddingHorizontal(4).AlignLeft().AlignMiddle();

@@ -16,7 +16,6 @@ public static class DayTypeRules
 	/// <param name="holidays">All holiday dates known to the app.</param>
 	public static DayType Resolve(DateOnly date, IReadOnlySet<DateOnly> holidays)
 	{
-		// Holiday first: it overrides the weekday/weekend classification.
 		if (holidays.Contains(date)) return DayType.Holiday;
 
 		return date.DayOfWeek switch

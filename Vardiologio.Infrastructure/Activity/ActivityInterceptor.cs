@@ -66,10 +66,8 @@ public sealed class ActivityInterceptor : SaveChangesInterceptor
 	{
 		if (context is not AppDbContext db) return;
 
-		// The interceptor runs before EF's own change detection.
 		db.ChangeTracker.DetectChanges();
 
-		// Snapshot first: the log rows added below must not be logged themselves.
 		var pending = db.ChangeTracker.Entries()
 			.Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
 			.Where(e => e.Entity is not (ActivityEntry or ActivityChange or DatabaseEpoch))
@@ -89,7 +87,7 @@ public sealed class ActivityInterceptor : SaveChangesInterceptor
 			foreach (var row in table)
 			{
 				var rowChanges = RowChanges(row, roster);
-				if (rowChanges.Count == 0) continue;   // marked modified, but no value differs
+				if (rowChanges.Count == 0) continue;
 
 				changes.AddRange(rowChanges);
 				if (row.State == EntityState.Added) added++;
@@ -126,13 +124,13 @@ public sealed class ActivityInterceptor : SaveChangesInterceptor
 
 		foreach (var p in row.Properties)
 		{
-			if (p.Metadata.IsPrimaryKey()) continue;   // the key is the row's name, not a change
+			if (p.Metadata.IsPrimaryKey()) continue;
 
 			string? oldValue = null, newValue = null;
 			if (row.State == EntityState.Added)
 			{
 				newValue = Text(p, p.CurrentValue, roster);
-				if (newValue is null) continue;   // nothing to say about an empty field of a new row
+				if (newValue is null) continue;
 			}
 			else if (row.State == EntityState.Deleted)
 			{
@@ -174,7 +172,6 @@ public sealed class ActivityInterceptor : SaveChangesInterceptor
 
 		if (name.Contains("Password", StringComparison.Ordinal)) return "•••";
 
-		// A roster day refers to its shift code by key; the log shows the code itself.
 		if (name == nameof(ShiftDay.ShiftCodeId) && value is int codeId) return roster.Code(codeId);
 
 		var text = value switch
@@ -218,9 +215,7 @@ public sealed class ActivityInterceptor : SaveChangesInterceptor
 			var days = pending.Select(e => e.Entity).OfType<ShiftDay>().ToList();
 			if (days.Count == 0) return names;
 
-			// Inactive employees and retired codes included: the log must name them too.
 			var employeeIds = days.Select(d => d.EmployeeId).Distinct().ToList();
-			// Projected (not whole entities), so nothing extra is tracked in the saving context.
 			names._employees = db.Employees.IgnoreQueryFilters()
 				.Where(e => employeeIds.Contains(e.Id))
 				.Select(e => new { e.Id, e.LastName, e.FirstName })

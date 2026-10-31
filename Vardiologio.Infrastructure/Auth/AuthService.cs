@@ -29,7 +29,6 @@ public class AuthService : IAuthService
 
 		var names = await db.Users.Where(u => u.IsActive).Select(u => u.Username).ToListAsync();
 
-		// Sorted in memory: SQLite's own ordering is not case-insensitive for Greek letters.
 		var options = names
 			.OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase)
 			.Select(n => new LoginOption(n, n))
@@ -53,7 +52,6 @@ public class AuthService : IAuthService
 
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// The login screen sends the stored name back, so an exact match is enough.
 		var user = await db.Users.FirstOrDefaultAsync(u => u.IsActive && u.Username == username);
 		if (user is null) return null;
 
@@ -70,8 +68,6 @@ public class AuthService : IAuthService
 
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Active AND inactive rows: the unique index covers both and names are never reused.
-		// Compared in memory, because SQLite compares Greek letters case-sensitively.
 		var names = await db.Users.Select(u => u.Username).ToListAsync();
 		return names.Any(n => string.Equals(n, name, StringComparison.CurrentCultureIgnoreCase));
 	}
@@ -99,7 +95,6 @@ public class AuthService : IAuthService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Tracked entity, so the change is recorded in the activity log.
 		var user = await db.Users.FirstOrDefaultAsync(u => u.IsActive && u.Username == username)
 			?? throw new InvalidOperationException($"User '{username}' not found.");
 
@@ -126,7 +121,6 @@ public class AuthService : IAuthService
 			.Select(u => new UserItem(u.Id, u.Username, u.FullName, u.Email))
 			.ToListAsync();
 
-		// Sorted in memory: SQLite's own ordering is not case-insensitive for Greek letters.
 		return users.OrderBy(u => u.Username, StringComparer.CurrentCultureIgnoreCase).ToList();
 	}
 
@@ -135,7 +129,6 @@ public class AuthService : IAuthService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Loaded and removed as a tracked entity (not ExecuteDelete), so the deletion is logged.
 		var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id);
 		if (user is null) return;
 
@@ -148,7 +141,6 @@ public class AuthService : IAuthService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Tracked entities, so every deletion is logged (see DeleteUserAsync).
 		db.Users.RemoveRange(await db.Users.ToListAsync());
 		await db.SaveChangesAsync();
 	}
@@ -166,7 +158,6 @@ public class AuthService : IAuthService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Single-row table: the row is created the first time a setting is saved.
 		var settings = await db.AppSettings.FirstOrDefaultAsync();
 		if (settings is null)
 		{

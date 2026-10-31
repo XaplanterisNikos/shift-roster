@@ -11,17 +11,17 @@
 @inject IErrorLog ErrorLog
 @inject ISnackbar Snackbar
 
-@* Collective "ΠΙΣΤΟΠΟΙΗΣΗ ΥΠΕΡΩΡΙΑΚΗΣ ΚΑΙ ΛΟΙΠΗΣ ΕΡΓΑΣΙΑΣ" per contract, in two forms (one tab each):
-   permanent staff + open-ended contracts, and fixed-term contracts. The preview is the PDF
-   itself (exactly what gets printed); an export writes the file of the open tab (Excel or PDF). *@
+@* Collective "ΠΙΣΤΟΠΟΙΗΣΗ ΥΠΕΡΩΡΙΑΚΗΣ ΚΑΙ ΛΟΙΠΗΣ ΕΡΓΑΣΙΑΣ" per contract, in one form: permanent
+   staff, then open-ended contracts (ΙΔΑΧ), then fixed-term contracts (ΙΔΟΧ), one under the other.
+   The preview is the PDF itself (exactly what gets printed); an export writes the same form
+   (Excel or PDF). *@
 <div class="page-head">
     <div>
         <MudText Typo="Typo.h4">Εξαγωγή Πιστοποίησης ανά Σύμβαση (ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι)</MudText>
-        <MudText Typo="Typo.body2" Class="page-sub">Δύο έντυπα: Μόνιμοι / ΙΔΑΧ και ΙΔΟΧ. Η εξαγωγή γράφει το έντυπο της ανοιχτής καρτέλας.</MudText>
+        <MudText Typo="Typo.body2" Class="page-sub">Ένα έντυπο: Μόνιμοι, μετά ΙΔΑΧ και μετά ΙΔΟΧ, ο ένας κάτω από τον άλλο.</MudText>
     </div>
 </div>
 
-@* Month, preview and export buttons (Shared/ReportToolbar.razor). *@
 <ReportToolbar @bind-Year="year" @bind-Month="month" Busy="busy"
                OnPreview="PreviewAsync" OnExcel="ExportExcelAsync" OnPdf="ExportPdfAsync" />
 
@@ -32,41 +32,27 @@
 @if (withoutContract.Count > 0)
 {
     <MudAlert Severity="Severity.Warning" Dense="true" Class="report-alert">
-        Δεν περιλαμβάνονται σε κανένα έντυπο, επειδή δεν έχουν σύμβαση Μόνιμου, ΙΔΑΧ ή ΙΔΟΧ
+        Δεν περιλαμβάνονται στο έντυπο, επειδή δεν έχουν σύμβαση Μόνιμου, ΙΔΑΧ ή ΙΔΟΧ
         (Εργαζόμενοι → Σύμβαση): @(string.Join(", ", withoutContract)).
     </MudAlert>
 }
 
-@if (previews is not null)
+@if (pdfDataUri is not null)
 {
-    @* One tab per form; the PDF under the tabs is the one of the open tab. *@
-    <MudTabs Elevation="0" SliderColor="Color.Primary" Class="report-tabs report-sheets"
-             ActivePanelIndex="Array.IndexOf(Sheets, activeSheet)"
-             ActivePanelIndexChanged="index => activeSheet = Sheets[index]">
-        @foreach (var sheet in Sheets)
-        {
-            <MudTabPanel Text="@TabTitle(sheet)" />
-        }
-    </MudTabs>
-
-    <PdfPreview Data="@(previews[activeSheet])" />
+    <MudText Typo="Typo.h6" Class="mb-2">Μόνιμοι / ΙΔΑΧ / ΙΔΟΧ</MudText>
+    <PdfPreview Data="@pdfDataUri" />
 }
 
 @code {
-    /// <summary>The two forms, in tab order.</summary>
-    private static readonly ContractCertificateSheet[] Sheets =
-        { ContractCertificateSheet.PermanentAndOpenEnded, ContractCertificateSheet.FixedTerm };
-
     private int year = DateTime.Today.Year;
     private int month = DateTime.Today.Month;
     private bool busy;
     private string? error;
-    private ContractCertificateSheet activeSheet = ContractCertificateSheet.PermanentAndOpenEnded;
 
-    /// <summary>PDF data-URI per form, after "Προεπισκόπηση".</summary>
-    private Dictionary<ContractCertificateSheet, string>? previews;
+    /// <summary>PDF data-URI of the form, after "Προεπισκόπηση".</summary>
+    private string? pdfDataUri;
 
-    /// <summary>Employees left out of both forms (no contract of the three kinds); shown as a note.</summary>
+    /// <summary>Employees left out of the form (no contract of the three kinds); shown as a note.</summary>
     private List<string> withoutContract = new();
 
     /// <summary>
@@ -81,21 +67,16 @@
         StateHasChanged();
     }
 
-    /// <summary>Renders both forms to PDF in memory and shows them inline (no file written).</summary>
+    /// <summary>Renders the form to PDF in memory and shows it inline (no file written).</summary>
     private async Task PreviewAsync()
     {
-        busy = true; error = null; previews = null;
+        busy = true; error = null; pdfDataUri = null;
         await ShowBusyAsync();
         try
         {
-            var result = new Dictionary<ContractCertificateSheet, string>();
-            foreach (var sheet in Sheets)
-            {
-                var model = await ContractCertificateService.BuildAsync(year, month, sheet);
-                withoutContract = model.WithoutContract;   // the same list on both forms
-                result[sheet] = "data:application/pdf;base64," + Convert.ToBase64String(Pdf.Render(model));
-            }
-            previews = result;
+            var model = await ContractCertificateService.BuildAsync(year, month);
+            withoutContract = model.WithoutContract;
+            pdfDataUri = "data:application/pdf;base64," + Convert.ToBase64String(Pdf.Render(model));
         }
         catch (Exception ex) { Fail("Preview", ex); }
         finally { busy = false; }
@@ -104,16 +85,16 @@
     private Task ExportExcelAsync() => ExportAsync(m => Excel.Render(m), "xlsx");
     private Task ExportPdfAsync() => ExportAsync(m => Pdf.Render(m), "pdf");
 
-    /// <summary>Writes the file of the open tab, then opens it with the default application.</summary>
+    /// <summary>Writes the file of the form, then opens it with the default application.</summary>
     private async Task ExportAsync(Func<ContractCertificateModel, byte[]> render, string ext)
     {
         busy = true; error = null;
         await ShowBusyAsync();
         try
         {
-            var model = await ContractCertificateService.BuildAsync(year, month, activeSheet);
+            var model = await ContractCertificateService.BuildAsync(year, month);
             withoutContract = model.WithoutContract;
-            var path = await FileStore.SaveAsync(ReportFolder.ContractCertificate, year, month, FileName(activeSheet, ext), render(model));
+            var path = await FileStore.SaveAsync(ReportFolder.ContractCertificate, year, month, FileName(ext), render(model));
             Open(path);
             Snackbar.ReportSaved(path);
         }
@@ -121,17 +102,11 @@
         finally { busy = false; }
     }
 
-    /// <summary>Certificate_Permanent_IDAX_yyyy_MM or Certificate_IDOX_yyyy_MM (Latin characters only).</summary>
-    private string FileName(ContractCertificateSheet sheet, string ext) => sheet == ContractCertificateSheet.FixedTerm
-        ? $"Certificate_IDOX_{year}_{month:00}.{ext}"
-        : $"Certificate_Permanent_IDAX_{year}_{month:00}.{ext}";
+    /// <summary>Certificate_Contracts_yyyy_MM (Latin characters only).</summary>
+    private string FileName(string ext) => $"Certificate_Contracts_{year}_{month:00}.{ext}";
 
     /// <summary>Opens a file with its default application.</summary>
     private static void Open(string path) => Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-
-    /// <summary>Tab title of a form.</summary>
-    private static string TabTitle(ContractCertificateSheet sheet) =>
-        sheet == ContractCertificateSheet.FixedTerm ? "ΙΔΟΧ" : "Μόνιμοι / ΙΔΑΧ";
 
     /// <summary>
     /// Draws the progress bar before the report work starts: building and rendering a report

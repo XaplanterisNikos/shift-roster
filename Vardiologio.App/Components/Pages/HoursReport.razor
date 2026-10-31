@@ -24,7 +24,6 @@
     </div>
 </div>
 
-@* Month, preview and export buttons (Shared/ReportToolbar.razor). *@
 <ReportToolbar @bind-Year="year" @bind-Month="month" Busy="busy"
                OnShow="ShowAsync" OnPreview="PreviewPdf" PreviewText="Προεπισκόπηση PDF" OnExcel="ExportExcel" OnPdf="ExportPdf" />
 
@@ -35,11 +34,7 @@
 
 @if (model is not null)
 {
-    @* On-screen version of the report; over-limit cells highlighted as in the files.
-       "hours-scroll": the table scrolls inside its own box, with the two header rows and the
-       name column staying in view (rules in the "Reports" block of app.css). *@
     <div class="hours-scroll">
-        @* The report's colours (Παράμετροι → Αναφορών → Χρώματα), read by the "hours-report" rules in app.css. *@
         <table class="hours-report" style="--hours-cat:@(model.Colors[ReportColorCatalog.HoursCategories]);--hours-over:@(model.Colors[ReportColorCatalog.HoursExcess])">
             <thead>
                 <tr>
@@ -132,7 +127,6 @@
     private async Task ExportExcel() => await SaveAndOpen(m => Excel.Render(m), "xlsx");
     private async Task ExportPdf() => await SaveAndOpen(m => Pdf.Render(m), "pdf");
 
-    // Build the model, render to bytes, save to Documents\Vardiologio, then open with the default app.
     private async Task SaveAndOpen(Func<HoursReportModel, byte[]> render, string ext)
     {
         busy = true; error = null;
@@ -149,7 +143,6 @@
         finally { busy = false; }
     }
 
-    // Build the PDF in memory and show it inline (no file written).
     private async Task PreviewPdf()
     {
         busy = true; error = null; pdfDataUri = null;

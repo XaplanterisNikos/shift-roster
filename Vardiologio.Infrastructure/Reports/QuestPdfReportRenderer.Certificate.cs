@@ -45,7 +45,6 @@ public partial class QuestPdfReportRenderer
 	/// </summary>
 	private static void CertHead(IContainer c, ReportTextSet texts, int year, int month) => c.Row(row =>
 	{
-		// Left: emblem above the letterhead.
 		row.ConstantItem(230).Column(left =>
 		{
 			left.Item().Width(46).Height(44).Element(EmblemImage);
@@ -57,21 +56,16 @@ public partial class QuestPdfReportRenderer
 				if (bold) line.Bold();
 			}
 
-			// Blank lines up to the rows of the hand-filled labels, so the two sides stay level
-			// when the letterhead is short.
 			for (var i = lh.Length; i < OvertimeCertificateTexts.HandFilledRowCount; i++)
 				left.Item().Text(" ").FontSize(7.5f);
 		});
 
-		// Centre: the two title lines, level with the bottom of the letterhead (as on the sheet).
 		row.RelativeItem().AlignBottom().Column(mid =>
 		{
 			mid.Item().AlignCenter().Text(OvertimeCertificateTexts.Title(texts, year, month)).Bold().FontSize(10.5f);
 			mid.Item().AlignCenter().Text(OvertimeCertificateTexts.Subtitle(texts)).Bold().FontSize(10.5f);
 		});
 
-		// Right: labels filled in by hand. One line per letterhead row, in the same font size,
-		// so each label sits level with its letterhead row; the other rows stay empty.
 		row.ConstantItem(150).PaddingTop(47).Column(right =>
 		{
 			var labels = OvertimeCertificateTexts.HandFilled(texts);
@@ -95,14 +89,13 @@ public partial class QuestPdfReportRenderer
 	{
 		t.ColumnsDefinition(cols =>
 		{
-			cols.ConstantColumn(34);                           // A/A
-			cols.RelativeColumn(1.6f);                         // Επίθετο
-			cols.RelativeColumn(1.3f);                         // Όνομα
-			cols.RelativeColumn(1.6f);                         // κλάδος/ειδικότητα
-			for (var k = 0; k < 6; k++) cols.RelativeColumn(); // hour columns
+			cols.ConstantColumn(34);
+			cols.RelativeColumn(1.6f);
+			cols.RelativeColumn(1.3f);
+			cols.RelativeColumn(1.6f);
+			for (var k = 0; k < 6; k++) cols.RelativeColumn();
 		});
 
-		// Row 1 — single headers (two rows high) + group headers (two columns wide).
 		t.Cell().RowSpan(2).Element(CertH).Text(OvertimeCertificateTexts.HeadIndex).Bold().FontSize(9);
 		t.Cell().RowSpan(2).Element(CertH).Text(OvertimeCertificateTexts.HeadLastName).Bold().FontSize(9);
 		t.Cell().RowSpan(2).Element(CertH).Text(OvertimeCertificateTexts.HeadFirstName).Bold().FontSize(9);
@@ -110,14 +103,12 @@ public partial class QuestPdfReportRenderer
 		for (var g = 0; g < OvertimeCertificateTexts.Groups.Length; g++)
 		{
 			var text = t.Cell().ColumnSpan(2).Element(CertH).Text(OvertimeCertificateTexts.Groups[g]).Bold().FontSize(7);
-			if (g == 0) text.Underline();   // underlined on the form
+			if (g == 0) text.Underline();
 		}
 
-		// Row 2 — sub-column headers.
 		foreach (var sub in OvertimeCertificateTexts.SubHeads)
 			t.Cell().Element(CertH).Text(sub).Bold().FontSize(6.5f);
 
-		// Data row.
 		t.Cell().Element(CertD).Text(m.Index.ToString()).Bold().FontSize(10);
 		t.Cell().Element(CertD).Text(GreekText.Upper(m.LastName)).Bold().FontSize(10);
 		t.Cell().Element(CertD).Text(GreekText.Upper(m.FirstName)).Bold().FontSize(10);
@@ -135,7 +126,7 @@ public partial class QuestPdfReportRenderer
 		var items = OvertimeCertificateTexts.Declarations(m.Texts);
 		for (var i = 0; i < items.Length; i++)
 		{
-			var number = $"{i + 1}.";   // copied out of the loop variable before the lambda
+			var number = $"{i + 1}.";
 			var text = items[i];
 			col.Item().PaddingBottom(4).PaddingLeft(20).Row(row =>
 			{
@@ -155,7 +146,6 @@ public partial class QuestPdfReportRenderer
 		col.Item().AlignCenter().Text(OvertimeCertificateTexts.SignatureName(m)).Bold().FontSize(10);
 	});
 
-	// Certificate cell styles.
-	private static IContainer CertH(IContainer c) => c.Border(0.75f).Padding(2).AlignCenter().AlignMiddle();                 // header cell
-	private static IContainer CertD(IContainer c) => c.Border(0.75f).MinHeight(24).Padding(2).AlignCenter().AlignMiddle();   // data cell
+	private static IContainer CertH(IContainer c) => c.Border(0.75f).Padding(2).AlignCenter().AlignMiddle();
+	private static IContainer CertD(IContainer c) => c.Border(0.75f).MinHeight(24).Padding(2).AlignCenter().AlignMiddle();
 }

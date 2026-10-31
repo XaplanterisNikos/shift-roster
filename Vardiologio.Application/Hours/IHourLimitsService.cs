@@ -5,7 +5,6 @@ namespace Vardiologio.Application.Hours;
 /// <summary>Editable monthly limits (mirrors the single HourLimits row).</summary>
 public class HourLimitsDetail
 {
-	// Range mirrors decimal(5,2) in AppDbContext (max 999.99); negative limits make no sense.
 	private const string RangeMessage = "Επιτρέπονται τιμές από 0 έως 999,99.";
 
 	/// <summary>Monthly limit for Προς συμπλήρωση.</summary>

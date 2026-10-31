@@ -8,8 +8,6 @@
 <MudButton Variant="Variant.Text" Color="Color.Primary" FullWidth="true"
            StartIcon="@Icons.Material.Rounded.PersonAdd" OnClick="Open">Δημιουργία νέου χρήστη</MudButton>
 
-@* Inline dialog: MudBlazor renders it in MudDialogProvider (Routes.razor).
-   Escape or a click on the dimmed background closes it (-> OnVisibleChanged). *@
 <MudDialog Visible="open" VisibleChanged="OnVisibleChanged" Options="DialogOptions">
     <TitleContent>
         <MudText Typo="Typo.h6">Νέος χρήστης</MudText>
@@ -29,7 +27,6 @@
             <MudTextField T="string" Label="Όνομα χρήστη" @bind-Value="username" Immediate="true"
                           Variant="Variant.Outlined" MaxLength="@UserRules.MaxUsernameLength"
                           autocomplete="off" />
-            @* autocomplete new-password => the browser does not offer saved passwords. *@
             <MudTextField T="string" Label="Κωδικός" @bind-Value="password" Immediate="true"
                           InputType="InputType.Password" Variant="Variant.Outlined"
                           HelperText="@($"Τουλάχιστον {UserRules.MinPasswordLength} χαρακτήρες")"
@@ -58,14 +55,17 @@
     /// <summary>Raised with the new username after the user has been created.</summary>
     [Parameter] public EventCallback<string> Created { get; set; }
 
-    private bool open;          // dialog visible
-    private bool busy;          // a create is running: ignore a second click
+    /// <summary>Dialog visible.</summary>
+    private bool open;
+    /// <summary>A create is running: ignore a second click.</summary>
+    private bool busy;
     private string fullName = "";
     private string email = "";
     private string username = "";
     private string password = "";
     private string confirm = "";
-    private string? error;      // why the form was not accepted
+    /// <summary>Why the form was not accepted.</summary>
+    private string? error;
 
     /// <summary>Opens the dialog with empty fields.</summary>
     private void Open()

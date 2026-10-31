@@ -6,7 +6,6 @@
    Bound like two plain values: @bind-Year and @bind-Month.
    Styles: "Reports" block in app.css. *@
 <div class="report-bar">
-    @* OpenTo + FixDay: the picker shows the months only and closes on the pick. *@
     <MudDatePicker Label="Μήνας" Date="Period" DateChanged="OnPeriodChangedAsync"
                    OpenTo="OpenTo.Month" FixDay="1" DateFormat="MMMM yyyy" Culture="El"
                    AutoClose="true" Variant="Variant.Outlined" Margin="Margin.Dense"
@@ -34,7 +33,6 @@
                Disabled="Blocked" OnClick="OnPdf">Εξαγωγή PDF</MudButton>
 </div>
 
-@* Fixed height, so the page below does not jump when the bar appears. *@
 <div class="report-progress">
     @if (Busy)
     {

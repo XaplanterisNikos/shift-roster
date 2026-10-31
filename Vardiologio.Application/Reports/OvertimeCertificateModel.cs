@@ -25,22 +25,22 @@ public class OvertimeCertificateModel
 	/// <summary>"Η Βεβαιών Υπάλληλος" instead of "Ο" (see <see cref="GreekText.IsFemaleName"/>).</summary>
 	public bool IsFemale { get; set; }
 
-	/// <summary>Υπερωριακή εργασία — Απογευματινή έως 22:00 (paid Απλή hours).</summary>
+	/// <summary>Afternoon overtime until 22:00 (paid "simple" hours).</summary>
 	public decimal AfternoonOvertime { get; set; }
 
-	/// <summary>Υπερωριακή εργασία — Νυχτερινή 22:00–06:00 (paid Νυχτερινή hours).</summary>
+	/// <summary>Night overtime 22:00–06:00 (paid night hours).</summary>
 	public decimal NightOvertime { get; set; }
 
-	/// <summary>Υπερωριακή εργασία Κυριακές και εξαιρέσιμες — Ημερήσιες 6:00–22:00 (paid Κυριακής hours).</summary>
+	/// <summary>Sunday and holiday overtime by day, 06:00–22:00 (paid Sunday hours).</summary>
 	public decimal SundayDayOvertime { get; set; }
 
 	/// <summary>Υπερωριακή εργασία Κυριακές και εξαιρέσιμες — Νυχτερινή 22:00–06:00. No pay category feeds it yet, so it prints 0:00 as on the original form.</summary>
 	public decimal SundayNightOvertime { get; set; }
 
-	/// <summary>Εργασία προς Συμπλήρωση — Νυχτερινή εργασίμων ημερών (paid Προς συμπλήρωση hours).</summary>
+	/// <summary>Work "to complete" on working days (paid "to complete" hours).</summary>
 	public decimal WeekdayNightToComplete { get; set; }
 
-	/// <summary>Εργασία προς Συμπλήρωση — Κυριακών και εξαιρέσιμων ημερών (paid Αργίας hours).</summary>
+	/// <summary>Work "to complete" on Sundays and holidays (paid holiday hours).</summary>
 	public decimal SundayHolidayToComplete { get; set; }
 
 	/// <summary>The form's editable texts (letterhead, titles, signatures…), as set in Παράμετροι → Αναφορές.</summary>

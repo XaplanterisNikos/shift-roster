@@ -16,7 +16,6 @@
                 <MudText Typo="Typo.h6">Μηνιαία όρια ανά εργαζόμενο</MudText>
             </div>
 
-            @* HoursConverter: the boxes take both "6,5" and "6.5" (Shared/HoursConverter.cs). *@
             <div class="md-fields md-two">
                 <MudNumericField T="decimal" Label="Προς συμπλήρωση (τον μήνα)" @bind-Value="form.ToCompleteMonthly" For="@(() => form.ToCompleteMonthly)"
                                  Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" Converter="HoursConverter.Instance"

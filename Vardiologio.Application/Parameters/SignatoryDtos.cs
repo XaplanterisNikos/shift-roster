@@ -16,7 +16,7 @@ public class SignatoryItem
 	[StringLength(200, ErrorMessage = "Η ιδιότητα μπορεί να έχει έως 200 χαρακτήρες.")]
 	public string Role { get; set; } = "";
 
-	/// <summary>Full name under the signing space (e.g. "Ευθύμιος Καλογήρου").</summary>
+	/// <summary>Full name under the signing space (e.g. "Γεώργιος Παπαδόπουλος").</summary>
 	[Required(ErrorMessage = "Το ονοματεπώνυμο είναι υποχρεωτικό.")]
 	[StringLength(100, ErrorMessage = "Το ονοματεπώνυμο μπορεί να έχει έως 100 χαρακτήρες.")]
 	public string FullName { get; set; } = "";
@@ -32,7 +32,7 @@ public class SignatoryItem
 	public string[] RoleLines => SplitLines(Role);
 
 	/// <summary>
-	/// Label in lists and dropdowns: "Ευθύμιος Καλογήρου — Ο Επόπτης Λειτουργίας Σ.Μ.Α."
+	/// Label in lists and dropdowns: "Γεώργιος Παπαδόπουλος — Ο Επόπτης Λειτουργίας"
 	/// (name and first role line), so two entries of the same person can be told apart.
 	/// </summary>
 	public static string Label(string fullName, string role)

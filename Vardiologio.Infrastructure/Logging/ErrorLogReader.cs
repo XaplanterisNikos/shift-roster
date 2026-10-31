@@ -21,7 +21,6 @@ public class ErrorLogReader : IErrorLogReader
 
 		foreach (var file in Directory.GetFiles(AppFolders.Logs, "*.log"))
 		{
-			// The file name is the day; files with another name are not ours.
 			if (!DateTime.TryParseExact(Path.GetFileNameWithoutExtension(file), "yyyy-MM-dd",
 				    CultureInfo.InvariantCulture, DateTimeStyles.None, out var day)) continue;
 			if (from is not null && day < from.Value.Date) continue;
@@ -52,7 +51,6 @@ public class ErrorLogReader : IErrorLogReader
 			if (block.Count > 0) yield return ToItem(block, day);
 			block = new List<string>();
 		}
-		// An entry cut short (no closing line) is still shown.
 		if (block.Any(l => l.Length > 0)) yield return ToItem(block, day);
 	}
 
@@ -62,7 +60,6 @@ public class ErrorLogReader : IErrorLogReader
 		var header = block[0];
 		var cut = header.IndexOf(" | ", StringComparison.Ordinal);
 
-		// A header that does not parse keeps the day of the file and the whole line as the source.
 		var time = day;
 		var source = header;
 		if (cut > 0 && DateTime.TryParseExact(header[..cut], "yyyy-MM-dd HH:mm:ss",

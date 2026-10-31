@@ -27,8 +27,6 @@ public class ShiftEntryService : IShiftEntryService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Active codes are offered for new picks (ShiftCode has no global filter); inactive
-		// ones only when already used in the month ("active + current", as in the Employees form).
 		var include = alsoInclude ?? Array.Empty<int>();
 		return await db.ShiftCodes
 			.Where(c => c.IsActive || include.Contains(c.Id))
@@ -51,7 +49,6 @@ public class ShiftEntryService : IShiftEntryService
 		var last = new DateOnly(year, month, count);
 
 		await using var db = await _factory.CreateDbContextAsync();
-		// Existing entries of this month, keyed by date, so we can pre-fill the grid in one query.
 		var existing = await db.ShiftDays
 			.Where(s => s.EmployeeId == employeeId && s.Date >= first && s.Date <= last)
 			.ToDictionaryAsync(s => s.Date, s => s.ShiftCodeId);
@@ -88,11 +85,11 @@ public class ShiftEntryService : IShiftEntryService
 
 			if (day.ShiftCodeId is null)
 			{
-				if (row is not null) db.ShiftDays.Remove(row);            // day cleared → delete
+				if (row is not null) db.ShiftDays.Remove(row);
 			}
 			else if (row is null)
 			{
-				db.ShiftDays.Add(new ShiftDay                          // new entry
+				db.ShiftDays.Add(new ShiftDay
 				{
 					EmployeeId = entry.EmployeeId,
 					Date = day.Date,
@@ -101,7 +98,7 @@ public class ShiftEntryService : IShiftEntryService
 			}
 			else if (row.ShiftCodeId != day.ShiftCodeId.Value)
 			{
-				row.ShiftCodeId = day.ShiftCodeId.Value;                  // changed → update
+				row.ShiftCodeId = day.ShiftCodeId.Value;
 			}
 		}
 		await db.SaveChangesAsync();
@@ -115,7 +112,6 @@ public class ShiftEntryService : IShiftEntryService
 
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Read-only rule data (small tables); AsNoTracking since nothing is saved here.
 		var codes = await db.ShiftCodes.AsNoTracking().ToDictionaryAsync(c => c.Id);
 		var hours = await db.ShiftCodeHours.AsNoTracking().ToListAsync();
 		var holidays = (await db.Holidays
@@ -124,7 +120,6 @@ public class ShiftEntryService : IShiftEntryService
 			.ToListAsync())
 			.ToHashSet();
 
-		// The seeder always creates the single limits row; a missing row is a setup error.
 		var limits = await db.HourLimits.AsNoTracking().OrderBy(l => l.Id).FirstOrDefaultAsync()
 			?? throw new InvalidOperationException("HourLimits row not found.");
 

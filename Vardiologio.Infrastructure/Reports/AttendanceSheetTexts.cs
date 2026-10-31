@@ -34,7 +34,7 @@ internal static class AttendanceSheetTexts
 	{
 		AttendanceSheet.Directorate => "ΔΙΕΥΘΥΝΣΗ",
 		AttendanceSheet.FixedTerm => "ΙΔΟΧ",
-		_ => "ΙΔΑΧ - ΜΟΝΙΜΟΙ"   // a worksheet name cannot contain "/"
+		_ => "ΙΔΑΧ - ΜΟΝΙΜΟΙ"
 	};
 
 	/// <summary>

@@ -67,27 +67,24 @@ public partial class QuestPdfReportRenderer
 	private static void RowsWithClosing(TableDescriptor table, uint columnCount,
 		Action<TableColumnsDefinitionDescriptor> columns, IReadOnlyList<TableItem> items, Action<IContainer>? closing)
 	{
-		// Not the last table of the form: its rows are drawn as usual.
 		if (closing is null)
 		{
 			foreach (var item in items) item.Draw(table);
 			return;
 		}
 
-		// The rows that go with the closing block: the last one and every band right above it.
 		var tailStart = Math.Max(items.Count - 1, 0);
 		while (tailStart > 0 && items[tailStart - 1].IsBand) tailStart--;
 
 		for (var i = 0; i < tailStart; i++) items[i].Draw(table);
 
-		// One cell across the whole table, never split between two pages.
 		table.Cell().ColumnSpan(columnCount).ShowEntire().Column(col =>
 		{
 			if (tailStart < items.Count)
 			{
 				col.Item().Table(last =>
 				{
-					last.ColumnsDefinition(columns);   // same widths as the table above it
+					last.ColumnsDefinition(columns);
 					for (var i = tailStart; i < items.Count; i++) items[i].Draw(last);
 				});
 			}

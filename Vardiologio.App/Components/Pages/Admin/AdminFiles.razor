@@ -35,8 +35,10 @@
 </div>
 
 @code {
-    private bool busy;              // the zip is being written
-    private string? message;        // result of the last attempt
+    /// <summary>The zip is being written.</summary>
+    private bool busy;
+    /// <summary>Result of the last attempt.</summary>
+    private string? message;
     private Severity messageSeverity;
 
     /// <summary>Asks where to save, then writes the zip.</summary>
@@ -44,7 +46,6 @@
     {
         message = null;
 
-        // Standard Windows dialog; the handler runs on the UI thread, which the dialog needs.
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
             Title = "Αποθήκευση αρχείων εφαρμογής",

@@ -47,30 +47,24 @@ public static class MonthlyHoursCalculator
 	{
 		var categories = Enum.GetValues<HourCategory>();
 
-		// Index the split by (code, kind of day) so each entry is a single lookup.
 		var hoursByCodeAndDay = hours.ToLookup(h => (h.ShiftCodeId, h.DayType));
 
-		// (1) Declared hours: sum every entry's rows for its kind of day.
 		var declared = categories.ToDictionary(c => c, _ => 0m);
 		foreach (var day in days)
 		{
-			if (day.Date.Year != year || day.Date.Month != month) continue;   // not this month
+			if (day.Date.Year != year || day.Date.Month != month) continue;
 
 			var dayType = DayTypeRules.Resolve(day.Date, holidays);
 
-			// A code with no rows for this kind of day (e.g. status codes, or a code entered
-			// on a day it is not allowed on) yields no hours; the entry screen warns instead.
 			foreach (var row in hoursByCodeAndDay[(day.ShiftCodeId, dayType)])
 				declared[row.Category] += row.Hours;
 		}
 
-		// (2) Per-category limits. The holiday limit depends on the month's holiday count.
 		var holidaysInMonth = holidays.Count(h => h.Year == year && h.Month == month);
 		var paid = categories.ToDictionary(
 			c => c,
 			c => Math.Min(declared[c], Limit(c, limits, holidaysInMonth)));
 
-		// (3) Combined limit ToComplete + Holiday: cut ToComplete first, then Holiday.
 		var over = paid[HourCategory.ToComplete] + paid[HourCategory.Holiday] - limits.ToCompletePlusHolidayMonthly;
 		if (over > 0)
 		{
@@ -78,7 +72,6 @@ public static class MonthlyHoursCalculator
 			paid[HourCategory.ToComplete] -= cutToComplete;
 			over -= cutToComplete;
 
-			// Only reached if the combined limit is lower than the holiday hours alone.
 			paid[HourCategory.Holiday] -= Math.Min(over, paid[HourCategory.Holiday]);
 		}
 

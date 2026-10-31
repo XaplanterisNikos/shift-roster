@@ -16,7 +16,7 @@ public class ReportFileStore : IReportFileStore
 	public async Task<string> SaveAsync(ReportFolder folder, int year, int month, string fileName, byte[] content)
 	{
 		var path = Path.Combine(AppFolders.ReportMonth(folder, year, month), fileName);
-		await File.WriteAllBytesAsync(path, content);   // replaces an older export of the same month
+		await File.WriteAllBytesAsync(path, content);
 
 		await _activity.RecordAsync("Εξαγωγή αναφοράς", ReportName(folder), $"{month:00}/{year:0000} · {fileName}");
 		return path;

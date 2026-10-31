@@ -10,7 +10,6 @@ namespace Vardiologio.Infrastructure.Reports;
 /// </summary>
 public partial class ClosedXmlReportRenderer
 {
-	// Columns: A/A, surname, first name, speciality, then the six hour columns.
 	private const int CertIndex = 1, CertLast = 2, CertFirst = 3, CertSpec = 4, CertValue0 = 5;
 	private const int CertLastCol = CertValue0 + 5;
 
@@ -22,10 +21,8 @@ public partial class ClosedXmlReportRenderer
 		var left = XLAlignmentHorizontalValues.Left;
 		var center = XLAlignmentHorizontalValues.Center;
 
-		// Emblem, letterhead, titles and introduction (shared with the collective certificate).
 		var rHead = CertificateHead(ws, m.Texts, m.Year, m.Month, m.From, m.To);
 
-		// Table: two header rows, one data row.
 		Merge(ws, rHead, CertIndex, rHead + 1, CertIndex, OvertimeCertificateTexts.HeadIndex, 10, true, center, null);
 		Merge(ws, rHead, CertLast, rHead + 1, CertLast, OvertimeCertificateTexts.HeadLastName, 10, true, center, null);
 		Merge(ws, rHead, CertFirst, rHead + 1, CertFirst, OvertimeCertificateTexts.HeadFirstName, 10, true, center, null);
@@ -35,7 +32,7 @@ public partial class ClosedXmlReportRenderer
 			var c = CertValue0 + g * 2;
 			Merge(ws, rHead, c, rHead, c + 1, OvertimeCertificateTexts.Groups[g], 8, true, center, null);
 		}
-		ws.Cell(rHead, CertValue0).Style.Font.Underline = XLFontUnderlineValues.Single;   // underlined on the form
+		ws.Cell(rHead, CertValue0).Style.Font.Underline = XLFontUnderlineValues.Single;
 		for (var k = 0; k < OvertimeCertificateTexts.SubHeads.Length; k++)
 			Merge(ws, rHead + 1, CertValue0 + k, rHead + 1, CertValue0 + k, OvertimeCertificateTexts.SubHeads[k], 7, true, center, null);
 		ws.Row(rHead).Height = 30;
@@ -55,7 +52,6 @@ public partial class ClosedXmlReportRenderer
 		table.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
 		table.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 
-		// Declaration: heading, the numbered items, then the certification paragraph.
 		var rDecl = rData + 2;
 		Merge(ws, rDecl, CertIndex, rDecl, CertLastCol, OvertimeCertificateTexts.DeclarationTitle(m.Texts), 11, true, center, null);
 		ws.Row(rDecl).Height = 16;
@@ -68,7 +64,7 @@ public partial class ClosedXmlReportRenderer
 				.Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
 			Merge(ws, rItem + i, CertLast, rItem + i, CertLastCol, items[i], 10, true, left, null);
 			ws.Cell(rItem + i, CertLast).Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
-			ws.Row(rItem + i).Height = items[i].Length > 120 ? 28 : 16;   // long items wrap onto two lines
+			ws.Row(rItem + i).Height = items[i].Length > 120 ? 28 : 16;
 		}
 
 		var rCert = rItem + items.Length;
@@ -76,7 +72,6 @@ public partial class ClosedXmlReportRenderer
 		ws.Cell(rCert, CertIndex).Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
 		ws.Row(rCert).Height = 42;
 
-		// Signature: role, space to sign, name.
 		var rSign = rCert + 2;
 		Merge(ws, rSign, CertIndex, rSign, CertLastCol, OvertimeCertificateTexts.SignatureRole(m.IsFemale), 11, true, center, null);
 		ws.Row(rSign + 1).Height = 22;
@@ -84,7 +79,6 @@ public partial class ClosedXmlReportRenderer
 		Merge(ws, rSign + 3, CertIndex, rSign + 3, CertLastCol, OvertimeCertificateTexts.SignatureName(m), 11, true, center, null);
 		var lastRow = rSign + 3;
 
-		// Widths / page: one A4 landscape page.
 		ws.Column(CertIndex).Width = 7;
 		ws.Column(CertLast).Width = 22;
 		ws.Column(CertFirst).Width = 18;
@@ -122,30 +116,24 @@ public partial class ClosedXmlReportRenderer
 		var left = XLAlignmentHorizontalValues.Left;
 		var center = XLAlignmentHorizontalValues.Center;
 
-		// Emblem: three rows high, top left, above the letterhead.
 		for (var r = 1; r <= 3; r++) ws.Row(r).Height = 15;
 		AddEmblem(ws, "Emblem", 1, CertIndex, 6, 2, 58, 56);
 
-		// Letterhead (left) with the hand-filled labels on the right of some of its lines.
 		const int lh0 = 4;
 		var lh = AttendanceSheetTexts.Letterhead(texts);
 		for (var i = 0; i < lh.Length; i++)
 			Merge(ws, lh0 + i, CertIndex, lh0 + i, CertFirst, lh[i].Text, 9, lh[i].Bold, left, null);
 
-		// The letterhead area is never shorter than the rows of the hand-filled labels plus one,
-		// so the titles below can never land on a label's row.
 		var lhRows = Math.Max(lh.Length, OvertimeCertificateTexts.HandFilledRowCount + 1);
 		for (var i = 0; i < lhRows; i++) ws.Row(lh0 + i).Height = 13;
 		foreach (var (line, text) in OvertimeCertificateTexts.HandFilled(texts))
 			Merge(ws, lh0 + line, CertLastCol - 1, lh0 + line, CertLastCol, text, 10, true, left, null);
 
-		// Titles on the last letterhead line and the one after it (as on the sheet).
 		var rTitle = lh0 + lhRows - 1;
 		Merge(ws, rTitle, CertSpec, rTitle, CertLastCol, OvertimeCertificateTexts.Title(texts, year, month), 11, true, center, null);
 		Merge(ws, rTitle + 1, CertSpec, rTitle + 1, CertLastCol, OvertimeCertificateTexts.Subtitle(texts), 11, true, center, null);
 		ws.Row(rTitle + 1).Height = 15;
 
-		// Introduction: centred lines.
 		var r0 = rTitle + 3;
 		var intro = OvertimeCertificateTexts.Intro(texts, from, to);
 		for (var i = 0; i < intro.Length; i++)
@@ -154,7 +142,6 @@ public partial class ClosedXmlReportRenderer
 			ws.Row(r0 + i).Height = 14;
 		}
 
-		// One empty row, then the table header.
 		return r0 + intro.Length + 1;
 	}
 }

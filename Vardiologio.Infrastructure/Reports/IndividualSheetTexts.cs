@@ -65,8 +65,6 @@ internal static class IndividualSheetTexts
 	/// <summary>The cells of one day, one text per column (the same values as the preview).</summary>
 	public static string[] Cells(IndividualReportModel m, IndividualDayRow day) => IndividualSheetLayout.Cells(m, day);
 
-	// ---- Header ----
-
 	/// <summary>Letterhead lines under the emblem (all plain, as on the sheet).</summary>
 	public static string[] Letterhead(ReportTextSet texts) => texts.Texts(ReportTextBlocks.Letterhead);
 
@@ -84,8 +82,6 @@ internal static class IndividualSheetTexts
 
 	/// <summary>The title lines above the table (empty ones skipped).</summary>
 	public static string[] Titles(ReportTextSet texts) => texts.Texts(ReportTextBlocks.Titles);
-
-	// ---- Overtime row under the days ----
 
 	/// <summary>
 	/// One header of the overtime table: its text (editable), its columns and, for a group, its
@@ -124,7 +120,7 @@ internal static class IndividualSheetTexts
 			new(T(5), 7, 8,
 			[
 				new(7, 7, "ΗΜΕΡ.", Clock(Declared(HourCategory.Sunday))),
-				new(8, 8, "ΝΥΚΤ.", Clock(0))   // no pay category feeds this column yet
+				new(8, 8, "ΝΥΚΤ.", Clock(0))
 			]),
 			new(T(6), 9, 11,
 			[
@@ -159,8 +155,6 @@ internal static class IndividualSheetTexts
 	/// <summary>"κλάδος" of the summary: the first word of the speciality ("ΥΕ Εργατών" → "ΥΕ").</summary>
 	public static string Branch(string speciality) =>
 		speciality.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
-
-	// ---- Signatures ----
 
 	/// <summary>A signature block: role lines, then (after the signing space) name and title.</summary>
 	public sealed record Signature(string[] Role, string Name, string Title);

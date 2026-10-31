@@ -37,7 +37,7 @@ public class ShiftTableModel
 	/// <summary>The form's editable texts (letterhead, titles, signatures…), as set in Παράμετροι → Αναφορές.</summary>
 	public ReportTextSet Texts { get; set; } = ReportTextSet.Empty;
 
-	/// <summary>The report's colours, as set in Παράμετροι → Αναφορών → Χρώματα (defaults until a service fills it).</summary>
+	/// <summary>The report's colours, as set on the report parameters page (defaults until a service fills them).</summary>
 	public ReportColorSet Colors { get; set; } = ReportColorSet.Default;
 
 	/// <summary>True for Saturdays, Sundays and holidays — shaded on the form.</summary>
@@ -61,9 +61,9 @@ public class ShiftTableRow
 	/// <summary>Times each work-shift code was worked, aligned with <see cref="ShiftTableModel.WorkCodes"/>.</summary>
 	public int[] Counts { get; set; } = [];
 
-	/// <summary>ΕΡΓΑΣΙΑ ΠΡΟΣ ΣΥΜΠΛΗΡΩΣΗ – ΗΜΕΡΗΣΙΑ: paid "Προς συμπλήρωση" hours (same as the certificate).</summary>
+	/// <summary>Paid "to complete" hours (the daily column; same as the certificate).</summary>
 	public decimal DailyToComplete { get; set; }
 
-	/// <summary>ΚΥΡΙΑΚΩΝ ΕΞΑΙΡΕΣΙΜΩΝ: paid "Αργίας" hours (same as the certificate).</summary>
+	/// <summary>Paid holiday hours (the Sunday and holiday column; same as the certificate).</summary>
 	public decimal SundayHolidayToComplete { get; set; }
 }

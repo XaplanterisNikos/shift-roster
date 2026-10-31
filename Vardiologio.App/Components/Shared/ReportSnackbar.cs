@@ -24,7 +24,6 @@ public static class ReportSnackbar
 
 		snackbar.Add($"Δημιουργήθηκε: {names}", Severity.Success, options =>
 		{
-			// Longer than the default 5 seconds: the user may want to press the button.
 			options.VisibleStateDuration = 8000;
 			if (string.IsNullOrEmpty(folder)) return;
 
@@ -32,9 +31,8 @@ public static class ReportSnackbar
 			options.ActionColor = Color.Inherit;
 			options.OnClick = _ =>
 			{
-				// The folder opens in Windows Explorer; a failure here must not break the page.
 				try { Process.Start(new ProcessStartInfo(folder) { UseShellExecute = true }); }
-				catch (Exception) { /* the files are already written and opened */ }
+				catch (Exception) { }
 				return Task.CompletedTask;
 			};
 		});

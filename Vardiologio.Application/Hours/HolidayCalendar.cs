@@ -23,16 +23,14 @@ public static class HolidayCalendar
 		if (year < MinYear || year > MaxYear)
 			throw new ArgumentOutOfRangeException(nameof(year), year, $"Supported years: {MinYear}–{MaxYear}.");
 
-		// Meeus' Julian algorithm: a, b, c are the year's position in the 4-, 7- and 19-year cycles.
 		int a = year % 4;
 		int b = year % 7;
 		int c = year % 19;
-		int d = (19 * c + 15) % 30;               // days from 21 March to the Paschal full moon
-		int e = (2 * a + 4 * b - d + 34) % 7;     // days from that full moon to the next Sunday
-		int month = (d + e + 114) / 31;           // 3 = March, 4 = April (Julian calendar)
+		int d = (19 * c + 15) % 30;
+		int e = (2 * a + 4 * b - d + 34) % 7;
+		int month = (d + e + 114) / 31;
 		int day = (d + e + 114) % 31 + 1;
 
-		// Julian date -> Gregorian date (+13 days in 1900–2099).
 		return new DateOnly(year, month, day).AddDays(13);
 	}
 
@@ -47,7 +45,6 @@ public static class HolidayCalendar
 
 		var all = new List<(DateOnly Date, string Name)>
 		{
-			// Fixed holidays.
 			(new DateOnly(year, 1, 1), "Πρωτοχρονιά"),
 			(new DateOnly(year, 1, 6), "Θεοφάνεια"),
 			(new DateOnly(year, 3, 25), "25η Μαρτίου"),
@@ -57,7 +54,6 @@ public static class HolidayCalendar
 			(new DateOnly(year, 12, 25), "Χριστούγεννα"),
 			(new DateOnly(year, 12, 26), "2η ημέρα των Χριστουγέννων"),
 
-			// Movable holidays, relative to Orthodox Easter Sunday.
 			(easter.AddDays(-48), "Καθαρά Δευτέρα"),
 			(easter.AddDays(-2), "Μεγάλη Παρασκευή"),
 			(easter, "Κυριακή του Πάσχα"),
@@ -65,7 +61,6 @@ public static class HolidayCalendar
 			(easter.AddDays(50), "Αγίου Πνεύματος"),
 		};
 
-		// Merge same-date entries (names joined) and order by date.
 		return all
 			.GroupBy(h => h.Date)
 			.OrderBy(g => g.Key)

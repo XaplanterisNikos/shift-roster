@@ -63,7 +63,6 @@ internal static class ExcelPageEstimate
 	{
 		var breaks = new HashSet<int>(breaksAfter);
 
-		// Height of the header rows that Excel prints again at the top of every next page.
 		var repeated = 0.0;
 		if (repeatFirst > 0 && repeatLast >= repeatFirst)
 			for (var r = repeatFirst; r <= repeatLast; r++) repeated += rowHeight(r);
@@ -75,8 +74,6 @@ internal static class ExcelPageEstimate
 		{
 			var height = rowHeight(r);
 
-			// A new page: after a manual break, or when the row no longer fits (a row taller than
-			// a whole page is still printed, on a page of its own).
 			var manual = breaks.Contains(r - 1);
 			if (manual || (used > 0 && used + height > capacity))
 			{

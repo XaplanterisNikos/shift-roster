@@ -19,7 +19,6 @@
     </div>
 </div>
 
-@* Month, preview and export buttons (Shared/ReportToolbar.razor). *@
 <ReportToolbar @bind-Year="year" @bind-Month="month" Busy="busy"
                OnPreview="PreviewAsync" OnExcel="ExportExcelAsync" OnPdf="ExportPdfAsync" />
 

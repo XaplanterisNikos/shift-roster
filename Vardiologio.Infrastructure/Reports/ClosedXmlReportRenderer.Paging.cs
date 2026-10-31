@@ -31,8 +31,8 @@ public partial class ClosedXmlReportRenderer
 	{
 		var setup = ws.PageSetup;
 		setup.Footer.Right.AddText(PagingTexts.ExcelFooter).SetFontName("Arial").SetFontSize(8);
-		setup.Margins.Footer = FooterMargin;    // inside the bottom margin, under the content
-		setup.ScaleHFWithDocument = false;      // same size even when the sheet is scaled to fit
+		setup.Margins.Footer = FooterMargin;
+		setup.ScaleHFWithDocument = false;
 	}
 
 	/// <summary>
@@ -57,14 +57,12 @@ public partial class ClosedXmlReportRenderer
 		var setup = ws.PageSetup;
 		if (setup.PaperSize != XLPaperSize.A4Paper || tailFirstRow <= 1) return;
 
-		// The printable area of the paper, in points.
 		var landscape = setup.PageOrientation == XLPageOrientation.Landscape;
 		var paperWidth = landscape ? ExcelPageEstimate.A4Long : ExcelPageEstimate.A4Short;
 		var paperHeight = landscape ? ExcelPageEstimate.A4Short : ExcelPageEstimate.A4Long;
 		var printableWidth = paperWidth - (setup.Margins.Left + setup.Margins.Right) * ExcelPageEstimate.PointsPerInch;
 		var printableHeight = paperHeight - (setup.Margins.Top + setup.Margins.Bottom) * ExcelPageEstimate.PointsPerInch;
 
-		// One page wide: Excel shrinks everything by the same scale, row heights included.
 		var contentWidth = 0.0;
 		for (var c = 1; c <= lastColumn; c++)
 			if (!ws.Column(c).IsHidden) contentWidth += ExcelPageEstimate.ColumnPoints(ws.Column(c).Width);
@@ -76,8 +74,6 @@ public partial class ClosedXmlReportRenderer
 			lastPrintRow, capacity,
 			setup.FirstRowToRepeatAtTop, setup.LastRowToRepeatAtTop, setup.RowBreaks);
 
-		// The last page has employees on it, or the rows that would move already start a page:
-		// nothing to do.
 		if (pages[lastPrintRow] == pages[lastTableRow]) return;
 		if (pages[tailFirstRow - 1] != pages[tailFirstRow]) return;
 

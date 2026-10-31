@@ -3,13 +3,13 @@ namespace Vardiologio.Application.Reports;
 /// <summary>The three kinds of contract the collective certificate groups employees by.</summary>
 public enum ContractKind
 {
-	/// <summary>Μόνιμοι (permanent staff).</summary>
+	/// <summary>Permanent staff.</summary>
 	Permanent = 0,
 
-	/// <summary>Ιδιωτικού δικαίου αορίστου χρόνου (ΙΔΑΧ).</summary>
+	/// <summary>Open-ended private-law contract (ΙΔΑΧ).</summary>
 	OpenEnded = 1,
 
-	/// <summary>Ιδιωτικού δικαίου ορισμένου χρόνου (ΙΔΟΧ).</summary>
+	/// <summary>Fixed-term private-law contract (ΙΔΟΧ).</summary>
 	FixedTerm = 2
 }
 
@@ -44,13 +44,11 @@ public static class ContractRules
 	}
 
 	/// <summary>
-	/// The kinds of contract printed on each of the two forms, in print order:
-	/// permanent then open-ended on the first, fixed-term alone on the second.
+	/// The three kinds in print order (permanent, open-ended, fixed-term): the order of the
+	/// groups on the collective certificate and on the Σ.Ω.
 	/// </summary>
-	public static ContractKind[] KindsOf(ContractCertificateSheet sheet) =>
-		sheet == ContractCertificateSheet.FixedTerm
-			? [ContractKind.FixedTerm]
-			: [ContractKind.Permanent, ContractKind.OpenEnded];
+	public static readonly ContractKind[] PrintOrder =
+		[ContractKind.Permanent, ContractKind.OpenEnded, ContractKind.FixedTerm];
 
 	/// <summary>Upper case without accents, dots or spaces ("Α.Χ" → "ΑΧ"); "" for null.</summary>
 	private static string Fold(string? text) =>

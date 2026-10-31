@@ -17,7 +17,6 @@
 </div>
 
 <div class="md-grid">
-    @* LEFT: the supervisors, with how many employees each one signs for. *@
     <MudPaper Elevation="0" Class="md-list">
         <div class="md-list-head">@list.Count @(list.Count == 1 ? "υπογράφων" : "υπογράφοντες")</div>
         @if (list.Count == 0)
@@ -48,7 +47,6 @@
         }
     </MudPaper>
 
-    @* RIGHT: create/edit form and the employees this supervisor signs for. *@
     @if (form is null)
     {
         <MudPaper Elevation="0" Class="empty-state md-hint">
@@ -75,7 +73,6 @@
                 </MudText>
 
                 <div class="md-fields">
-                    @* One line per printed row above the signing space. *@
                     <MudTextField T="string" Label="Ιδιότητα (μία γραμμή ανά σειρά εκτύπωσης)" @bind-Value="form.Role"
                                   For="@(() => form.Role)" Lines="3" Variant="Variant.Outlined" Margin="Margin.Dense"
                                   Placeholder="π.χ. Ο Επόπτης Λειτουργίας Σ.Μ.Α." />
@@ -88,8 +85,6 @@
                                   Placeholder="π.χ. ΔΕ Μηχανοτεχνιτών" />
                 </div>
 
-                @* Employees this supervisor signs for: tick to assign. A ticked employee leaves his
-                   previous supervisor (an employee has one). Saved together with the form. *@
                 <div class="sig-employees">
                     <div class="sig-employees-head">
                         <MudText Typo="Typo.subtitle2">Υπογράφει για (@picked.Count)</MudText>

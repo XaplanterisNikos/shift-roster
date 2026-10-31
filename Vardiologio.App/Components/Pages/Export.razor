@@ -19,13 +19,19 @@
     </div>
 </div>
 
-@* Month, preview and export buttons (Shared/ReportToolbar.razor). *@
 <ReportToolbar @bind-Year="year" @bind-Month="month" Busy="busy"
                OnPreview="PreviewPdf" OnExcel="ExportExcel" OnPdf="ExportPdf" />
 
 @if (error is not null)
 {
     <MudAlert Severity="Severity.Error" Dense="true" Class="report-alert">@error</MudAlert>
+}
+@if (withoutContract.Count > 0)
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="report-alert">
+        Τυπώνονται με τους Μόνιμους, επειδή δεν έχουν σύμβαση Μόνιμου, ΙΔΑΧ ή ΙΔΟΧ
+        (Εργαζόμενοι → Σύμβαση): @(string.Join(", ", withoutContract)).
+    </MudAlert>
 }
 
 @if (pdfDataUri is not null)
@@ -38,6 +44,9 @@
     private int month = DateTime.Today.Month;
     private bool busy;
     private string? error, pdfDataUri;
+
+    /// <summary>Employees without a recognisable contract (printed with the permanent staff); shown as a note.</summary>
+    private List<string> withoutContract = new();
 
     /// <summary>
     /// The page opens with the current month already shown. Done after the first render, so
@@ -54,7 +63,6 @@
     private async Task ExportExcel() => await SaveAndOpen(m => Excel.Render(m), "xlsx");
     private async Task ExportPdf() => await SaveAndOpen(m => Pdf.Render(m), "pdf");
 
-    // Shared helper: build the model, render to bytes, save under Reports\Monthly-Total\<month>, then open with the default app.
     private async Task SaveAndOpen(Func<ReportModel, byte[]> render, string ext)
     {
         busy = true; error = null;
@@ -62,6 +70,7 @@
         try
         {
             var model = await ReportService.BuildMonthlyRosterAsync(year, month);
+            withoutContract = model.WithoutContract;
             var bytes = render(model);
             var path = await FileStore.SaveAsync(ReportFolder.MonthlyTotal, year, month, $"Monthly_Total_{year}_{month:00}.{ext}", bytes);
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
@@ -71,7 +80,6 @@
         finally { busy = false; }
     }
 
-    // Build the PDF in memory and show it inline (no file written).
     private async Task PreviewPdf()
     {
         busy = true; error = null; pdfDataUri = null;
@@ -79,6 +87,7 @@
         try
         {
             var model = await ReportService.BuildMonthlyRosterAsync(year, month);
+            withoutContract = model.WithoutContract;
             var bytes = Pdf.Render(model);
             pdfDataUri = "data:application/pdf;base64," + Convert.ToBase64String(bytes);
         }

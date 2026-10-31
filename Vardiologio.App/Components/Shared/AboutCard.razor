@@ -3,7 +3,6 @@
    in the default browser / mail program instead of inside the app window.
    Shown in the dialog of Shared/AboutButton.razor. *@
 <div class="about-card">
-    @* Application: icon, name, version. *@
     <div class="brand-mark brand-mark-lg">
         <MudIcon Icon="@Icons.Material.Rounded.CalendarMonth" Size="Size.Large" />
     </div>
@@ -12,7 +11,6 @@
 
     <MudDivider Class="about-divider" />
 
-    @* Creator. *@
     <div class="about-label">Σχεδιασμός και ανάπτυξη</div>
     <div class="about-person">
         <MudAvatar Color="Color.Primary" Size="Size.Large">ΝΞ</MudAvatar>
@@ -22,7 +20,6 @@
         </div>
     </div>
 
-    @* One row per way to reach the creator: icon, kind, address. *@
     <div class="about-links">
         <a class="about-link" href="mailto:@AppInfo.AuthorEmail">
             <MudIcon Icon="@Icons.Material.Rounded.Email" />

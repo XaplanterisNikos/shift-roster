@@ -15,25 +15,21 @@ public partial class ClosedXmlReportRenderer
 	/// <inheritdoc/>
 	public byte[] Render(HoursReportModel m)
 	{
-		// Colours from Παράμετροι → Αναφορών → Χρώματα.
 		var hdrFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.HoursHeader]);
 		var totFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.HoursCategories]);
-		var overFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.HoursExcess]);   // excess (unpaid) hours
+		var overFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.HoursExcess]);
 
 		var categories = Enum.GetValues<HourCategory>();
 
 		using var wb = new XLWorkbook();
 		var ws = wb.AddWorksheet("Ώρες");
 
-		// Columns: Α/Α, name, speciality, then 3 per category (declared / paid / excess).
 		const int cAA = 1, cName = 2, cSpec = 3, cCat0 = 4;
 		var lastCol = cCat0 + categories.Length * 3 - 1;
 
-		// Title block.
 		Merge(ws, 1, cName, 1, lastCol, "ΔΙΕΥΘΥΝΣΗ ΣΤΑΘΜΩΝ ΜΕΤΑΦΟΡΤΩΣΗΣ — ΤΜΗΜΑ ΚΕΝΤΡΙΚΩΝ ΣΜΑ", 10, true, XLAlignmentHorizontalValues.Center, null);
 		Merge(ws, 2, cName, 2, lastCol, $"ΜΗΝΙΑΙΑ ΚΑΤΑΣΤΑΣΗ ΩΡΩΝ — ΜΗΝΟΣ {MonthsGen[m.Month - 1]} {m.Year}", 12, true, XLAlignmentHorizontalValues.Center, null);
 
-		// Table headers: row 4 = category (with its limit), row 5 = sub-columns.
 		const int rCat = 4, rSub = 5, rData0 = 6;
 		Merge(ws, rCat, cAA, rSub, cAA, "Α/Α", 8, true, XLAlignmentHorizontalValues.Center, hdrFill);
 		Merge(ws, rCat, cName, rSub, cName, "ΟΝΟΜΑΤΕΠΩΝΥΜΟ", 9, true, XLAlignmentHorizontalValues.Center, hdrFill);
@@ -48,7 +44,6 @@ public partial class ClosedXmlReportRenderer
 				Put(ws, rSub, c0 + k, HoursSubHeaders[k], 7, true, totFill);
 		}
 
-		// One row per employee; empty cells for zeros keep the sheet readable.
 		var r = rData0;
 		foreach (var row in m.Rows)
 		{
@@ -69,7 +64,6 @@ public partial class ClosedXmlReportRenderer
 			r++;
 		}
 
-		// Totals row.
 		Merge(ws, r, cAA, r, cSpec, "ΣΥΝΟΛΑ", 8, true, XLAlignmentHorizontalValues.Right, totFill);
 		for (var i = 0; i < categories.Length; i++)
 		{
@@ -80,14 +74,12 @@ public partial class ClosedXmlReportRenderer
 		}
 		var lastRow = r;
 
-		// Legend under the table.
 		Merge(ws, lastRow + 2, cAA, lastRow + 2, lastCol,
 			$"ΔΗΛ. = δηλωμένες, ΠΛΗΡ. = πληρώνονται, ΠΕΡ. = περισσεύουν (δεν πληρώνονται). " +
 			$"Όριο αργίας = {Num(m.Limits[HourCategory.Holiday])} ({m.HolidaysInMonth} αργίες τον μήνα). " +
 			$"Προς συμπλήρωση + Αργίας: κοινό όριο {Num(m.CombinedLimit)}, κόβεται πρώτα το προς συμπλήρωση.",
 			7, false, XLAlignmentHorizontalValues.Left, null);
 
-		// Borders / widths / page setup (A4 landscape, one page wide).
 		var table = ws.Range(rCat, 1, lastRow, lastCol);
 		table.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
 		table.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
@@ -96,7 +88,7 @@ public partial class ClosedXmlReportRenderer
 		ws.Column(cName).Width = 24;
 		ws.Column(cSpec).Width = 18;
 		for (var c = cCat0; c <= lastCol; c++) ws.Column(c).Width = 6.5;
-		ws.Row(rCat).Height = 30;   // category titles wrap onto two lines
+		ws.Row(rCat).Height = 30;
 
 		ws.SheetView.FreezeRows(rSub);
 		ws.SheetView.FreezeColumns(cSpec);

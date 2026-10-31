@@ -10,7 +10,6 @@ public sealed class ReportTextSet
 	/// <summary>A set without any text (model default, before the report service fills it).</summary>
 	public static readonly ReportTextSet Empty = new([]);
 
-	// Block key -> all its lines in order, empty ones included.
 	private readonly Dictionary<string, (int Line, string Text)[]> _blocks;
 
 	/// <summary>Builds the set from the stored lines of one form.</summary>

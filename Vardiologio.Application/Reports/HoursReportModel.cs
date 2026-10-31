@@ -28,7 +28,7 @@ public class HoursReportModel
 	/// <summary>One row per employee, ordered by name.</summary>
 	public List<HoursReportRow> Rows { get; set; } = new();
 
-	/// <summary>The report's colours, as set in Παράμετροι → Αναφορών → Χρώματα (defaults until a service fills it).</summary>
+	/// <summary>The report's colours, as set on the report parameters page (defaults until a service fills them).</summary>
 	public ReportColorSet Colors { get; set; } = ReportColorSet.Default;
 
 	/// <summary>Column sum over all employees of one value of one category (for the totals row).</summary>
@@ -39,7 +39,7 @@ public class HoursReportModel
 /// <summary>One employee's row in the hours report.</summary>
 public class HoursReportRow
 {
-	/// <summary>Α/Α (sequential row number).</summary>
+	/// <summary>Sequential row number.</summary>
 	public int Index { get; set; }
 
 	public string LastName { get; set; } = "";

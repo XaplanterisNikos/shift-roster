@@ -15,15 +15,13 @@ public class ContractCertificateService : IContractCertificateService
 	public ContractCertificateService(IDbContextFactory<AppDbContext> factory) => _factory = factory;
 
 	/// <inheritdoc/>
-	public async Task<ContractCertificateModel> BuildAsync(int year, int month, ContractCertificateSheet sheet)
+	public async Task<ContractCertificateModel> BuildAsync(int year, int month)
 	{
 		var first = new DateOnly(year, month, 1);
 		var last = new DateOnly(year, month, DateTime.DaysInMonth(year, month));
 
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Active employees only (global filter), in the order of the other reports, each with
-		// the contract and the work position the grouping rules need.
 		var all = await db.Employees
 			.OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
 			.Select(e => new
@@ -38,21 +36,18 @@ public class ContractCertificateService : IContractCertificateService
 			})
 			.ToListAsync();
 
-		// The head of the directorate is not on these forms (same rule as the attendance report).
 		var anyoneHasPosition = all.Any(e => PresenceRules.IsDirectorPosition(e.Position));
 		var staff = all
 			.Where(e => !PresenceRules.IsDirector(e.LastName, e.Position, anyoneHasPosition))
 			.Select(e => new { Employee = e, Kind = ContractRules.Resolve(e.ContractCode, e.ContractName) })
 			.ToList();
 
-		// The month's entries, grouped per employee in memory (one query for everyone).
 		var entries = await db.ShiftDays
 			.AsNoTracking()
 			.Where(s => s.Date >= first && s.Date <= last)
 			.ToListAsync();
 		var byEmployee = entries.ToLookup(s => s.EmployeeId);
 
-		// Rule data shared by every employee — same inputs as the hours report.
 		var hours = await db.ShiftCodeHours.AsNoTracking().ToListAsync();
 		var holidays = (await db.Holidays
 			.Where(h => h.Date >= first && h.Date <= last)
@@ -66,24 +61,23 @@ public class ContractCertificateService : IContractCertificateService
 		{
 			Year = year,
 			Month = month,
-			Sheet = sheet,
 			Texts = await ReportTextService.LoadSetAsync(db, ReportForm.ContractCertificate),
 			Colors = await ReportColorService.LoadSetAsync(db),
-			// Employees whose contract is missing or not recognised appear on neither form.
 			WithoutContract = staff
 				.Where(x => x.Kind is null)
 				.Select(x => $"{x.Employee.LastName.Trim()} {x.Employee.FirstName.Trim()}".Trim())
 				.ToList()
 		};
 
-		// One group per kind of contract of this form; the Α/Α runs on from group to group.
 		var index = 1;
-		foreach (var kind in ContractRules.KindsOf(sheet))
+		foreach (var kind in ContractRules.PrintOrder)
 		{
+			var members = staff.Where(x => x.Kind == kind).Select(x => x.Employee).ToList();
+			if (members.Count == 0) continue;
+
 			var group = new ContractCertificateGroup { Kind = kind };
-			foreach (var e in staff.Where(x => x.Kind == kind).Select(x => x.Employee))
+			foreach (var e in members)
 			{
-				// Same calculation as the hours report, so the row matches its "Πληρ." column.
 				var paid = CertificateHours.FromPaid(
 					MonthlyHoursCalculator.Calculate(year, month, byEmployee[e.Id], hours, holidays, limits));
 

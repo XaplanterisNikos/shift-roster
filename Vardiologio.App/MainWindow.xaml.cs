@@ -20,8 +20,6 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // Title bar: application name and the running version, e.g. "Shift-Roster v0.7.0"
-        // (the XAML title is only what the designer shows).
         Title = AppInfo.WindowTitle;
     }
 

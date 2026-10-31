@@ -7,25 +7,20 @@ namespace Vardiologio.Application.ReportColors;
 /// </summary>
 public static class ReportColorCatalog
 {
-	// Συνολική μηνιαία Σ.Ω.
 	public const string MonthlyTotalHeader = "MonthlyTotal.Header";
 	public const string MonthlyTotalSaturday = "MonthlyTotal.Saturday";
 	public const string MonthlyTotalSunday = "MonthlyTotal.Sunday";
 	public const string MonthlyTotalTotals = "MonthlyTotal.Totals";
 	public const string MonthlyTotalFixedTermBand = "MonthlyTotal.FixedTermBand";
 
-	// Ωρών μηνιαία
 	public const string HoursHeader = "Hours.Header";
 	public const string HoursCategories = "Hours.Categories";
 	public const string HoursExcess = "Hours.Excess";
 
-	// Πίνακας βαρδιών εργασίας
 	public const string ShiftTableWeekend = "ShiftTable.Weekend";
 
-	// Ατομική μηνιαία
 	public const string IndividualSunday = "Individual.Sunday";
 
-	// ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι (συγκεντρωτική πιστοποίηση ανά σύμβαση)
 	public const string ContractCertificateBand = "ContractCertificate.Band";
 
 	/// <summary>One colour of the catalogue.</summary>
@@ -47,8 +42,7 @@ public static class ReportColorCatalog
 		new(MonthlyTotalSaturday, "Συνολική μηνιαία Σ.Ω.", "Στήλες Σαββάτου", "#FFF2CC"),
 		new(MonthlyTotalSunday, "Συνολική μηνιαία Σ.Ω.", "Στήλες Κυριακής", "#FCE4D6"),
 		new(MonthlyTotalTotals, "Συνολική μηνιαία Σ.Ω.", "Επικεφαλίδες «Εργασία προς συμπλήρωση»", "#E2EFDA"),
-		// Starts as the header colour (the separator looks like a header row), editable on its own.
-		new(MonthlyTotalFixedTermBand, "Συνολική μηνιαία Σ.Ω.", "Γραμμή-χώρισμα ορισμένου χρόνου", "#D9E1F2", MonthlyTotalHeader),
+		new(MonthlyTotalFixedTermBand, "Συνολική μηνιαία Σ.Ω.", "Γραμμές-χωρίσματα αορίστου / ορισμένου χρόνου", "#D9E1F2", MonthlyTotalHeader),
 
 		new(HoursHeader, "Ωρών μηνιαία", "Επικεφαλίδες Α/Α, ονοματεπώνυμου και ειδικότητας", "#D9E1F2"),
 		new(HoursCategories, "Ωρών μηνιαία", "Επικεφαλίδες κατηγοριών και γραμμή συνόλων", "#E2EFDA"),

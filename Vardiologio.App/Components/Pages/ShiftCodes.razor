@@ -36,7 +36,6 @@
 </div>
 
 <div class="md-grid md-wide">
-    @* LEFT: shift-code list. The list marks the row of selectedId. *@
     <MudPaper Elevation="0" Class="md-list">
         <div class="md-list-head">@list.Count @(list.Count == 1 ? "κωδικός" : "κωδικοί")</div>
         @if (list.Count == 0)
@@ -51,7 +50,6 @@
                 {
                     <MudListItem T="int" Value="@c.Id" Class="@(c.IsActive ? null : "md-inactive")">
                         <span class="md-item">
-                            @* The code in its own small box, so the codes line up in a column. *@
                             <span class="md-code">@c.Code</span>
                             <span class="md-item-text">@c.Description</span>
                             @if (!c.IsActive)
@@ -65,7 +63,6 @@
         }
     </MudPaper>
 
-    @* RIGHT: create/edit form *@
     @if (form is null)
     {
         <MudPaper Elevation="0" Class="empty-state md-hint">
@@ -96,7 +93,6 @@
                         }
                         else
                         {
-                            @* Code is immutable after creation: shown read-only. *@
                             <MudTextField T="string" Label="Κωδικός" Value="@form.Code" Disabled="true"
                                           Variant="Variant.Outlined" Margin="Margin.Dense" />
                         }
@@ -105,8 +101,6 @@
                                       For="@(() => form.Description)" Variant="Variant.Outlined" Margin="Margin.Dense" />
                     </div>
 
-                    @* Plain text boxes on purpose (see the note at the top): what is typed is
-                       checked and tidied up ("7:30" -> "07:30") when the box is left. *@
                     <div class="md-row">
                         <MudTextField T="string" Label="Ώρα έναρξης (ΩΩ:ΛΛ)" Placeholder="π.χ. 22:00" MaxLength="5"
                                       @bind-Value="startText" @bind-Value:after="OnTimesChanged"
@@ -133,7 +127,6 @@
                 }
                 else if (form.StartTime is TimeOnly st && form.EndTime is TimeOnly en)
                 {
-                    @* Live summary so the user sees how the hours were interpreted (e.g. next-day end). *@
                     <MudAlert Severity="Severity.Info" Dense="true" Class="md-alert">
                         Διάρκεια @ShiftTimeRules.FormatHours(ShiftTimeRules.Duration(st, en)),
                         νυχτερινές (22:00–06:00) @ShiftTimeRules.FormatHours(ShiftTimeRules.NightOverlap(st, en))
@@ -148,7 +141,6 @@
 
                 @if (form.StartTime is TimeOnly gs && form.EndTime is TimeOnly ge && timeError is null)
                 {
-                    @* Allowed days: one chip per kind of day, pressed to switch it on / off. *@
                     <MudText Typo="Typo.subtitle2" Class="md-section">Επιτρεπτές μέρες</MudText>
                     <div class="md-days">
                         @foreach (var day in HoursLabels.DayTypes)
@@ -161,7 +153,6 @@
                         }
                     </div>
 
-                    @* Hour split: one row per allowed day, one cell per pay category. Empty cell = 0 hours. *@
                     <MudText Typo="Typo.subtitle2" Class="md-section">Κατανομή ωρών</MudText>
                     @if (form.AllowedDays == DayType.None)
                     {
@@ -189,7 +180,6 @@
                                             @foreach (var cat in Categories)
                                             {
                                                 <td>
-                                                    @* HoursConverter: the box takes both "6,5" and "6.5" (Shared/HoursConverter.cs). *@
                                                     <MudNumericField T="decimal?" Value="CellValue(day, cat)"
                                                                      ValueChanged="hours => SetCell(day, cat, hours)"
                                                                      Min="0m" Step="0.5m" HideSpinButtons="true" Converter="HoursConverter.Instance"
@@ -251,26 +241,21 @@
     private ShiftCodeDetail? form;
     private string? duplicateCodeMessage;
 
-    // Snapshot of the "critical" fields as loaded, to detect whether they changed
-    // before deciding if the ShiftDay-history warning applies.
     private TimeOnly? originalStart;
     private TimeOnly? originalEnd;
     private ShiftSegment? originalSegment;
     private string originalSplit = "";
 
-    // Hour split being edited: (kind of day, category) -> hours. Missing key = 0 / empty cell.
     private Dictionary<(DayType Day, HourCategory Category), decimal> cells = new();
     private string? splitError;
 
     /// <summary>Grid columns, in HourCategory order.</summary>
     private static readonly HourCategory[] Categories = Enum.GetValues<HourCategory>();
 
-    // 24h text of the time inputs; parsed into form.StartTime/EndTime by OnTimesChanged.
     private string startText = "";
     private string endText = "";
     private string? timeError;
 
-    // True once the user picks Day/Night by hand: from then on time edits don't overwrite it.
     private bool segmentManual;
 
     protected override async Task OnInitializedAsync()
@@ -287,7 +272,7 @@
     /// <summary>Loads one shift code into the edit form and snapshots its critical fields.</summary>
     private async Task SelectAsync(int id)
     {
-        if (id == 0) return;   // the list reports "nothing selected" as 0
+        if (id == 0) return;
         duplicateCodeMessage = null;
         selectedId = id;
         form = await ShiftCodeService.GetAsync(id);
@@ -350,7 +335,7 @@
 
         form.StartTime = start;
         form.EndTime = end;
-        startText = ShiftTimeRules.Format(start);   // normalise "7:30" -> "07:30"
+        startText = ShiftTimeRules.Format(start);
         endText = ShiftTimeRules.Format(end);
 
         timeError = ShiftTimeRules.Validate(start, end);
@@ -444,7 +429,6 @@
 
         if (form.StartTime is null || form.EndTime is null)
         {
-            // Status code: allowed days and split do not apply.
             form.AllowedDays = DayType.None;
             cells.Clear();
         }
@@ -464,17 +448,13 @@
     {
         if (form is null) return;
 
-        // Times are validated here (not by attributes) because the rule spans two fields
-        // and allows next-day ends. Re-run defensively.
         ParseAndValidateTimes();
         if (timeError is not null) return;
 
-        // Allowed days + hour split (also clears them for a status code).
         if (!ApplyAndValidateSplit()) return;
 
         if (form.Id == 0)
         {
-            // No exceptions: check up front and show an inline message instead.
             if (await ShiftCodeService.CodeExistsAsync(form.Code.Trim()))
             {
                 duplicateCodeMessage = $"Ο κωδικός \"{form.Code}\" χρησιμοποιείται ήδη (ενεργός ή ανενεργός).";
@@ -493,8 +473,6 @@
                 form.Segment != originalSegment ||
                 SplitSignature() != originalSplit;
 
-            // A code already used in the roster: the change reaches back into existing entries,
-            // so it is saved only after the user confirms it.
             if (criticalFieldsChanged && await ShiftCodeService.HasShiftDayReferencesAsync(form.Id))
             {
                 var confirmed = await Dialogs.ShowMessageBoxAsync(
@@ -508,13 +486,11 @@
 
             await ShiftCodeService.UpdateAsync(form);
 
-            // Re-snapshot so a further edit in the same session re-arms the warning correctly.
             originalStart = form.StartTime;
             originalEnd = form.EndTime;
             originalSegment = form.Segment;
         }
 
-        // Re-snapshot the split too (after create as well, so the next edit compares correctly).
         originalSplit = SplitSignature();
 
         Snackbar.Add("Αποθηκεύτηκε.", Severity.Success);
@@ -546,7 +522,6 @@
         Snackbar.Add(isActive ? "Επαναφέρθηκε." : "Διαγράφηκε.", Severity.Success);
         await ReloadListAsync();
 
-        // If it became inactive and we're not showing inactive, clear the form.
         if (!isActive && !includeInactive) { form = null; selectedId = 0; }
     }
 

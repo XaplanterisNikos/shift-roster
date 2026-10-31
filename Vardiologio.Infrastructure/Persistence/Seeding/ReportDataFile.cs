@@ -29,8 +29,8 @@ public sealed record ReportDataSeed(string? DirectorLastName, ReportTextBlockSee
 /// Prefers the real file "report-data.json"; when it is not present (e.g. a fresh clone from
 /// GitHub, where the real data is git-ignored) it falls back to the committed
 /// "report-data.demo.json", which has the same blocks with empty lines.
-/// The texts only fill the ReportTexts table the first time; after that the user edits them in
-/// Παράμετροι → Αναφορών.
+/// The texts only fill the ReportTexts table the first time; after that the user edits them on
+/// the report parameters page.
 /// </summary>
 internal static class ReportDataFile
 {
@@ -43,7 +43,6 @@ internal static class ReportDataFile
 	/// <summary>Reads the real file, or the demo file when the real one is absent.</summary>
 	public static ReportDataSeed Load()
 	{
-		// JSON files are copied next to the executable (see the copy rules in Vardiologio.App.csproj).
 		var dir = AppContext.BaseDirectory;
 		var realPath = Path.Combine(dir, RealFileName);
 		var demoPath = Path.Combine(dir, DemoFileName);
@@ -53,7 +52,6 @@ internal static class ReportDataFile
 			throw new FileNotFoundException(
 				$"No report data file found ({RealFileName} or {DemoFileName}) next to the app.");
 
-		// Case-insensitive so camelCase JSON maps to the PascalCase records; enums are written by name.
 		var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 		options.Converters.Add(new JsonStringEnumConverter());
 

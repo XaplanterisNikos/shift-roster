@@ -21,7 +21,6 @@
     </div>
 </div>
 
-@* Month, preview and export buttons (Shared/ReportToolbar.razor). *@
 <ReportToolbar @bind-Year="year" @bind-Month="month" Busy="busy"
                OnPreview="PreviewAsync" OnExcel="ExportExcelAsync" OnPdf="ExportPdfAsync" />
 
@@ -47,7 +46,6 @@
 
 @if (previews is not null)
 {
-    @* One tab per report; the PDF under the tabs is the one of the open tab. *@
     <MudTabs Elevation="0" SliderColor="Color.Primary" Class="report-tabs report-sheets"
              ActivePanelIndex="Array.IndexOf(Sheets, activeSheet)"
              ActivePanelIndexChanged="index => activeSheet = Sheets[index]">
@@ -84,7 +82,6 @@
         foreach (var sheet in Sheets)
             models.Add(await AttendanceReportService.BuildAsync(year, month, sheet));
 
-        // Warn when the director was not found at all (the directorate report is then empty).
         noDirector = models.Single(m => m.Sheet == AttendanceSheet.Directorate).Rows.Count == 0;
         withoutContract = models.Single(m => m.Sheet == AttendanceSheet.Staff).WithoutContract;
         return models;

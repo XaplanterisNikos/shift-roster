@@ -17,8 +17,6 @@
    showing the old data. *@
 <MudNavLink OnClick="Open">Εισαγωγή / Εξαγωγή βάσης</MudNavLink>
 
-@* Inline dialog: MudBlazor renders it in MudDialogProvider (Routes.razor), above the whole shell.
-   It closes only with its own button, so it cannot be dismissed while a copy is running. *@
 <MudDialog Visible="open" Options="DialogOptions">
     <TitleContent>
         <MudText Typo="Typo.h6">Εισαγωγή / Εξαγωγή βάσης</MudText>
@@ -27,7 +25,6 @@
         <div class="admin-fields">
             @if (pendingFile is not null)
             {
-                @* Import, step 2: the file passed the check; ask before replacing anything. *@
                 <MudAlert Severity="Severity.Warning" Dense="true">
                     Όλα τα δεδομένα της εφαρμογής θα αντικατασταθούν με τα δεδομένα του αρχείου
                     <b>@System.IO.Path.GetFileName(pendingFile)</b>. Οι χρήστες αυτού του υπολογιστή δεν αλλάζουν.
@@ -51,7 +48,6 @@
                 </div>
             }
 
-            @* Progress: moving while a copy runs, full when the import has finished. *@
             @if (busy)
             {
                 <MudProgressLinear Color="Color.Primary" Indeterminate="true" Rounded="true" />
@@ -97,11 +93,16 @@
     /// <summary>Raised with true when the dialog opens and false when it closes (MainLayout colours the app icon).</summary>
     [Parameter] public EventCallback<bool> OpenChanged { get; set; }
 
-    private bool open;                  // dialog visible
-    private bool busy;                  // a copy is running
-    private bool finished;              // import done; the app is about to return to the login screen
-    private string? pendingFile;        // chosen file that passed the check, waiting for confirmation
-    private string? message;            // result of the last action
+    /// <summary>Dialog visible.</summary>
+    private bool open;
+    /// <summary>A copy is running.</summary>
+    private bool busy;
+    /// <summary>Import done; the app is about to return to the login screen.</summary>
+    private bool finished;
+    /// <summary>Chosen file that passed the check, waiting for confirmation.</summary>
+    private string? pendingFile;
+    /// <summary>Result of the last action.</summary>
+    private string? message;
     private Severity messageSeverity;
 
     /// <summary>Buttons are off while a copy runs and after a finished import.</summary>
@@ -145,7 +146,6 @@
     {
         message = null;
 
-        // Standard Windows dialog; the handler runs on the UI thread, which the dialog needs.
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Title = "Επιλογή αντιγράφου βάσης",
@@ -178,7 +178,6 @@
         });
         if (!imported) return;
 
-        // Full bar and a moment to read it, then back to the login screen.
         finished = true;
         Show(Severity.Success, "Η εισαγωγή ολοκληρώθηκε. Επιστροφή στην οθόνη σύνδεσης…");
         StateHasChanged();

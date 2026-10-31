@@ -39,7 +39,7 @@ public static class AppFolders
 	/// </summary>
 	public static string ReportMonth(ReportFolder folder, int year, int month)
 	{
-		var monthName = CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(month);   // "August"
+		var monthName = CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(month);
 		return Ensure(Path.Combine(Reports, FolderName(folder), $"{year:0000}-{month:00} {monthName}"));
 	}
 

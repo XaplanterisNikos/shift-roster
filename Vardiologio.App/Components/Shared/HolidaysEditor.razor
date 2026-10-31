@@ -25,7 +25,6 @@
 </div>
 
 <div class="md-grid">
-    @* LEFT: holidays of the year. The list marks the row of selectedId. *@
     <MudPaper Elevation="0" Class="md-list">
         <div class="md-list-head">@list.Count @(list.Count == 1 ? "αργία" : "αργίες") το @year</div>
         @if (list.Count == 0)
@@ -49,7 +48,6 @@
         }
     </MudPaper>
 
-    @* RIGHT: create/edit form *@
     @if (form is null)
     {
         <MudPaper Elevation="0" Class="empty-state md-hint">
@@ -68,7 +66,6 @@
                 </div>
 
                 <div class="md-fields">
-                    @* The picker works with DateTime; the form keeps a DateOnly (see OnDateChanged). *@
                     <MudDatePicker Label="Ημερομηνία" Date="form.Date.ToDateTime(TimeOnly.MinValue)" DateChanged="OnDateChanged"
                                    DateFormat="dd/MM/yyyy" Culture="El" Editable="true" AutoClose="true"
                                    Variant="Variant.Outlined" Margin="Margin.Dense" />
@@ -181,7 +178,6 @@
             await HolidayService.UpdateAsync(form);
         }
 
-        // A date moved to another year leaves this year's list; show that year instead.
         if (form.Date.Year != year && Years.Contains(form.Date.Year)) year = form.Date.Year;
 
         Snackbar.Add("Αποθηκεύτηκε.", Severity.Success);

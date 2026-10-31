@@ -22,7 +22,7 @@ public class DocumentsArchive : IDocumentsArchive
 	{
 		await Task.Run(() =>
 		{
-			File.Delete(targetPath);   // no error when it does not exist; the save dialog already asked
+			File.Delete(targetPath);
 			ZipFile.CreateFromDirectory(AppFolders.Root, targetPath, CompressionLevel.Optimal, includeBaseDirectory: true);
 		});
 

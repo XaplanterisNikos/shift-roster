@@ -11,7 +11,6 @@ public class HolidayItem
 	/// <summary>The holiday date (unique).</summary>
 	public DateOnly Date { get; set; }
 
-	// Mirrors IsRequired().HasMaxLength(100) in AppDbContext — SQLite does not enforce the length.
 	[Required(ErrorMessage = "Το όνομα είναι υποχρεωτικό.")]
 	[StringLength(100, ErrorMessage = "Το όνομα μπορεί να έχει έως 100 χαρακτήρες.")]
 	public string Name { get; set; } = "";

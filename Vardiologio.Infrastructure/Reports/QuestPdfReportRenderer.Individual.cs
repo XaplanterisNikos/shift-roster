@@ -36,7 +36,6 @@ public partial class QuestPdfReportRenderer
 					col.Item().PaddingTop(10).Element(c => IndivSignatures(c, m));
 				});
 
-				// Outside the scaled content, so the page number keeps its size.
 				page.Footer().PaddingTop(4).Element(c => PageNumbers(c));
 			});
 		});
@@ -60,7 +59,6 @@ public partial class QuestPdfReportRenderer
 		var label = IndividualSheetTexts.DateLabel(m.Texts);
 		row.ConstantItem(160).Column(right =>
 		{
-			// Emblem + gap, then empty lines down to the directorate line of the letterhead.
 			right.Item().Height(41);
 			for (var i = 0; i < IndividualSheetTexts.DateRow; i++)
 				right.Item().Text(" ").FontSize(7);
@@ -84,12 +82,10 @@ public partial class QuestPdfReportRenderer
 			foreach (var width in IndividualSheetTexts.Widths) cols.RelativeColumn((float)width);
 		});
 
-		// Row 1: the bands over the schedule columns.
 		foreach (var (text, from, to) in IndividualSheetTexts.ScheduleBands)
 			t.Cell().Row(1).Column((uint)from).ColumnSpan((uint)(to - from + 1))
 				.Element(IndivH).Text(text).Bold().FontSize(6.5f);
 
-		// Rows 2–3: headers (a header without sub-columns is two rows high).
 		uint col = 1;
 		foreach (var header in IndividualSheetTexts.Headers)
 		{
@@ -107,13 +103,12 @@ public partial class QuestPdfReportRenderer
 			col += (uint)header.Span;
 		}
 
-		// One row per day.
-		var sundayBg = m.Colors[ReportColorCatalog.IndividualSunday];   // Παράμετροι → Αναφορών → Χρώματα
+		var sundayBg = m.Colors[ReportColorCatalog.IndividualSunday];
 		uint r = 4;
 		foreach (var day in m.Days)
 		{
 			var cells = IndividualSheetTexts.Cells(m, day);
-			var shaded = day.IsSunday;   // copied before the lambdas
+			var shaded = day.IsSunday;
 			for (var i = 0; i < cells.Length; i++)
 			{
 				var isName = i == IndividualSheetTexts.NameColumn;
@@ -123,8 +118,6 @@ public partial class QuestPdfReportRenderer
 			r++;
 		}
 
-		// The overtime rows: caption three rows high, single columns two rows high + value,
-		// groups with their sub-headers and values.
 		var s1 = r;
 		foreach (var group in IndividualSheetTexts.Summary(m))
 		{
@@ -158,25 +151,24 @@ public partial class QuestPdfReportRenderer
 		var signatures = IndividualSheetTexts.Signatures(m);
 		var roleLines = Math.Max(1, signatures.Max(s => s.Role.Length));
 
-		row.RelativeItem(1);   // margin before the left block
+		row.RelativeItem(1);
 		for (var k = 0; k < signatures.Length; k++)
 		{
-			var signature = signatures[k];   // copied before the lambda
-			if (k > 0) row.RelativeItem(4);   // gap between the blocks
+			var signature = signatures[k];
+			if (k > 0) row.RelativeItem(4);
 			row.RelativeItem(4).Column(block =>
 			{
 				for (var i = 0; i < roleLines; i++)
 					block.Item().AlignCenter().Text(i < signature.Role.Length ? signature.Role[i] : " ").Bold().FontSize(9);
-				block.Item().Height(45);   // space to sign
+				block.Item().Height(45);
 				block.Item().AlignCenter().Text(signature.Name.Length > 0 ? signature.Name : " ").Bold().FontSize(9);
 				block.Item().AlignCenter().Text(signature.Title.Length > 0 ? signature.Title : " ").FontSize(9);
 			});
 		}
-		row.RelativeItem(2);   // margin after the right block
+		row.RelativeItem(2);
 	});
 
-	// Individual-sheet cell styles.
-	private static IContainer IndivH(IContainer c) => c.Border(0.75f).Padding(2).AlignCenter().AlignMiddle();   // header / summary cell
+	private static IContainer IndivH(IContainer c) => c.Border(0.75f).Padding(2).AlignCenter().AlignMiddle();
 
 	/// <summary>A day cell: centred, except the name column which is left-aligned.</summary>
 	private static IContainer IndivD(IContainer c, bool leftAligned)

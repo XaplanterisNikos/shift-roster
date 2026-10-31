@@ -18,7 +18,6 @@
         <MudText Typo="Typo.h4">Εισαγωγή προγραμμάτων βάρδιας</MudText>
         @if (entry is not null)
         {
-            @* What is loaded right now (the pickers may already show something else). *@
             <MudText Typo="Typo.body2" Class="page-sub">@Months[entry.Month - 1] @entry.Year · @EmployeeName(entry.EmployeeId)</MudText>
         }
     </div>
@@ -31,7 +30,6 @@
                 <MudSelectItem T="int" Value="@value">@value</MudSelectItem>
             }
         </MudSelect>
-        @* ToStringFunc: the closed box shows the name, not the number it is bound to. *@
         <MudSelect T="int" Label="Μήνας" @bind-Value="month" Variant="Variant.Outlined" Margin="Margin.Dense"
                    Class="filter-month" ToStringFunc="MonthName">
             @for (int m = 1; m <= 12; m++)
@@ -40,7 +38,6 @@
                 <MudSelectItem T="int" Value="@value">@Months[value - 1]</MudSelectItem>
             }
         </MudSelect>
-        @* Search box: type part of the surname or first name (Shared/EmployeePicker.razor). *@
         <EmployeePicker Employees="employees" @bind-Value="employeeId" Class="filter-employee" />
         <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Class="filter-load"
                    Disabled="@(employeeId == 0)" OnClick="LoadAsync">Φόρτωση μήνα</MudButton>
@@ -58,8 +55,6 @@ else
 {
     @if (check is not null)
     {
-        @* Month's hours per pay category (unsaved values included): one tile each, with the
-           declared hours against the limit. A category over its limit turns red. *@
         <div class="hour-tiles">
             @foreach (var h in check.Hours)
             {
@@ -80,10 +75,6 @@ else
         </div>
     }
 
-    @* Left: the two halves of the month as tabs (the 1st opens with every load); a day is
-       picked by clicking its row. Right: every code in one box; clicking a code puts it on the
-       picked day and moves on to the next day (from the 15th to the 2nd tab). Every change
-       re-runs the month check (warnings + hours), as before. Styles: "Shift entry" in app.css. *@
     <div class="entry-layout">
         <MudTabs Elevation="0" SliderColor="Color.Primary" Class="report-tabs entry-tabs" TabPanelsClass="entry-tab-panel"
                  ActivePanelIndex="tab" ActivePanelIndexChanged="OnTabChanged">
@@ -106,7 +97,6 @@ else
                                     }
                                 </div>
                                 <div class="day-pick">
-                                    @* The chosen code, read-only here: it is changed from the box of codes. *@
                                     @if (Chosen(d) is { } c)
                                     {
                                         <div class="day-code">
@@ -123,7 +113,6 @@ else
                                         <div class="day-warn">@w</div>
                                     }
                                 </div>
-                                @* Kind of the chosen code (empty while the day has no code; the cell keeps the columns aligned). *@
                                 <div class="day-tag @TagClass(d)">@TagText(d)</div>
                             </div>
                         }
@@ -132,8 +121,6 @@ else
             }
         </MudTabs>
 
-        @* Every code in one grid. A code that would give a warning on the picked day gets a
-           coloured frame; it can still be picked (warnings never block). *@
         <MudPaper Elevation="0" Class="code-panel">
             <div class="code-panel-head">
                 <div>
@@ -145,7 +132,6 @@ else
                         }
                     </div>
                 </div>
-                @* Trash: empties the picked day (asked first). *@
                 <MudButton Variant="Variant.Outlined" Color="Color.Error" DropShadow="false"
                            StartIcon="@Icons.Material.Rounded.Delete" Disabled="@(selected?.ShiftCodeId is null)"
                            OnClick="ClearDayAsync">Κενό</MudButton>
@@ -173,7 +159,6 @@ else
         </MudPaper>
     </div>
 
-    @* Stays at the bottom of the window while the days scroll. *@
     <MudPaper Elevation="0" Class="save-bar">
         <div class="save-info">
             @if (WarningSummary is string summary)
@@ -211,20 +196,17 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        // Load dropdown data once when the page opens (active codes; refined per month on load).
         employees = await ShiftService.GetEmployeesAsync();
         shiftCodes = await ShiftService.GetShiftCodesAsync();
     }
 
     private async Task LoadAsync()
     {
-        entry = await ShiftService.LoadMonthAsync(employeeId, year, month);// build the month grid
+        entry = await ShiftService.LoadMonthAsync(employeeId, year, month);
 
-        // Every load starts on the 1st tab with its first day picked.
         tab = 0;
         selected = entry.Days.FirstOrDefault();
 
-        // Active codes + any retired code already used this month, so those days don't show "—".
         var usedIds = entry.Days.Where(d => d.ShiftCodeId.HasValue).Select(d => d.ShiftCodeId!.Value).Distinct().ToList();
         shiftCodes = await ShiftService.GetShiftCodesAsync(usedIds);
 
@@ -241,8 +223,7 @@ else
     private async Task SaveAsync()
     {
         if (entry is null) return;
-        await ShiftService.SaveMonthAsync(entry); // per-day upsert
-        // Brief message at the corner of the window; it goes away by itself.
+        await ShiftService.SaveMonthAsync(entry);
         if (check?.HasWarnings == true) Snackbar.Add("Αποθηκεύτηκε (με προειδοποιήσεις).", Severity.Warning);
         else Snackbar.Add("Αποθηκεύτηκε.", Severity.Success);
     }
@@ -386,7 +367,7 @@ else
     private static double Percent(CategoryHours h) =>
         h.Limit <= 0 ? 0 : (double)Math.Min(100m, h.Declared / h.Limit * 100m);
 
-    /// <summary>Paid Προς συμπλήρωση + Αργίας (compared with the combined limit).</summary>
+    /// <summary>Paid hours of the "to complete" and holiday categories together, compared with their combined limit.</summary>
     private decimal CombinedPaid => check?.Hours
         .Where(h => h.Category is HourCategory.ToComplete or HourCategory.Holiday)
         .Sum(h => h.Paid) ?? 0;
@@ -403,7 +384,6 @@ else
     private static readonly string[] Months =
         { "Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος",
           "Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος" };
-    // Greek week order: .NET has Sunday=0, so (+6)%7 shifts Monday to index 0.
     private static readonly string[] Wd =
         { "Δευτέρα","Τρίτη","Τετάρτη","Πέμπτη","Παρασκευή","Σάββατο","Κυριακή" };
 }

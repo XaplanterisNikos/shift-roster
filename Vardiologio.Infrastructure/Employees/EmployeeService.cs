@@ -16,7 +16,6 @@ public class EmployeeService : IEmployeeService
 	public async Task<IReadOnlyList<LookupOption>> GetSpecialitiesAsync()
 	{
 		await using var db = await _factory.CreateDbContextAsync();
-		// Inactive ones included (with the flag): the page decides what to show.
 		return await db.Specialities
 			.OrderBy(s => s.Name)
 			.Select(s => new LookupOption(s.Id, s.Name, s.IsActive))
@@ -28,7 +27,6 @@ public class EmployeeService : IEmployeeService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Base query. When inactive should be shown, bypass the global "IsActive" filter.
 		var query = db.Employees.AsQueryable();
 		if (includeInactive) query = query.IgnoreQueryFilters();
 
@@ -44,7 +42,6 @@ public class EmployeeService : IEmployeeService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// IgnoreQueryFilters so an inactive employee can still be opened (e.g. to restore).
 		return await db.Employees
 			.IgnoreQueryFilters()
 			.Where(e => e.Id == id)
@@ -68,8 +65,6 @@ public class EmployeeService : IEmployeeService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// All rows WITH their IsActive flag (the lookups have no global filter). The form shows
-		// active ones plus the employee's current value, so a retired value never blanks a dropdown.
 		var specs = await db.Specialities.OrderBy(s => s.Name)
 			.Select(s => new LookupOption(s.Id, s.Name, s.IsActive)).ToListAsync();
 		var types = await db.EmploymentTypes.OrderBy(t => t.Name)
@@ -77,7 +72,6 @@ public class EmployeeService : IEmployeeService
 		var positions = await db.WorkPositions.OrderBy(p => p.Name)
 			.Select(p => new LookupOption(p.Id, p.Name, p.IsActive)).ToListAsync();
 
-		// Supervisors: "Name — first line of the role", so two people with the same name differ.
 		var signatories = (await db.Signatories.AsNoTracking().ToListAsync())
 			.Select(s => new LookupOption(s.Id, SignatoryItem.Label(s.FullName, s.Role), s.IsActive))
 			.OrderBy(o => o.Name)
@@ -103,7 +97,7 @@ public class EmployeeService : IEmployeeService
 			WorkPositionId = d.WorkPositionId,
 			SignatoryId = d.SignatoryId,
 			PlacementId = d.PlacementId,
-			IsActive = true                     // new employees start active
+			IsActive = true
 		};
 		db.Employees.Add(entity);
 		await db.SaveChangesAsync();
@@ -115,7 +109,6 @@ public class EmployeeService : IEmployeeService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// IgnoreQueryFilters so we can also update an inactive employee.
 		var entity = await db.Employees.IgnoreQueryFilters()
 			.FirstOrDefaultAsync(e => e.Id == d.Id)
 			?? throw new InvalidOperationException($"Employee {d.Id} not found.");
@@ -127,7 +120,6 @@ public class EmployeeService : IEmployeeService
 		entity.WorkPositionId = d.WorkPositionId;
 		entity.SignatoryId = d.SignatoryId;
 		entity.PlacementId = d.PlacementId;
-		// Note: IsActive is changed only via SetActiveAsync, not here.
 
 		await db.SaveChangesAsync();
 	}
@@ -141,7 +133,7 @@ public class EmployeeService : IEmployeeService
 			.FirstOrDefaultAsync(e => e.Id == id)
 			?? throw new InvalidOperationException($"Employee {id} not found.");
 
-		entity.IsActive = isActive;   // false = soft-delete, true = restore
+		entity.IsActive = isActive;
 		await db.SaveChangesAsync();
 	}
 }

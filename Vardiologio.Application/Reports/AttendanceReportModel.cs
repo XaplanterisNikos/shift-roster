@@ -83,7 +83,6 @@ public class AttendanceReportModel
 	{
 		var tables = new List<AttendanceReportRow[]>();
 
-		// Fill the pages in order: the first holds fewer rows because of the letterhead.
 		for (var start = 0; start < Rows.Count;)
 		{
 			var capacity = tables.Count == 0 ? RowsFirstPage : RowsNextPages;
@@ -93,7 +92,6 @@ public class AttendanceReportModel
 		}
 		if (tables.Count == 0) tables.Add([]);
 
-		// Room for the signatures under the last table.
 		var last = tables[^1];
 		var room = (tables.Count == 1 ? RowsFirstPage : RowsNextPages) - SignatureRows;
 		if (last.Length > room)

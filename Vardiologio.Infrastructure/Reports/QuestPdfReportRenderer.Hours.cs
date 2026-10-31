@@ -24,7 +24,6 @@ public partial class QuestPdfReportRenderer
 
 				page.Header().Element(h => HoursHead(h, m));
 				page.Content().PaddingTop(8).Element(c => HoursTable(c, m));
-				// The explanation of the columns on the left, the page number on the right.
 				page.Footer().PaddingTop(4).Row(row =>
 				{
 					row.RelativeItem()
@@ -52,24 +51,22 @@ public partial class QuestPdfReportRenderer
 	{
 		var categories = Enum.GetValues<HourCategory>();
 
-		// Cell styles with the report's colours (Παράμετροι → Αναφορών → Χρώματα).
 		var hdrBg = m.Colors[ReportColorCatalog.HoursHeader];
 		var catBg = m.Colors[ReportColorCatalog.HoursCategories];
-		var overBg = m.Colors[ReportColorCatalog.HoursExcess];   // excess (unpaid) hours
-		Func<IContainer, IContainer> H = cell => Filled(cell, hdrBg);   // header cell
-		Func<IContainer, IContainer> T = cell => Filled(cell, catBg);   // category header / totals cell
+		var overBg = m.Colors[ReportColorCatalog.HoursExcess];
+		Func<IContainer, IContainer> H = cell => Filled(cell, hdrBg);
+		Func<IContainer, IContainer> T = cell => Filled(cell, catBg);
 
 		table.ColumnsDefinition(cols =>
 		{
-			cols.ConstantColumn(18);                                          // Α/Α
-			cols.RelativeColumn(3);                                           // ΟΝΟΜΑΤΕΠΩΝΥΜΟ
-			cols.RelativeColumn(2);                                           // ΕΙΔΙΚΟΤΗΤΑ
-			for (int k = 0; k < categories.Length * 3; k++) cols.ConstantColumn(30);   // 3 per category
+			cols.ConstantColumn(18);
+			cols.RelativeColumn(3);
+			cols.RelativeColumn(2);
+			for (int k = 0; k < categories.Length * 3; k++) cols.ConstantColumn(30);
 		});
 
 		table.Header(header =>
 		{
-			// Row 1 — category titles with their limit.
 			header.Cell().RowSpan(2).Element(H).Text("Α/Α");
 			header.Cell().RowSpan(2).Element(H).AlignLeft().Text("ΟΝΟΜΑΤΕΠΩΝΥΜΟ");
 			header.Cell().RowSpan(2).Element(H).AlignLeft().Text("ΕΙΔΙΚΟΤΗΤΑ");
@@ -77,7 +74,6 @@ public partial class QuestPdfReportRenderer
 				header.Cell().ColumnSpan(3).Element(T)
 					.Text($"{HoursLabels.CategoryHeader(cat)} (ΟΡΙΟ {Num(m.Limits[cat])})");
 
-			// Row 2 — declared / paid / excess under each category.
 			for (int i = 0; i < categories.Length; i++)
 			{
 				header.Cell().Element(T).Text("ΔΗΛ.");
@@ -95,12 +91,10 @@ public partial class QuestPdfReportRenderer
 			{
 				table.Cell().Element(D).Text(Blank(h.Declared));
 				table.Cell().Element(D).Text(Blank(h.Paid));
-				// Excess highlighted: these hours are declared but not paid.
 				table.Cell().Element(x => h.Excess > 0 ? D(x.Background(overBg)) : D(x)).Text(Blank(h.Excess));
 			}
 		}
 
-		// Totals row.
 		table.Cell().ColumnSpan(3).Element(T).AlignRight().Text("ΣΥΝΟΛΑ");
 		foreach (var cat in categories)
 		{

@@ -1,9 +1,8 @@
 namespace Vardiologio.Domain.Entities;
 
 /// <summary>
-/// A supervisor who signs the individual monthly sheet ("ΑΝΑΛΥΤΙΚΟΣ ΗΜΕΡΗΣΙΟΣ ΠΙΝΑΚΑΣ
-/// ΠΑΡΟΥΣΙΩΝ ΚΑΙ ΩΡΑΡΙΩΝ") on the right, e.g. "Ο Επόπτης Λειτουργίας Σ.Μ.Α." — each employee
-/// is signed for by one of them (<see cref="Employee.SignatoryId"/>).
+/// A supervisor who signs the individual monthly sheet on the right (for example the operations
+/// supervisor); each employee is signed for by one of them (<see cref="Employee.SignatoryId"/>).
 /// </summary>
 public class Signatory
 {
@@ -16,7 +15,7 @@ public class Signatory
 	/// </summary>
 	public string Role { get; set; } = null!;
 
-	/// <summary>Full name printed below the signing space (e.g. "Ευθύμιος Καλογήρου").</summary>
+	/// <summary>Full name printed below the signing space (e.g. "Γεώργιος Παπαδόπουλος").</summary>
 	public string FullName { get; set; } = null!;
 
 	/// <summary>Speciality / grade printed under the name (e.g. "ΔΕ Μηχανοτεχνιτών"); may be empty.</summary>

@@ -22,20 +22,17 @@ public class HoursReportService : IHoursReportService
 
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Same employees and order as the Σ.Ω. report (the global filter keeps active ones only).
 		var employees = await db.Employees
 			.OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
 			.Select(e => new { e.Id, e.LastName, e.FirstName, Speciality = e.Speciality.Name })
 			.ToListAsync();
 
-		// The month's entries, grouped per employee in memory (one query for everyone).
 		var entries = await db.ShiftDays
 			.AsNoTracking()
 			.Where(s => s.Date >= first && s.Date <= last)
 			.ToListAsync();
 		var byEmployee = entries.ToLookup(s => s.EmployeeId);
 
-		// Rule data shared by every employee.
 		var hours = await db.ShiftCodeHours.AsNoTracking().ToListAsync();
 		var holidays = (await db.Holidays
 			.Where(h => h.Date >= first && h.Date <= last)
@@ -65,7 +62,6 @@ public class HoursReportService : IHoursReportService
 				LastName = e.LastName,
 				FirstName = e.FirstName,
 				Speciality = e.Speciality,
-				// Same calculation as the entry screen, so both always show the same numbers.
 				Hours = MonthlyHoursCalculator.Calculate(year, month, byEmployee[e.Id], hours, holidays, limits)
 			});
 		}

@@ -39,7 +39,6 @@ public class ActivityLog : IActivityLog
 		}
 		catch (Exception ex)
 		{
-			// The action itself succeeded; only its log line is missing.
 			ErrorLogFile.Write("Activity log", ex);
 		}
 	}
@@ -66,7 +65,6 @@ public class ActivityLog : IActivityLog
 			.Distinct()
 			.ToListAsync();
 
-		// Sorted in memory: SQLite's own ordering is not case-insensitive for Greek letters.
 		return names.OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase).ToList();
 	}
 
@@ -85,7 +83,7 @@ public class ActivityLog : IActivityLog
 		}
 		if (to is not null)
 		{
-			var afterLast = to.Value.Date.AddDays(1);   // the whole last day is included
+			var afterLast = to.Value.Date.AddDays(1);
 			query = query.Where(e => e.Timestamp < afterLast);
 		}
 

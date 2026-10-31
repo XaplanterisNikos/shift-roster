@@ -27,23 +27,23 @@ public static class DatabaseSeeder
 		SeedSpecialities(db);
 		SeedEmploymentTypes(db);   
 		SeedWorkPositions(db);
-		SeedPlacements(db);   // also fills the new table of an older database on its first start
+		SeedPlacements(db);
 		SeedShiftCodes(db);
-		SeedShiftCodeRules(db); // after codes: fixes/adds codes once, then their hour split
+		SeedShiftCodeRules(db);
 		SeedHolidays(db);
 		SeedHourLimits(db);
 		SeedReportTexts(db, reportData.Texts ?? []);
-		SeedFixedTermAttendanceTexts(db);   // after the file: copies the staff form when the file has no such form
-		SeedMonthlyTotalFixedTermBand(db);  // after the file: the Σ.Ω. separator line, when the file has none
-		SeedIndividualMonthlyTexts(db);     // after the file: the individual sheet's form, when the file has none
+		SeedFixedTermAttendanceTexts(db);
+		SeedMonthlyTotalBands(db);
+		SeedIndividualMonthlyTexts(db);
 		SeedReportColors(db);
-		SeedEmployees(db);      // last: resolves each employee's SpecialityId by name
+		SeedEmployees(db);
 	}
 
 	/// <summary>Seeds the specialties lookup. Idempotent.</summary>
 	private static void SeedSpecialities(AppDbContext db)
 	{
-		if (db.Specialities.Any()) return;                       // table has data -> skip
+		if (db.Specialities.Any()) return;
 		db.Specialities.AddRange(SeedData.Specialities.Select(n => new Speciality { Name = n }));
 		db.SaveChanges();
 	}
@@ -105,15 +105,13 @@ public static class DatabaseSeeder
 	/// </summary>
 	private static void SeedShiftCodeRules(AppDbContext db)
 	{
-		if (db.ShiftCodeHours.Any()) return;   // already bootstrapped -> skip
+		if (db.ShiftCodeHours.Any()) return;
 
-		// Sync the working codes (status codes are left untouched).
 		var codesByCode = db.ShiftCodes.ToDictionary(c => c.Code);
 		foreach (var seed in SeedData.ShiftCodes.Where(x => x.Start.HasValue))
 		{
 			if (!codesByCode.TryGetValue(seed.Code, out var code))
 			{
-				// Missing in an older database (14, 15): add it.
 				code = new ShiftCode { Code = seed.Code };
 				db.ShiftCodes.Add(code);
 			}
@@ -124,9 +122,8 @@ public static class DatabaseSeeder
 			code.Segment = seed.Segment;
 			code.AllowedDays = seed.AllowedDays;
 		}
-		db.SaveChanges();   // new codes get their Ids here
+		db.SaveChanges();
 
-		// Map "Code" -> Id, now including any codes added above.
 		var idByCode = db.ShiftCodes.ToDictionary(c => c.Code, c => c.Id);
 
 		foreach (var (code, day, category, hours) in SeedData.ShiftCodeHours)
@@ -178,7 +175,6 @@ public static class DatabaseSeeder
 	/// </summary>
 	private static void SeedReportTexts(AppDbContext db, IReadOnlyList<ReportTextBlockSeed> blocks)
 	{
-		// Lines already stored, by their natural key (form + block + position).
 		var existing = db.ReportTexts
 			.Select(t => new { t.Form, t.Block, t.Line })
 			.AsEnumerable()
@@ -187,7 +183,7 @@ public static class DatabaseSeeder
 
 		foreach (var block in blocks)
 		{
-			if (block.Lines is null) continue;   // a block without lines in the file: nothing to add
+			if (block.Lines is null) continue;
 
 			for (var line = 0; line < block.Lines.Length; line++)
 			{
@@ -232,7 +228,6 @@ public static class DatabaseSeeder
 		{
 			var text = source.Text;
 
-			// The first title line that names the attendance table gets the suffix.
 			if (!titleDone && source.Block == ReportTextBlocks.Titles
 				&& GreekText.Upper(text).Contains("ΠΑΡΟΥΣΙ", StringComparison.Ordinal))
 			{
@@ -253,25 +248,35 @@ public static class DatabaseSeeder
 	}
 
 	/// <summary>
-	/// Gives the Σ.Ω. form its separator line ("ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ"), the row inside the table
-	/// before the fixed-term employees. The line was added after the first installations, so
-	/// their report data file does not have it; it is not private data, so its default lives
-	/// here. Runs once: when the line exists (from the file or an earlier start) it is left
-	/// alone, and afterwards it is edited in Παράμετροι → Αναφορών like every other line.
+	/// Gives the Σ.Ω. form its separator lines ("ΑΟΡΙΣΤΟΥ ΧΡΟΝΟΥ", "ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ"), the rows
+	/// inside the table before the open-ended and the fixed-term employees. The lines were added
+	/// after the first installations, so their report data file does not have them; they are
+	/// not private data, so their defaults live here. Runs once per line: a line that exists
+	/// (from the file or an earlier start) is left alone, and afterwards it is edited in
+	/// Παράμετροι → Αναφορών like every other line.
 	/// </summary>
-	private static void SeedMonthlyTotalFixedTermBand(AppDbContext db)
+	private static void SeedMonthlyTotalBands(AppDbContext db)
 	{
-		if (db.ReportTexts.Any(t => t.Form == ReportForm.MonthlyTotal && t.Block == ReportTextBlocks.FixedTermBand))
-			return;
-
-		db.ReportTexts.Add(new ReportText
+		(string Block, string Text)[] bands =
 		{
-			Form = ReportForm.MonthlyTotal,
-			Section = ReportSection.Header,   // part of the table, listed with the blocks above the signatures
-			Block = ReportTextBlocks.FixedTermBand,
-			Line = 0,
-			Text = ReportTextBlocks.FixedTermBandDefault
-		});
+			(ReportTextBlocks.OpenEndedBand, ReportTextBlocks.OpenEndedBandDefault),
+			(ReportTextBlocks.FixedTermBand, ReportTextBlocks.FixedTermBandDefault)
+		};
+
+		foreach (var (block, text) in bands)
+		{
+			if (db.ReportTexts.Any(t => t.Form == ReportForm.MonthlyTotal && t.Block == block))
+				continue;
+
+			db.ReportTexts.Add(new ReportText
+			{
+				Form = ReportForm.MonthlyTotal,
+				Section = ReportSection.Header,
+				Block = block,
+				Line = 0,
+				Text = text
+			});
+		}
 		db.SaveChanges();
 	}
 
@@ -296,11 +301,10 @@ public static class DatabaseSeeder
 
 		void Add(ReportSection section, string block, int line, string text)
 		{
-			if (!existing.Add((block, line))) return;   // already there (maybe edited): keep it
+			if (!existing.Add((block, line))) return;
 			db.ReportTexts.Add(new ReportText { Form = form, Section = section, Block = block, Line = line, Text = text });
 		}
 
-		// Letterhead: copied once, only while the form has no letterhead at all.
 		if (!existing.Any(e => e.Block == ReportTextBlocks.Letterhead))
 		{
 			var source = db.ReportTexts
@@ -311,7 +315,6 @@ public static class DatabaseSeeder
 
 			if (source.Count == 0)
 			{
-				// Nothing to copy from (e.g. a fresh demo install): eight empty lines to fill in.
 				for (var line = 0; line < 8; line++)
 					Add(ReportSection.Header, ReportTextBlocks.Letterhead, line, "");
 			}
@@ -337,7 +340,6 @@ public static class DatabaseSeeder
 	/// </summary>
 	private static void SeedReportColors(AppDbContext db)
 	{
-		// Stored colours by key: to skip existing keys and to copy a colour a new key starts from.
 		var stored = db.ReportColors.ToDictionary(c => c.Key, c => c.Hex);
 
 		foreach (var entry in ReportColorCatalog.All)
@@ -351,7 +353,7 @@ public static class DatabaseSeeder
 					: entry.DefaultHex;
 
 			db.ReportColors.Add(new ReportColor { Key = entry.Key, Hex = hex });
-			stored[entry.Key] = hex;   // a later entry may start from this one
+			stored[entry.Key] = hex;
 		}
 		db.SaveChanges();
 	}
@@ -366,7 +368,6 @@ public static class DatabaseSeeder
 	{
 		if (db.Employees.Any()) return;
 
-		// JSON files are copied next to the executable (see the .csproj copy rules).
 		var dir = AppContext.BaseDirectory;
 		var realPath = Path.Combine(dir, "employees.json");
 		var demoPath = Path.Combine(dir, "employees.demo.json");
@@ -376,11 +377,9 @@ public static class DatabaseSeeder
 			throw new FileNotFoundException(
 				"No employee seed file found (employees.json or employees.demo.json) next to the app.");
 
-		// Deserialize; case-insensitive so camelCase JSON maps to the PascalCase record.
 		var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 		var rows = JsonSerializer.Deserialize<EmployeeSeed[]>(File.ReadAllText(path), options) ?? [];
 
-		// Map specialty name -> Id for the specialties already inserted above.
 		var specByName = db.Specialities.ToDictionary(s => s.Name, s => s.Id);
 		foreach (var row in rows)
 		{

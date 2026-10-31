@@ -29,7 +29,6 @@ public class ReportTextService : IReportTextService
 			})
 			.ToListAsync();
 
-		// Sorted in memory: the block order is a display rule, not something SQL knows about.
 		return lines
 			.OrderBy(l => l.Section)
 			.ThenBy(l => ReportTextBlocks.Order(l.Block))
@@ -44,14 +43,11 @@ public class ReportTextService : IReportTextService
 
 		var rows = await db.ReportTexts.Where(t => t.Form == form).ToListAsync();
 
-		// New text per stored line; a line the caller did not send keeps its text.
 		var newTextById = lines.ToDictionary(l => l.Id, l => (l.Text ?? "").Trim());
 		string NewText(int id, string current) => newTextById.TryGetValue(id, out var text) ? text : current;
 
-		// Nothing changed -> leave the undo state alone (an empty save must not wipe it).
 		if (rows.All(r => NewText(r.Id, r.Text) == r.Text)) return;
 
-		// Snapshot the whole form, changed or not, so undo restores it as one consistent state.
 		foreach (var row in rows)
 		{
 			var text = NewText(row.Id, row.Text);
@@ -73,7 +69,6 @@ public class ReportTextService : IReportTextService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Only lines that have a previous state (lines added by a later version have none yet).
 		var rows = await db.ReportTexts.Where(t => t.Form == form && t.PreviousText != null).ToListAsync();
 		foreach (var row in rows)
 			(row.Text, row.PreviousText) = (row.PreviousText!, row.Text);

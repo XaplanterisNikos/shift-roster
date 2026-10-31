@@ -9,13 +9,11 @@
 
 <MudPaper Elevation="0" Class="login-card">
     <div class="login-brand">
-        @* App icon; a click opens the "about" card, as in the top bar of the main layout. *@
         <AboutButton Large="true" />
         <MudText Typo="Typo.h4">Βαρδιολόγιο</MudText>
         <MudText Typo="Typo.body2" Class="login-sub">Σύνδεση στην εφαρμογή</MudText>
     </div>
 
-    @* First start of an installation: nobody to pick yet. *@
     @if (loaded && !options.Any(o => o.Username != UserRules.AdminUsername))
     {
         <MudAlert Severity="Severity.Info" Dense="true">
@@ -23,8 +21,6 @@
         </MudAlert>
     }
 
-    @* User picker — the users of this installation, then the administrator (no passwords exposed).
-       ToStringFunc: the closed box shows the display name, not the username it is bound to. *@
     <MudSelect T="string" Label="Χρήστης" @bind-Value="username" Variant="Variant.Outlined"
                ToStringFunc="DisplayNameOf">
         @foreach (var u in options)
@@ -33,7 +29,6 @@
         }
     </MudSelect>
 
-    @* Immediate => the value is current on every keystroke; OnKeyDown => Enter submits. *@
     <MudTextField T="string" Label="Κωδικός" @bind-Value="password" Immediate="true"
                   InputType="InputType.Password" Variant="Variant.Outlined" OnKeyDown="OnKey" />
 
@@ -45,12 +40,9 @@
         <MudAlert Severity="Severity.Error" Dense="true">@error</MudAlert>
     }
 
-    @* New user of this installation (Shared/NewUserButton.razor). *@
     <NewUserButton Created="OnUserCreated" />
 </MudPaper>
 
-@* Credits, bottom-right of the login screen. The LinkedIn address is outside the app's origin,
-   so BlazorWebView opens it in the default browser instead of inside the app window. *@
 <footer class="login-credits">
     <div class="app-name">Βαρδιολόγιο Shift-Roster <span class="app-version">v@(AppInfo.Version)</span></div>
     <div>@AppInfo.AuthorName</div>
@@ -61,16 +53,17 @@
     private IReadOnlyList<LoginOption> options = Array.Empty<LoginOption>();
     private string username = "";
     private string password = "";
-    private string? error;// shown to the user when login fails
+    /// <summary>Shown to the user when login fails.</summary>
+    private string? error;
 
-    private bool loaded;   // options read from the database (avoids a flash of the "no user" note)
+    /// <summary>Options read from the database (avoids a flash of the "no user" note).</summary>
+    private bool loaded;
 
     protected override async Task OnInitializedAsync()
     {
-        // Already signed in? skip the login screen.
         if (Session.IsAuthenticated) { Nav.NavigateTo("/"); return; }
         await LoadOptionsAsync();
-        username = options.FirstOrDefault()?.Username ?? "";   // default to the first user
+        username = options.FirstOrDefault()?.Username ?? "";
         loaded = true;
     }
 
@@ -90,7 +83,6 @@
         Snackbar.Add($"Ο χρήστης «{name}» δημιουργήθηκε. Πληκτρολογήστε τον κωδικό για είσοδο.", Severity.Success);
     }
 
-    // Let Enter submit the form.
     private async Task OnKey(KeyboardEventArgs e) { if (e.Key == "Enter") await DoLogin(); }
 
     private async Task DoLogin()
@@ -98,7 +90,7 @@
         error = null;
         var user = await Auth.AuthenticateAsync(username, password);
         if (user is null) { error = "Λάθος κωδικός."; return; }
-        Session.SignIn(user);// fires Session.Changed -> MainLayout re-renders
+        Session.SignIn(user);
         Nav.NavigateTo("/");
     }
 }

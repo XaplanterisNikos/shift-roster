@@ -50,32 +50,27 @@ public partial class App : System.Windows.Application
 	/// </summary>
 	protected override void OnStartup(StartupEventArgs e)
 	{
-		// Catch and log any unhandled exception (UI thread, any thread, forgotten tasks) so it is
-		// never lost. Logged to Documents\Vardiologio\Logs (errors only).
 		DispatcherUnhandledException += (_, args) => { LogFatal("Unhandled error (UI thread)", args.Exception); args.Handled = true; };
 		AppDomain.CurrentDomain.UnhandledException += (_, args) => LogFatal("Unhandled error (background thread)", args.ExceptionObject as Exception);
 		TaskScheduler.UnobservedTaskException += (_, args) => { ErrorLogFile.Write("Unobserved task error", args.Exception); args.SetObserved(); };
 
 		try
 		{
-			// QuestPDF requires its (free) Community licence to be declared once at startup.
 			QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
-			DbInitializer.Initialize(); // apply migrations + seed
+			DbInitializer.Initialize();
 
 			var services = new ServiceCollection();
 			services.AddWpfBlazorWebView();
 #if DEBUG
 			services.AddBlazorWebViewDeveloperTools();
 #endif
-			services.AddMudServices(); // MudBlazor: dialogs, snackbars, pop-ups, JS interop
-			// Every context of the factory records its saves in the activity log (ActivityInterceptor).
+			services.AddMudServices();
 			services.AddSingleton<ActivityInterceptor>();
 			services.AddDbContextFactory<AppDbContext>((sp, o) => o
 				.UseSqlite(AppPaths.ConnectionString)
 				.AddInterceptors(sp.GetRequiredService<ActivityInterceptor>()));
 
-			// Application services
 			services.AddScoped<IShiftEntryService, ShiftEntryService>();
 			services.AddScoped<IReportService, ReportService>();
 			services.AddScoped<IIndividualReportService, IndividualReportService>();
@@ -94,26 +89,22 @@ public partial class App : System.Windows.Application
 			services.AddScoped<IReportColorService, ReportColorService>();
 			services.AddScoped<IDatabaseTransferService, DatabaseTransferService>();
 
-			// Report renderers
 			services.AddSingleton<IExcelReportRenderer, ClosedXmlReportRenderer>();
-			services.AddSingleton<IPdfReportRenderer, QuestPdfReportRenderer>();   // PDF report output
+			services.AddSingleton<IPdfReportRenderer, QuestPdfReportRenderer>();
 
-			// Files and error log (Documents\Vardiologio: Reports\..., Logs\...)
 			services.AddSingleton<IReportFileStore, ReportFileStore>();
 			services.AddSingleton<IErrorLog, FileErrorLog>();
 			services.AddSingleton<IErrorLogReader, ErrorLogReader>();
 			services.AddSingleton<IActivityLog, ActivityLog>();
 			services.AddSingleton<IDocumentsArchive, DocumentsArchive>();
-			// Message to the developer: Telegram bot, zip in Documents\Vardiologio\Feedback when it cannot be sent
 			services.AddSingleton<IFeedbackSender, TelegramFeedbackSender>();
 
-			// Auth
 			services.AddSingleton<IAuthService, AuthService>();
 			services.AddSingleton<IUserSession, UserSession>();
 
 			Resources.Add("services", services.BuildServiceProvider());
 
-			base.OnStartup(e); // creates MainWindow — kept inside try so startup errors are logged too
+			base.OnStartup(e);
 		}
 		catch (Exception ex)
 		{
@@ -136,6 +127,6 @@ public partial class App : System.Windows.Application
 			MessageBox.Show(ex?.Message ?? "Unknown error",
 				logPath is null ? "Σφάλμα" : $"Σφάλμα — δες {logPath}");
 		}
-		catch { /* last resort */ }
+		catch { }
 	}
 }

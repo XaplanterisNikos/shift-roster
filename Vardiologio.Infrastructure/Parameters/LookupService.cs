@@ -31,7 +31,6 @@ public class LookupService : ILookupService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Active AND inactive rows: the unique index on Name covers both.
 		return await Query(db, kind).AnyAsync(x => x.Name == name && x.Id != excludeId);
 	}
 
@@ -40,7 +39,6 @@ public class LookupService : ILookupService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Active AND inactive rows: the unique index on Code covers both.
 		return await db.EmploymentTypes.AnyAsync(t => t.Code == code && t.Id != excludeId);
 	}
 
@@ -49,7 +47,6 @@ public class LookupService : ILookupService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// Employee DOES have the global IsActive filter, so these counts are active employees only.
 		return kind switch
 		{
 			LookupKind.Speciality     => await db.Employees.CountAsync(e => e.SpecialityId == id),
@@ -116,7 +113,7 @@ public class LookupService : ILookupService
 			case LookupKind.EmploymentType:
 				var type = await db.EmploymentTypes.FirstOrDefaultAsync(x => x.Id == item.Id)
 					?? throw new InvalidOperationException($"EmploymentType {item.Id} not found.");
-				type.Code = RequireCode(item);   // Code is editable (display label only)
+				type.Code = RequireCode(item);
 				type.Name = name;
 				break;
 
@@ -136,7 +133,6 @@ public class LookupService : ILookupService
 				throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
 		}
 
-		// Note: IsActive is changed only via SetActiveAsync, not here.
 		await db.SaveChangesAsync();
 	}
 
@@ -150,7 +146,7 @@ public class LookupService : ILookupService
 			case LookupKind.Speciality:
 				var speciality = await db.Specialities.FirstOrDefaultAsync(x => x.Id == id)
 					?? throw new InvalidOperationException($"Speciality {id} not found.");
-				speciality.IsActive = isActive;   // false = soft-delete, true = restore
+				speciality.IsActive = isActive;
 				break;
 
 			case LookupKind.EmploymentType:

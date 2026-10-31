@@ -46,7 +46,6 @@ public static class IndividualReportBuilder
 			LastName = lastName.Trim(),
 			WorkType = contractCode ?? "",
 
-			// Declared / paid hours per category: the summary under the table reads these.
 			Hours = MonthlyHoursCalculator.Calculate(year, month, entries, hours, holidays, limits)
 		};
 
@@ -64,28 +63,22 @@ public static class IndividualReportBuilder
 					var start = code.StartTime.Value;
 					var end = code.EndTime.Value;
 
-					// Working shift: show its time window and mark presence.
 					row.ShiftStart = start.ToString("HH:mm");
 					row.ShiftEnd = end.ToString("HH:mm");
 					row.Presence = PresenceRules.Mark(code.Code, isWorkShift: true);
 
-					// Holidays decide the kind of day (a holiday wins over Saturday/Sunday).
 					var dayType = DayTypeRules.Resolve(date, holidays);
 					row.IsSundayOrHoliday = dayType is DayType.Sunday or DayType.Holiday;
 					row.IsNight = code.Segment == ShiftSegment.Night;
 
-					// The code's hours on this kind of day, per pay category.
 					var split = hoursByCodeAndDay[(code.Id, dayType)].ToList();
 					decimal Of(HourCategory c) => split.Where(h => h.Category == c).Sum(h => h.Hours);
 
-					// ΣΥΜΠΛΗΡ. ΕΡΓΑΣΙΑ: Προς συμπλήρωση -> ΗΜΕΡ., Αργίας -> ΚΥΡΙΑΚΗΣ (as on the certificate).
 					var toComplete = Of(HourCategory.ToComplete);
 					var holiday = Of(HourCategory.Holiday);
 					if (toComplete > 0) row.SupplementWeekday = toComplete;
 					if (holiday > 0) row.SupplementSunday = holiday;
 
-					// Everything beyond the regular schedule (every category except Προς συμπλήρωση)
-					// is worked as the last part of the shift: that is the ΩΡΑΡΙΟ ΥΠΕΡΩΡΙΑΣ window.
 					var overtime = Of(HourCategory.Simple) + Of(HourCategory.Night) + Of(HourCategory.Sunday) + holiday;
 					if (ShiftHoursRules.OvertimeWindow(start, end, overtime) is { } window)
 					{
@@ -96,17 +89,14 @@ public static class IndividualReportBuilder
 				}
 				else
 				{
-					// Status day (leave/rest/etc.): show the code in place of times and presence.
 					row.StatusCode = code.Code;
 					row.Presence = PresenceRules.Mark(code.Code, isWorkShift: false);
 				}
 			}
-			// else: no entry -> blank row (date + index + name only).
 
 			model.Days.Add(row);
 		}
 
-		// Fortnight totals of the two ΣΥΜΠΛΗΡ. ΕΡΓΑΣΙΑ columns (declared hours, before the limits).
 		bool FirstHalf(IndividualDayRow r) => r.Date.Day <= 15;
 		model.WeekdayFirstHalf = model.Days.Where(FirstHalf).Sum(r => r.SupplementWeekday ?? 0);
 		model.WeekdaySecondHalf = model.Days.Where(r => !FirstHalf(r)).Sum(r => r.SupplementWeekday ?? 0);

@@ -42,7 +42,6 @@ public static class EmployeeSearch
 		return items
 			.Select(item => (item, name: Fold(Name(item))))
 			.Where(x => words.All(w => x.name.Contains(w, StringComparison.Ordinal)))
-			// OrderBy is stable, so the alphabetical order survives inside each group.
 			.OrderBy(x => words.Any(w => StartsAWord(x.name, w)) ? 0 : 1)
 			.Select(x => x.item)
 			.ToList();
@@ -56,10 +55,9 @@ public static class EmployeeSearch
 	public static IReadOnlyList<(string Text, bool Hit)> Highlight(string name, string? text)
 	{
 		var words = Words(text);
-		var folded = Fold(name);   // same length as the name: one folded letter per letter
+		var folded = Fold(name);
 		var hit = new bool[name.Length];
 
-		// Mark every occurrence of every typed word.
 		foreach (var word in words)
 		{
 			for (var at = folded.IndexOf(word, StringComparison.Ordinal); at >= 0;
@@ -69,7 +67,6 @@ public static class EmployeeSearch
 			}
 		}
 
-		// Group neighbouring letters with the same mark into one piece.
 		var pieces = new List<(string Text, bool Hit)>();
 		var start = 0;
 		for (var i = 1; i <= name.Length; i++)
@@ -105,10 +102,9 @@ public static class EmployeeSearch
 		var sb = new StringBuilder(text.Length);
 		foreach (var ch in text)
 		{
-			// Decompose the single letter (ύ → υ + ´) and keep its base letter only.
 			var decomposed = ch.ToString().Normalize(NormalizationForm.FormD);
 			var letter = decomposed.FirstOrDefault(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark, ch);
-			sb.Append(char.ToUpperInvariant(letter));   // ς and σ both become Σ
+			sb.Append(char.ToUpperInvariant(letter));
 		}
 		return sb.ToString();
 	}

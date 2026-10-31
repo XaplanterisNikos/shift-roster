@@ -15,7 +15,6 @@ internal static class ActivityEpochs
 	/// </summary>
 	public static DatabaseEpoch Current(AppDbContext db)
 	{
-		// An epoch added earlier in this context but not saved yet counts as well.
 		var epoch = db.DatabaseEpochs.Local.OrderByDescending(e => e.Id).FirstOrDefault()
 			?? db.DatabaseEpochs.OrderByDescending(e => e.Id).FirstOrDefault();
 		if (epoch is not null) return epoch;

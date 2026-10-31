@@ -6,8 +6,6 @@
     <MudIcon Icon="@Icons.Material.Rounded.CalendarMonth" Size="@(Large ? Size.Large : Size.Medium)" />
 </button>
 
-@* Inline dialog: MudBlazor renders it in MudDialogProvider (Routes.razor), above the whole shell.
-   Escape, the close button or a click on the dimmed background closes it. *@
 <MudDialog @bind-Visible="open" Options="DialogOptions" ContentClass="about-content">
     <DialogContent>
         <AboutCard />
@@ -25,7 +23,8 @@
     /// <summary>Extra CSS classes, e.g. the section colour set by MainLayout.</summary>
     [Parameter] public string? Class { get; set; }
 
-    private bool open;   // dialog visible
+    /// <summary>Dialog visible.</summary>
+    private bool open;
 
     private void Open() => open = true;
 

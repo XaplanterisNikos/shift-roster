@@ -17,30 +17,23 @@
         <MudText Typo="Typo.body2" Class="page-sub">Επιλέξτε ειδικότητα, ή αναζητήστε με το όνομα, για να δείτε, να προσθέσετε ή να αλλάξετε εργαζόμενους.</MudText>
     </div>
 
-    @* @bind-Value:after => reload the list automatically when the specialty or the
-       "show inactive" switch changes (no button needed here). *@
     <div class="page-filters">
-        @* ToStringFunc: the closed box shows the name, not the Id it is bound to. *@
         <MudSelect T="int" Label="Ειδικότητα" @bind-Value="specialityId" @bind-Value:after="OnSpecialityChanged"
                    Variant="Variant.Outlined" Margin="Margin.Dense" Class="filter-speciality"
                    ToStringFunc="SpecialityName">
             <MudSelectItem T="int" Value="0">— επίλεξε —</MudSelectItem>
-            @* Inactive specialities only when "show inactive" is on (or already selected). *@
             @foreach (var s in specialities.Where(o => o.IsActive || includeInactive || o.Id == specialityId))
             {
                 <MudSelectItem T="int" Value="@s.Id">@OptionLabel(s)</MudSelectItem>
             }
         </MudSelect>
 
-        @* Search by name (Shared/EmployeePicker.razor, as on the report pages): active employees
-           of every specialty. A pick opens the employee's specialty and form. *@
         <EmployeePicker Employees="searchList" Value="searchId" ValueChanged="OnSearchPickedAsync"
                         Class="filter-search" />
 
         <MudSwitch T="bool" @bind-Value="includeInactive" @bind-Value:after="ReloadListAsync"
                    Color="Color.Primary" Label="Εμφάνιση ανενεργών" />
 
-        @* No new employees under a retired speciality. *@
         <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Class="filter-load"
                    StartIcon="@Icons.Material.Rounded.PersonAdd"
                    Disabled="@(specialityId == 0 || !IsSpecialityActive(specialityId))" OnClick="NewEmployee">Νέος</MudButton>
@@ -57,7 +50,6 @@
 else
 {
     <div class="md-grid">
-        @* LEFT: employee list of the selected specialty. The list marks the row of selectedId. *@
         <MudPaper Elevation="0" Class="md-list">
             <div class="md-list-head">@list.Count @(list.Count == 1 ? "εργαζόμενος" : "εργαζόμενοι")</div>
             @if (list.Count == 0)
@@ -75,7 +67,6 @@ else
                                 <span>@e.FullName</span>
                                 @if (!e.IsActive)
                                 {
-                                    @* A plain span: the list puts its rows in a paragraph, where a chip (a div) is not valid HTML. *@
                                     <span class="md-tag">ανενεργός</span>
                                 }
                             </span>
@@ -85,7 +76,6 @@ else
             }
         </MudPaper>
 
-        @* RIGHT: create/edit form *@
         @if (form is null)
         {
             <MudPaper Elevation="0" Class="empty-state md-hint">
@@ -107,7 +97,6 @@ else
                         }
                     </div>
 
-                    @* For: the field shows the message of the DTO's validation attributes under it. *@
                     <div class="md-fields">
                         <MudTextField T="string" Label="Επώνυμο" @bind-Value="form.LastName" For="@(() => form.LastName)"
                                       Variant="Variant.Outlined" Margin="Margin.Dense" />
@@ -145,7 +134,6 @@ else
                             }
                         </MudSelect>
 
-                        @* Where the employee is placed (Παράμετροι Εργαζομένων → Τοποθετήσεις); optional. *@
                         <MudSelect T="int?" Label="Τοποθέτηση υπαλλήλου" @bind-Value="form.PlacementId"
                                    Variant="Variant.Outlined" Margin="Margin.Dense"
                                    ToStringFunc="@(id => NameOf(lookups!.Placements, id))">
@@ -156,7 +144,6 @@ else
                             }
                         </MudSelect>
 
-                        @* Who signs this employee's individual monthly sheet (Παράμετροι Εργαζομένων → Υπογράφοντες). *@
                         <MudSelect T="int?" Label="Προϊστάμενος (υπογράφει την ατομική)" @bind-Value="form.SignatoryId"
                                    Variant="Variant.Outlined" Margin="Margin.Dense"
                                    ToStringFunc="@(id => NameOf(lookups!.Signatories, id))">
@@ -193,22 +180,19 @@ else
 }
 
 @code {
-    // Lookups + list state
     private IReadOnlyList<LookupOption> specialities = Array.Empty<LookupOption>();
     private EmployeeLookups? lookups;
     private List<EmployeeListItem> list = new();
 
-    // Selection / form state
     private int specialityId;
     private bool includeInactive;
     private int selectedId;
     private EmployeeDetail? form;
 
-    // Search box: every active employee (the ShiftEntry list item: Id + "Surname Name — Speciality";
-    // written in full because this page's own list uses the Employees item of the same name).
     private IReadOnlyList<Vardiologio.Application.ShiftEntry.EmployeeListItem> searchList =
         Array.Empty<Vardiologio.Application.ShiftEntry.EmployeeListItem>();
-    private int searchId;   // employee shown in the search box; 0 = empty
+    /// <summary>Employee shown in the search box; 0 = empty.</summary>
+    private int searchId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -231,7 +215,7 @@ else
         if (id == 0) return;
 
         var detail = await EmployeeService.GetAsync(id);
-        if (detail is null) return;   // removed in the meantime: nothing to show
+        if (detail is null) return;
 
         specialityId = detail.SpecialityId;
         await ReloadListAsync();
@@ -265,7 +249,7 @@ else
     /// <summary>When the specialty changes, reset selection/form and reload the list.</summary>
     private async Task OnSpecialityChanged()
     {
-        searchId = 0;   // the search box no longer describes what is shown
+        searchId = 0;
         selectedId = 0;
         form = null;
         await ReloadListAsync();
@@ -281,8 +265,8 @@ else
     /// <summary>Loads one employee into the edit form.</summary>
     private async Task SelectAsync(int id)
     {
-        if (id == 0) return;   // the list reports "nothing selected" as 0
-        if (id != searchId) searchId = 0;   // another name picked from the list: empty the search box
+        if (id == 0) return;
+        if (id != searchId) searchId = 0;
         selectedId = id;
         form = await EmployeeService.GetAsync(id);
     }
@@ -313,7 +297,7 @@ else
 
         Snackbar.Add("Αποθηκεύτηκε.", Severity.Success);
         await ReloadListAsync();
-        await ReloadSearchAsync();   // a new employee or a changed name must be found by the search
+        await ReloadSearchAsync();
     }
 
     /// <summary>Asks first, then soft-deletes the current employee (can be restored later).</summary>
@@ -340,9 +324,8 @@ else
         form.IsActive = isActive;
         Snackbar.Add(isActive ? "Επαναφέρθηκε." : "Διαγράφηκε.", Severity.Success);
         await ReloadListAsync();
-        await ReloadSearchAsync();   // the search offers active employees only
+        await ReloadSearchAsync();
 
-        // If it became inactive and we're not showing inactive, clear the form.
         if (!isActive && !includeInactive) { form = null; selectedId = 0; }
     }
 }

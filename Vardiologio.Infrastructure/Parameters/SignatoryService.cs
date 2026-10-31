@@ -56,7 +56,6 @@ public class SignatoryService : ISignatoryService
 		var entity = await db.Signatories.FirstOrDefaultAsync(s => s.Id == item.Id)
 			?? throw new InvalidOperationException($"Signatory {item.Id} not found.");
 		Copy(item, entity);
-		// Note: IsActive is changed only via SetActiveAsync, not here.
 		await db.SaveChangesAsync();
 	}
 
@@ -67,7 +66,7 @@ public class SignatoryService : ISignatoryService
 
 		var entity = await db.Signatories.FirstOrDefaultAsync(s => s.Id == id)
 			?? throw new InvalidOperationException($"Signatory {id} not found.");
-		entity.IsActive = isActive;   // false = soft-delete, true = restore
+		entity.IsActive = isActive;
 		await db.SaveChangesAsync();
 	}
 
@@ -87,11 +86,9 @@ public class SignatoryService : ISignatoryService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// A List in the query (EF translates List.Contains to SQL IN), a set for the loop below.
 		var wantedIds = employeeIds.Distinct().ToList();
 		var wanted = wantedIds.ToHashSet();
 
-		// Active employees that have this supervisor now, or should have it: only these change.
 		var rows = await db.Employees
 			.Where(e => e.SignatoryId == signatoryId || wantedIds.Contains(e.Id))
 			.ToListAsync();
@@ -99,9 +96,9 @@ public class SignatoryService : ISignatoryService
 		foreach (var employee in rows)
 		{
 			if (wanted.Contains(employee.Id))
-				employee.SignatoryId = signatoryId;   // listed: signs for them (replaces any other)
+				employee.SignatoryId = signatoryId;
 			else
-				employee.SignatoryId = null;          // had it, no longer listed: left without one
+				employee.SignatoryId = null;
 		}
 		await db.SaveChangesAsync();
 	}
@@ -111,7 +108,6 @@ public class SignatoryService : ISignatoryService
 	{
 		await using var db = await _factory.CreateDbContextAsync();
 
-		// IgnoreQueryFilters: the sheet of an employee deactivated later may still be printed.
 		return await db.Employees
 			.IgnoreQueryFilters()
 			.Where(e => e.Id == employeeId)

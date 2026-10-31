@@ -15,7 +15,6 @@
     </div>
 </div>
 
-@* Limit: once reached, "Δημιουργία νέου χρήστη" on the login screen refuses. *@
 <div class="admin-card">
     <MudText Typo="Typo.h6">Όριο χρηστών</MudText>
     <div class="admin-row">
@@ -62,8 +61,10 @@
 
 @code {
     private IReadOnlyList<UserItem> users = Array.Empty<UserItem>();
-    private int? maxUsers;          // the limit as typed; null = no limit
-    private bool limitSaved;        // show the "saved" note
+    /// <summary>The limit as typed; null = no limit.</summary>
+    private int? maxUsers;
+    /// <summary>Show the "saved" note.</summary>
+    private bool limitSaved;
 
     protected override async Task OnInitializedAsync()
     {

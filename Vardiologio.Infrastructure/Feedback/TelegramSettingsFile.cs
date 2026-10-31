@@ -21,13 +21,11 @@ internal static class TelegramSettingsFile
 	/// <summary>Reads the file. Returns null when it is absent, unreadable or incomplete.</summary>
 	public static TelegramSettings? Load()
 	{
-		// JSON files are copied next to the executable (see the copy rules in Vardiologio.App.csproj).
 		var path = Path.Combine(AppContext.BaseDirectory, FileName);
 		if (!File.Exists(path)) return null;
 
 		try
 		{
-			// Case-insensitive so camelCase JSON maps to the PascalCase record.
 			var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 			var settings = JsonSerializer.Deserialize<TelegramSettings>(File.ReadAllText(path), options);
 
@@ -37,7 +35,7 @@ internal static class TelegramSettingsFile
 		}
 		catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
 		{
-			return null;   // unreadable or malformed file = sending is not configured
+			return null;
 		}
 	}
 }
