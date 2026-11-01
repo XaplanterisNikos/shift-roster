@@ -128,8 +128,8 @@
         (ReportForm.IndividualMonthly, ReportTextBlocks.SummaryGroups) => "Με τη σειρά, από αριστερά προς τα δεξιά. Οι υπο-επικεφαλίδες (ΗΜΕΡ., Α΄, Β΄ …) και οι τιμές συμπληρώνονται αυτόματα.",
         (ReportForm.IndividualMonthly, ReportTextBlocks.Titles) => "Τυπώνεται πάνω από τον πίνακα· η δεύτερη γραμμή είναι προαιρετική.",
         (ReportForm.IndividualMonthly, _) when block == ReportTextBlocks.SignatureRole(1) => "Υπογραφή του εργαζομένου (αριστερά). Μπαίνει αυτόματα «Ο» ή «Η» μπροστά και από κάτω το ονοματεπώνυμο και η ειδικότητά του. Η δεξιά υπογραφή είναι του προϊσταμένου (Παράμετροι Εργαζομένων → Υπογράφοντες).",
-        (ReportForm.MonthlyTotal, ReportTextBlocks.OpenEndedBand) => "Γραμμή σε όλο το πλάτος του πίνακα, πριν από τους ΙΔΑΧ· τυπώνεται μόνο όταν υπάρχει εργαζόμενος ΙΔΑΧ. Το χρώμα της αλλάζει στην καρτέλα «Χρώματα».",
-        (ReportForm.MonthlyTotal, ReportTextBlocks.FixedTermBand) => "Γραμμή σε όλο το πλάτος του πίνακα, πριν από τους ΙΔΟΧ· τυπώνεται μόνο όταν υπάρχει εργαζόμενος ΙΔΟΧ. Το χρώμα της αλλάζει στην καρτέλα «Χρώματα».",
+        (ReportForm.MonthlyTotal or ReportForm.ShiftTable, ReportTextBlocks.OpenEndedBand) => "Γραμμή σε όλο το πλάτος του πίνακα, πριν από τους ΙΔΑΧ· τυπώνεται μόνο όταν υπάρχει εργαζόμενος ΙΔΑΧ. Το χρώμα της αλλάζει στην καρτέλα «Χρώματα».",
+        (ReportForm.MonthlyTotal or ReportForm.ShiftTable, ReportTextBlocks.FixedTermBand) => "Γραμμή σε όλο το πλάτος του πίνακα, πριν από τους ΙΔΟΧ· τυπώνεται μόνο όταν υπάρχει εργαζόμενος ΙΔΟΧ. Το χρώμα της αλλάζει στην καρτέλα «Χρώματα».",
         (ReportForm.AttendanceStaff or ReportForm.AttendanceFixedTerm or ReportForm.AttendanceDirectorate, ReportTextBlocks.Titles) => "Κάτω από τους τίτλους τυπώνεται αυτόματα η περίοδος «Από … έως …».",
         _ => null
     };

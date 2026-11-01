@@ -8,7 +8,9 @@ namespace Vardiologio.Infrastructure.Reports;
 /// Official shift table ("ΠΙΝΑΚΑΣ ΒΑΡΔΙΩΝ ΕΡΓΑΣΙΑΣ ΠΡΟΣΩΠΙΚΟΥ") — one A3 landscape page, laid out
 /// and coloured as the "Σ.Ω." sheet: letterhead + titles + addressee, the table (days shaded on
 /// weekends / holidays, counts per work code, paid "προς συμπλήρωση" hours), the legend and the
-/// signatures. Printed "1 page wide × 1 page tall", so Excel scales it to always fit on the A3.
+/// signatures. The employees print in three groups (permanent, open-ended, fixed-term), each group
+/// after a coloured separator row. Printed "1 page wide × 1 page tall", so Excel scales it to
+/// always fit on the A3.
 /// </summary>
 public partial class ClosedXmlReportRenderer
 {
@@ -20,6 +22,7 @@ public partial class ClosedXmlReportRenderer
 		using var wb = new XLWorkbook();
 		var ws = wb.AddWorksheet("Shift table");
 		var shade = XLColor.FromHtml(m.Colors[ReportColorCatalog.ShiftTableWeekend]);
+		var bandFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.ShiftTableBand]);
 		var center = XLAlignmentHorizontalValues.Center;
 
 		const int cName = 2, cSpec = 3, cDay0 = 4;
@@ -83,8 +86,19 @@ public partial class ClosedXmlReportRenderer
 
 		var r0 = h2 + 1;
 		var row = r0;
+		var group = ContractKind.Permanent;
+		var bandRows = new List<int>();
 		foreach (var e in m.Rows)
 		{
+			if (e.Group != group)
+			{
+				group = e.Group;
+				StMerge(ws, row, cName, row, lastCol, ShiftTableTexts.GroupBand(m.Texts, group), StTextFont, 13, true, center);
+				bandRows.Add(row);
+				ws.Row(row).Height = 21;
+				row++;
+			}
+
 			StCell(ws, row, cName, ShiftTableTexts.Name(e), StTextFont, 12, false, XLAlignmentHorizontalValues.Left);
 			ws.Cell(row, cName).Style.Alignment.Indent = 1;
 			StMerge(ws, row, cSpec, row, cSpec, GreekText.Upper(e.Speciality), StTextFont, 10, false, center);
@@ -108,6 +122,12 @@ public partial class ClosedXmlReportRenderer
 		var totals = ws.Range(r0, cCount0, lastData, lastCol);
 		totals.Style.Border.InsideBorder = XLBorderStyleValues.Medium;
 		totals.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
+		foreach (var bandRow in bandRows)
+		{
+			var band = ws.Range(bandRow, cName, bandRow, lastCol);
+			band.Style.Fill.BackgroundColor = bandFill;
+			band.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
+		}
 
 		var lt = lastData + 2;
 		StMerge(ws, lt, cName, lt, cSpec, ShiftTableTexts.LegendTitle, StTextFont, 13, false, center);

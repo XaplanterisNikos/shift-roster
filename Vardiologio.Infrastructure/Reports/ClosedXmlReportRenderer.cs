@@ -116,7 +116,7 @@ public partial class ClosedXmlReportRenderer : IExcelReportRenderer
 			if (row.Group != group)
 			{
 				group = row.Group;
-				Merge(ws, r, cName, r, lastCol, ShiftTableTexts.MonthlyTotalBand(m.Texts, group), 9, true, center, bandFill);
+				Merge(ws, r, cName, r, lastCol, ShiftTableTexts.GroupBand(m.Texts, group), 9, true, center, bandFill);
 				ws.Row(r).Height = 15;
 				bandRows.Add(r);
 				r++;

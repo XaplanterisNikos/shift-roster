@@ -9,7 +9,8 @@ namespace Vardiologio.Infrastructure.Reports;
 /// <summary>
 /// Official shift table ("ΠΙΝΑΚΑΣ ΒΑΡΔΙΩΝ ΕΡΓΑΣΙΑΣ ΠΡΟΣΩΠΙΚΟΥ") — one A3 landscape page laid out as
 /// the "Σ.Ω." sheet. The whole page sits in ScaleToFit: when the employees or codes do not fit,
-/// everything is scaled down proportionally instead of flowing onto a second page.
+/// everything is scaled down proportionally instead of flowing onto a second page. The employees
+/// print in three groups (permanent, open-ended, fixed-term), each group after a separator row.
 /// </summary>
 public partial class QuestPdfReportRenderer
 {
@@ -74,12 +75,19 @@ public partial class QuestPdfReportRenderer
 		});
 	});
 
-	/// <summary>The table: two header rows, then one row per employee.</summary>
+	/// <summary>
+	/// The table: two header rows, then one row per employee, with a full-width separator row
+	/// before the first employee of the open-ended and of the fixed-term group (only when the
+	/// group has employees).
+	/// </summary>
 	private static void StTable(IContainer c, ShiftTableModel m) => c.Table(t =>
 	{
 		var days = m.DaysInMonth;
 		var codes = m.WorkCodes.Count;
 		var shadeBg = m.Colors[ReportColorCatalog.ShiftTableWeekend];
+		var bandBg = m.Colors[ReportColorCatalog.ShiftTableBand];
+		var columnCount = (uint)(2 + days + codes + 2);
+		var group = ContractKind.Permanent;
 
 		t.ColumnsDefinition(cols =>
 		{
@@ -113,6 +121,13 @@ public partial class QuestPdfReportRenderer
 
 		foreach (var e in m.Rows)
 		{
+			if (e.Group != group)
+			{
+				group = e.Group;
+				t.Cell().ColumnSpan(columnCount).Element(x => StBand(x, bandBg))
+					.Text(ShiftTableTexts.GroupBand(m.Texts, group)).Bold().FontSize(9);
+			}
+
 			t.Cell().Element(StNameCell).Text(ShiftTableTexts.Name(e)).FontSize(8);
 			t.Cell().Element(StD).Text(GreekText.Upper(e.Speciality)).FontSize(6.5f);
 			for (var d = 1; d <= days; d++)
@@ -164,6 +179,7 @@ public partial class QuestPdfReportRenderer
 	private static IContainer StD(IContainer c) => c.Border(0.5f).MinHeight(13).Padding(1).AlignCenter().AlignMiddle();
 	private static IContainer StNameCell(IContainer c) => c.Border(0.5f).MinHeight(13).PaddingHorizontal(4).AlignLeft().AlignMiddle();
 	private static IContainer StTot(IContainer c) => c.Border(1.2f).MinHeight(13).Padding(1).AlignCenter().AlignMiddle();
+	private static IContainer StBand(IContainer c, string color) => c.Border(1.2f).Background(color).MinHeight(14).Padding(1).AlignCenter().AlignMiddle();
 	private static IContainer StLegend(IContainer c) => c.Border(0.5f).MinHeight(11).Padding(1).AlignCenter().AlignMiddle();
 
 	/// <summary>

@@ -26,6 +26,13 @@
 {
     <MudAlert Severity="Severity.Error" Dense="true" Class="report-alert">@error</MudAlert>
 }
+@if (withoutContract.Count > 0)
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="report-alert">
+        Τυπώνονται με τους Μόνιμους, επειδή δεν έχουν σύμβαση Μόνιμου, ΙΔΑΧ ή ΙΔΟΧ
+        (Εργαζόμενοι → Σύμβαση): @(string.Join(", ", withoutContract)).
+    </MudAlert>
+}
 
 @if (pdfDataUri is not null)
 {
@@ -37,6 +44,9 @@
     private int month = DateTime.Today.Month;
     private bool busy;
     private string? error, pdfDataUri;
+
+    /// <summary>Employees without a recognisable contract (printed with the permanent staff); shown as a note.</summary>
+    private List<string> withoutContract = new();
 
     /// <summary>
     /// The page opens with the current month already shown. Done after the first render, so
@@ -58,6 +68,7 @@
         try
         {
             var model = await ShiftTableService.BuildAsync(year, month);
+            withoutContract = model.WithoutContract;
             pdfDataUri = "data:application/pdf;base64," + Convert.ToBase64String(Pdf.Render(model));
         }
         catch (Exception ex) { Fail("Preview", ex); }
@@ -78,6 +89,7 @@
         try
         {
             var model = await ShiftTableService.BuildAsync(year, month);
+            withoutContract = model.WithoutContract;
             var path = await FileStore.SaveAsync(ReportFolder.ShiftTable, year, month, $"Shift_Table_{year}_{month:00}.{ext}", render(model));
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
             Snackbar.ReportSaved(path);

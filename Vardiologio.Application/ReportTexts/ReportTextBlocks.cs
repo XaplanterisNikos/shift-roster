@@ -34,8 +34,8 @@ public static class ReportTextBlocks
 	public const string ContractGroups = "ContractGroups";
 
 	/// <summary>
-	/// Σ.Ω. only: the separator row inside the table that starts the open-ended (ΙΔΑΧ) employees,
-	/// who follow the permanent ones in a second alphabetical list.
+	/// Monthly roster and shift table: the separator row inside the table that starts the
+	/// open-ended (ΙΔΑΧ) employees, who follow the permanent ones in a second alphabetical list.
 	/// </summary>
 	public const string OpenEndedBand = "OpenEndedBand";
 
@@ -43,8 +43,8 @@ public static class ReportTextBlocks
 	public const string OpenEndedBandDefault = "ΑΟΡΙΣΤΟΥ ΧΡΟΝΟΥ";
 
 	/// <summary>
-	/// Σ.Ω. only: the separator row inside the table that starts the fixed-term (ΙΔΟΧ) employees,
-	/// who follow the open-ended ones in a third alphabetical list.
+	/// Monthly roster and shift table: the separator row inside the table that starts the
+	/// fixed-term (ΙΔΟΧ) employees, who follow the open-ended ones in a third alphabetical list.
 	/// </summary>
 	public const string FixedTermBand = "FixedTermBand";
 

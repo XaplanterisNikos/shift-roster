@@ -22,10 +22,28 @@ public class ShiftTableService : IShiftTableService
 
 		await using var db = await _factory.CreateDbContextAsync();
 
-		var employees = await db.Employees
-			.OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
-			.Select(e => new { e.Id, e.LastName, e.FirstName, Speciality = e.Speciality.Name })
-			.ToListAsync();
+		var employees = (await db.Employees
+				.OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
+				.Select(e => new
+				{
+					e.Id,
+					e.LastName,
+					e.FirstName,
+					Speciality = e.Speciality.Name,
+					ContractCode = e.EmploymentType != null ? e.EmploymentType.Code : null,
+					ContractName = e.EmploymentType != null ? e.EmploymentType.Name : null
+				})
+				.ToListAsync())
+			.Select(e => new
+			{
+				e.Id,
+				e.LastName,
+				e.FirstName,
+				e.Speciality,
+				Contract = ContractRules.Resolve(e.ContractCode, e.ContractName)
+			})
+			.OrderBy(e => e.Contract ?? ContractKind.Permanent)
+			.ToList();
 
 		var entries = await db.ShiftDays
 			.AsNoTracking()
@@ -63,6 +81,10 @@ public class ShiftTableService : IShiftTableService
 			HolidayDays = holidays.Select(h => h.Day).OrderBy(d => d).ToList(),
 			WorkCodes = workCodes.Select(c => (c.Code, c.Description)).ToList(),
 			StatusCodes = statusCodes.Select(c => (c.Code, c.Description)).ToList(),
+			WithoutContract = employees
+				.Where(e => e.Contract is null)
+				.Select(e => $"{e.LastName.Trim()} {e.FirstName.Trim()}".Trim())
+				.ToList(),
 			Texts = await ReportTextService.LoadSetAsync(db, ReportForm.ShiftTable),
 			Colors = await ReportColorService.LoadSetAsync(db)
 		};
@@ -83,6 +105,7 @@ public class ShiftTableService : IShiftTableService
 				LastName = e.LastName,
 				FirstName = e.FirstName,
 				Speciality = e.Speciality,
+				Group = e.Contract ?? ContractKind.Permanent,
 				DayCodes = dayCodes,
 				Counts = workCodes.Select(w => mine.Count(s => s.ShiftCodeId == w.Id)).ToArray(),
 				DailyToComplete = Paid(HourCategory.ToComplete),

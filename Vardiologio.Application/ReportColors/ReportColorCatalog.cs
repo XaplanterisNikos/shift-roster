@@ -18,6 +18,7 @@ public static class ReportColorCatalog
 	public const string HoursExcess = "Hours.Excess";
 
 	public const string ShiftTableWeekend = "ShiftTable.Weekend";
+	public const string ShiftTableBand = "ShiftTable.Band";
 
 	public const string IndividualSunday = "Individual.Sunday";
 
@@ -49,6 +50,7 @@ public static class ReportColorCatalog
 		new(HoursExcess, "Ωρών μηνιαία", "Ώρες που περισσεύουν (δεν πληρώνονται)", "#FDE2E1"),
 
 		new(ShiftTableWeekend, "Πίνακας βαρδιών εργασίας", "Στήλες Σαββάτου, Κυριακής και αργιών", "#D6DCE4"),
+		new(ShiftTableBand, "Πίνακας βαρδιών εργασίας", "Γραμμές-χωρίσματα αορίστου / ορισμένου χρόνου", "#D9E1F2", MonthlyTotalFixedTermBand),
 
 		new(IndividualSunday, "Ατομική μηνιαία", "Γραμμές Κυριακής", "#FCE4D6"),
 

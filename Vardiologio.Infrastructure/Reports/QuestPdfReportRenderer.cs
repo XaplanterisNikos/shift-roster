@@ -189,7 +189,7 @@ public partial class QuestPdfReportRenderer : IPdfReportRenderer
 			if (r.Group != group)
 			{
 				group = r.Group;
-				var bandText = ShiftTableTexts.MonthlyTotalBand(m.Texts, group);
+				var bandText = ShiftTableTexts.GroupBand(m.Texts, group);
 				items.Add(new TableItem(true, t =>
 					t.Cell().ColumnSpan(columnCount).Element(x => Filled(x, bandBg)).Text(bandText).Bold().FontSize(7)));
 			}

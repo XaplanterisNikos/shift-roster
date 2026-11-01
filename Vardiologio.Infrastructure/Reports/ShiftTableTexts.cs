@@ -80,11 +80,11 @@ internal static class ShiftTableTexts
 	public static string Hours(decimal h) => h == 0 ? "" : h.ToString("0.##", CultureInfo.GetCultureInfo("el-GR"));
 
 	/// <summary>
-	/// Σ.Ω. only: text of the separator row before a contract group (Παράμετροι → Αναφορών) —
-	/// "ΑΟΡΙΣΤΟΥ ΧΡΟΝΟΥ" before the open-ended, "ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ" before the fixed-term.
+	/// Text of the separator row before a contract group, from the form's own texts (monthly roster
+	/// or shift table): "ΑΟΡΙΣΤΟΥ ΧΡΟΝΟΥ" before the open-ended, "ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ" before the fixed-term.
 	/// </summary>
-	/// <param name="texts">The Σ.Ω. texts.</param>
+	/// <param name="texts">The form's texts.</param>
 	/// <param name="group">The group that starts after the separator.</param>
-	public static string MonthlyTotalBand(ReportTextSet texts, ContractKind group) => texts.Line(
+	public static string GroupBand(ReportTextSet texts, ContractKind group) => texts.Line(
 		group == ContractKind.FixedTerm ? ReportTextBlocks.FixedTermBand : ReportTextBlocks.OpenEndedBand, 0);
 }

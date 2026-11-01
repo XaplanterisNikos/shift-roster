@@ -6,7 +6,8 @@ namespace Vardiologio.Application.Reports;
 /// <summary>
 /// Data for the monthly "ΠΙΝΑΚΑΣ ΒΑΡΔΙΩΝ ΕΡΓΑΣΙΑΣ ΠΡΟΣΩΠΙΚΟΥ" (official shift table, A3 landscape):
 /// one row per active employee with the code of every day, how many times each work-shift code
-/// was worked, and the paid "προς συμπλήρωση" hours; plus the legend of all codes.
+/// was worked, and the paid "προς συμπλήρωση" hours; plus the legend of all codes. The employees
+/// print in three groups (permanent, open-ended, fixed-term), each after its separator row.
 /// </summary>
 public class ShiftTableModel
 {
@@ -31,8 +32,14 @@ public class ShiftTableModel
 	/// <summary>Status codes (leave, rest, holiday…): second part of the legend.</summary>
 	public List<(string Code, string Description)> StatusCodes { get; set; } = new();
 
-	/// <summary>One row per active employee, ordered by name.</summary>
+	/// <summary>One row per active employee: permanent, then open-ended, then fixed-term, each group by name.</summary>
 	public List<ShiftTableRow> Rows { get; set; } = new();
+
+	/// <summary>
+	/// Active employees without a recognisable contract ("Επώνυμο Όνομα"). They print with the
+	/// permanent staff; the page lists them so the user can set their contract.
+	/// </summary>
+	public List<string> WithoutContract { get; set; } = new();
 
 	/// <summary>The form's editable texts (letterhead, titles, signatures…), as set in Παράμετροι → Αναφορές.</summary>
 	public ReportTextSet Texts { get; set; } = ReportTextSet.Empty;
@@ -54,6 +61,12 @@ public class ShiftTableRow
 	public string LastName { get; set; } = "";
 	public string FirstName { get; set; } = "";
 	public string Speciality { get; set; } = "";
+
+	/// <summary>
+	/// The contract group the row prints in. An employee without a recognisable contract is in
+	/// the permanent group.
+	/// </summary>
+	public ContractKind Group { get; set; }
 
 	/// <summary>Code per day of the month (index 0 = day 1), or null when nothing was entered.</summary>
 	public string?[] DayCodes { get; set; } = [];

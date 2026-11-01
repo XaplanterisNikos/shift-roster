@@ -34,7 +34,7 @@ public static class DatabaseSeeder
 		SeedHourLimits(db);
 		SeedReportTexts(db, reportData.Texts ?? []);
 		SeedFixedTermAttendanceTexts(db);
-		SeedMonthlyTotalBands(db);
+		SeedGroupBands(db);
 		SeedIndividualMonthlyTexts(db);
 		SeedReportColors(db);
 		SeedEmployees(db);
@@ -248,34 +248,38 @@ public static class DatabaseSeeder
 	}
 
 	/// <summary>
-	/// Gives the Σ.Ω. form its separator lines ("ΑΟΡΙΣΤΟΥ ΧΡΟΝΟΥ", "ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ"), the rows
-	/// inside the table before the open-ended and the fixed-term employees. The lines were added
-	/// after the first installations, so their report data file does not have them; they are
-	/// not private data, so their defaults live here. Runs once per line: a line that exists
-	/// (from the file or an earlier start) is left alone, and afterwards it is edited in
-	/// Παράμετροι → Αναφορών like every other line.
+	/// Gives the monthly roster and the shift table their separator lines ("ΑΟΡΙΣΤΟΥ ΧΡΟΝΟΥ",
+	/// "ΟΡΙΣΜΕΝΟΥ ΧΡΟΝΟΥ"), the rows inside the table before the open-ended and the fixed-term
+	/// employees; each form has its own lines. The lines were added after the first installations,
+	/// so their report data file does not have them; they are not private data, so their defaults
+	/// live here. Runs once per line: a line that exists (from the file or an earlier start) is
+	/// left alone, and afterwards it is edited on the report parameters page like every other line.
 	/// </summary>
-	private static void SeedMonthlyTotalBands(AppDbContext db)
+	private static void SeedGroupBands(AppDbContext db)
 	{
+		ReportForm[] forms = { ReportForm.MonthlyTotal, ReportForm.ShiftTable };
 		(string Block, string Text)[] bands =
 		{
 			(ReportTextBlocks.OpenEndedBand, ReportTextBlocks.OpenEndedBandDefault),
 			(ReportTextBlocks.FixedTermBand, ReportTextBlocks.FixedTermBandDefault)
 		};
 
-		foreach (var (block, text) in bands)
+		foreach (var form in forms)
 		{
-			if (db.ReportTexts.Any(t => t.Form == ReportForm.MonthlyTotal && t.Block == block))
-				continue;
-
-			db.ReportTexts.Add(new ReportText
+			foreach (var (block, text) in bands)
 			{
-				Form = ReportForm.MonthlyTotal,
-				Section = ReportSection.Header,
-				Block = block,
-				Line = 0,
-				Text = text
-			});
+				if (db.ReportTexts.Any(t => t.Form == form && t.Block == block))
+					continue;
+
+				db.ReportTexts.Add(new ReportText
+				{
+					Form = form,
+					Section = ReportSection.Header,
+					Block = block,
+					Line = 0,
+					Text = text
+				});
+			}
 		}
 		db.SaveChanges();
 	}
