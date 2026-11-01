@@ -20,7 +20,8 @@
    Working codes also get the kinds of day they are allowed on and their hour split
    (day × pay category grid); both count as "critical" for the history warning, since they
    change how existing entries are counted in the reports.
-   The list can be rearranged by dragging a row by its handle; the order is display only, kept
+   The list can be rearranged by dragging a row by its handle (plain pointer events, since the
+   browser's own drag and drop does not reach the page in the desktop window); the order is display only, kept
    on this computer (IShiftCodeOrderStore), and changes nothing in the database or the reports.
    Styles: "Master-detail" and "Shift-code order" blocks in app.css. *@
 
@@ -55,28 +56,28 @@
         }
         else
         {
-            <MudDropContainer @ref="dropContainer" T="ShiftCodeListItem" Items="list"
-                              ItemsSelector="@((item, zone) => true)" ItemDropped="OnItemDropped"
-                              ItemDraggingClass="order-dragging">
-                <ChildContent>
-                    <MudDropZone T="ShiftCodeListItem" Identifier="codes" AllowReorder="true" Class="order-zone" />
-                </ChildContent>
-                <ItemRenderer>
-                    <div class="@RowClass(context)" @onclick="() => SelectAsync(context.Id)">
-                        <MudDragHandle T="ShiftCodeListItem" Class="order-handle" title="Σύρετε για αλλαγή σειράς">
+            <div class="@("order-zone" + (dragged is null ? "" : " order-zone-dragging"))"
+                 @onpointerup="EndDrag" @onpointerleave="EndDrag">
+                @foreach (var c in list)
+                {
+                    var item = c;
+                    <div @key="item.Id" class="@RowClass(item)"
+                         @onclick="() => SelectAsync(item.Id)" @onpointerenter="() => DragOver(item)">
+                        <span class="order-handle" title="Σύρετε για αλλαγή σειράς"
+                              @onpointerdown="() => StartDrag(item)" @onpointerdown:preventDefault="true">
                             <MudIcon Icon="@Icons.Material.Rounded.DragIndicator" Size="Size.Small" />
-                        </MudDragHandle>
+                        </span>
                         <span class="md-item">
-                            <span class="md-code">@context.Code</span>
-                            <span class="md-item-text">@context.Description</span>
-                            @if (!context.IsActive)
+                            <span class="md-code">@item.Code</span>
+                            <span class="md-item-text">@item.Description</span>
+                            @if (!item.IsActive)
                             {
                                 <span class="md-tag">ανενεργός</span>
                             }
                         </span>
                     </div>
-                </ItemRenderer>
-            </MudDropContainer>
+                }
+            </div>
         }
     </MudPaper>
 
@@ -253,17 +254,14 @@
 @code {
     private List<ShiftCodeListItem> list = new();
 
-    /// <summary>The drag-and-drop list; refreshed after every change of order or content.</summary>
-    private MudDropContainer<ShiftCodeListItem>? dropContainer;
+    /// <summary>The row being dragged by its handle; null when no drag is in progress.</summary>
+    private ShiftCodeListItem? dragged;
+
+    /// <summary>True when the dragged row has moved since the drag started.</summary>
+    private bool dragMoved;
 
     /// <summary>True when the user has arranged the codes (shows "Επαναφορά σειράς").</summary>
     private bool customOrder;
-
-    /// <summary>
-    /// Set when the list changed; the drop zone then forgets its own row order after the next
-    /// render, once it has the new list, and shows the rows in the order of <see cref="list"/>.
-    /// </summary>
-    private bool orderChanged;
 
     private bool includeInactive;
     private int selectedId;
@@ -298,24 +296,35 @@
         var saved = OrderStore.Load();
         customOrder = saved.Count > 0;
         list = ShiftCodeOrder.Apply(await ShiftCodeService.GetAllAsync(includeInactive), saved);
-        orderChanged = true;
-    }
-
-    /// <summary>Lets the drop zone take the order of the reloaded or rearranged list.</summary>
-    protected override void OnAfterRender(bool firstRender)
-    {
-        if (!orderChanged || dropContainer is null) return;
-        orderChanged = false;
-        dropContainer.Refresh();
     }
 
     /// <summary>
-    /// A row was dropped at a new place: the list takes the new order and the order is saved on
-    /// this computer. Codes hidden at the moment (inactive) keep their place in the saved order.
+    /// Starts dragging a row: pressed on its handle. Built on plain pointer events, because the
+    /// browser's own drag and drop does not reach the page inside the desktop window.
     /// </summary>
-    private void OnItemDropped(MudItemDropInfo<ShiftCodeListItem> drop)
+    private void StartDrag(ShiftCodeListItem item)
     {
-        if (drop.Item is null || !ShiftCodeOrder.Move(list, drop.Item, drop.IndexInZone)) return;
+        dragged = item;
+        dragMoved = false;
+    }
+
+    /// <summary>While dragging, the dragged row takes the place of the row the pointer enters.</summary>
+    private void DragOver(ShiftCodeListItem target)
+    {
+        if (dragged is null || target.Id == dragged.Id) return;
+        if (ShiftCodeOrder.Move(list, dragged, list.IndexOf(target))) dragMoved = true;
+    }
+
+    /// <summary>
+    /// Ends the drag (button released, or the pointer left the list). When the order changed it
+    /// is saved on this computer; codes hidden at the moment (inactive) keep their place.
+    /// </summary>
+    private void EndDrag()
+    {
+        if (dragged is null) return;
+        dragged = null;
+        if (!dragMoved) return;
+        dragMoved = false;
 
         try
         {
@@ -326,7 +335,6 @@
         {
             Snackbar.Add("Η σειρά δεν αποθηκεύτηκε: " + ex.Message, Severity.Error);
         }
-        orderChanged = true;
     }
 
     /// <summary>Removes the saved order and lists the codes in their default order again.</summary>
@@ -344,10 +352,11 @@
         await ReloadListAsync();
     }
 
-    /// <summary>CSS classes of a list row: selected and / or inactive.</summary>
+    /// <summary>CSS classes of a list row: selected, dragged and / or inactive.</summary>
     private string RowClass(ShiftCodeListItem item) =>
         "order-row"
         + (item.Id == selectedId ? " order-selected" : "")
+        + (item.Id == dragged?.Id ? " order-dragging" : "")
         + (item.IsActive ? "" : " md-inactive");
 
     /// <summary>Loads one shift code into the edit form and snapshots its critical fields.</summary>
