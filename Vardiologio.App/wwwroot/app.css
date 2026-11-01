@@ -1650,6 +1650,47 @@ div.md-bar .mud-input-control.mud-input-control {
 	min-width: 0;
 }
 
+/* Shift-code order: the list of Pages/ShiftCodes.razor, rearranged by dragging a row by its handle. */
+.order-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.order-zone {
+	padding: 4px 0;
+}
+
+.order-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 12px 6px 4px;
+	cursor: pointer;
+}
+
+.order-row:hover {
+	background: var(--mud-palette-action-default-hover);
+}
+
+.order-row.order-selected {
+	background: var(--mud-palette-primary-hover);
+	color: var(--mud-palette-primary);
+}
+
+.order-handle {
+	display: flex;
+	align-items: center;
+	padding: 2px;
+	color: var(--mud-palette-text-secondary);
+	cursor: grab;
+}
+
+.order-dragging {
+	opacity: .5;
+}
+
 /* Fields side by side in a form (they wrap on a narrow window). */
 .md-row {
 	display: grid;

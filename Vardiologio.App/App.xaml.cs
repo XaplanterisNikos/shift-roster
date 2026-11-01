@@ -81,6 +81,7 @@ public partial class App : System.Windows.Application
 			services.AddScoped<IShiftTableService, ShiftTableService>();
 			services.AddScoped<IEmployeeService, EmployeeService>();
 			services.AddScoped<IShiftCodeService, ShiftCodeService>();
+			services.AddSingleton<IShiftCodeOrderStore, ShiftCodeOrderFile>();
 			services.AddScoped<ILookupService, LookupService>();
 			services.AddScoped<ISignatoryService, SignatoryService>();
 			services.AddScoped<IHolidayService, HolidayService>();

@@ -5,6 +5,7 @@
 @using Vardiologio.Domain.Enums
 @using Microsoft.AspNetCore.Components.Forms
 @inject IShiftCodeService ShiftCodeService
+@inject IShiftCodeOrderStore OrderStore
 @inject ISnackbar Snackbar
 @inject IDialogService Dialogs
 
@@ -18,7 +19,9 @@
    Working codes also get the kinds of day they are allowed on and their hour split
    (day × pay category grid); both count as "critical" for the history warning, since they
    change how existing entries are counted in the reports.
-   Styles: "Master-detail" block in app.css. *@
+   The list can be rearranged by dragging a row by its handle; the order is display only, kept
+   on this computer (IShiftCodeOrderStore), and changes nothing in the database or the reports.
+   Styles: "Master-detail" and "Shift-code order" blocks in app.css. *@
 
 <div class="page-head">
     <div>
@@ -37,29 +40,42 @@
 
 <div class="md-grid md-wide">
     <MudPaper Elevation="0" Class="md-list">
-        <div class="md-list-head">@list.Count @(list.Count == 1 ? "κωδικός" : "κωδικοί")</div>
+        <div class="md-list-head order-head">
+            <span>@list.Count @(list.Count == 1 ? "κωδικός" : "κωδικοί")</span>
+            @if (customOrder)
+            {
+                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Rounded.RestartAlt" OnClick="ResetOrderAsync">Επαναφορά σειράς</MudButton>
+            }
+        </div>
         @if (list.Count == 0)
         {
             <MudText Typo="Typo.body2" Class="md-list-empty">Κανένας κωδικός.</MudText>
         }
         else
         {
-            <MudList T="int" SelectedValue="selectedId" SelectedValueChanged="SelectAsync"
-                     Color="Color.Primary" Dense="true">
-                @foreach (var c in list)
-                {
-                    <MudListItem T="int" Value="@c.Id" Class="@(c.IsActive ? null : "md-inactive")">
+            <MudDropContainer @ref="dropContainer" T="ShiftCodeListItem" Items="list"
+                              ItemsSelector="@((item, zone) => true)" ItemDropped="OnItemDropped"
+                              ItemDraggingClass="order-dragging">
+                <ChildContent>
+                    <MudDropZone T="ShiftCodeListItem" Identifier="codes" AllowReorder="true" Class="order-zone" />
+                </ChildContent>
+                <ItemRenderer>
+                    <div class="@RowClass(context)" @onclick="() => SelectAsync(context.Id)">
+                        <MudDragHandle T="ShiftCodeListItem" Class="order-handle" title="Σύρετε για αλλαγή σειράς">
+                            <MudIcon Icon="@Icons.Material.Rounded.DragIndicator" Size="Size.Small" />
+                        </MudDragHandle>
                         <span class="md-item">
-                            <span class="md-code">@c.Code</span>
-                            <span class="md-item-text">@c.Description</span>
-                            @if (!c.IsActive)
+                            <span class="md-code">@context.Code</span>
+                            <span class="md-item-text">@context.Description</span>
+                            @if (!context.IsActive)
                             {
                                 <span class="md-tag">ανενεργός</span>
                             }
                         </span>
-                    </MudListItem>
-                }
-            </MudList>
+                    </div>
+                </ItemRenderer>
+            </MudDropContainer>
         }
     </MudPaper>
 
@@ -236,6 +252,18 @@
 @code {
     private List<ShiftCodeListItem> list = new();
 
+    /// <summary>The drag-and-drop list; refreshed after every change of order or content.</summary>
+    private MudDropContainer<ShiftCodeListItem>? dropContainer;
+
+    /// <summary>True when the user has arranged the codes (shows "Επαναφορά σειράς").</summary>
+    private bool customOrder;
+
+    /// <summary>
+    /// Set when the list changed; the drop zone then forgets its own row order after the next
+    /// render, once it has the new list, and shows the rows in the order of <see cref="list"/>.
+    /// </summary>
+    private bool orderChanged;
+
     private bool includeInactive;
     private int selectedId;
     private ShiftCodeDetail? form;
@@ -263,11 +291,63 @@
         await ReloadListAsync();
     }
 
-    /// <summary>Reloads the list for the current inactive toggle.</summary>
+    /// <summary>Reloads the list for the current inactive toggle, in the user's saved order.</summary>
     private async Task ReloadListAsync()
     {
-        list = (await ShiftCodeService.GetAllAsync(includeInactive)).ToList();
+        var saved = OrderStore.Load();
+        customOrder = saved.Count > 0;
+        list = ShiftCodeOrder.Apply(await ShiftCodeService.GetAllAsync(includeInactive), saved);
+        orderChanged = true;
     }
+
+    /// <summary>Lets the drop zone take the order of the reloaded or rearranged list.</summary>
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!orderChanged || dropContainer is null) return;
+        orderChanged = false;
+        dropContainer.Refresh();
+    }
+
+    /// <summary>
+    /// A row was dropped at a new place: the list takes the new order and the order is saved on
+    /// this computer. Codes hidden at the moment (inactive) keep their place in the saved order.
+    /// </summary>
+    private void OnItemDropped(MudItemDropInfo<ShiftCodeListItem> drop)
+    {
+        if (drop.Item is null || !ShiftCodeOrder.Move(list, drop.Item, drop.IndexInZone)) return;
+
+        try
+        {
+            OrderStore.Save(ShiftCodeOrder.Merge(OrderStore.Load(), list.Select(c => c.Code).ToList()));
+            customOrder = true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Snackbar.Add("Η σειρά δεν αποθηκεύτηκε: " + ex.Message, Severity.Error);
+        }
+        orderChanged = true;
+    }
+
+    /// <summary>Removes the saved order and lists the codes in their default order again.</summary>
+    private async Task ResetOrderAsync()
+    {
+        try
+        {
+            OrderStore.Reset();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Snackbar.Add("Η σειρά δεν επαναφέρθηκε: " + ex.Message, Severity.Error);
+            return;
+        }
+        await ReloadListAsync();
+    }
+
+    /// <summary>CSS classes of a list row: selected and / or inactive.</summary>
+    private string RowClass(ShiftCodeListItem item) =>
+        "order-row"
+        + (item.Id == selectedId ? " order-selected" : "")
+        + (item.IsActive ? "" : " md-inactive");
 
     /// <summary>Loads one shift code into the edit form and snapshots its critical fields.</summary>
     private async Task SelectAsync(int id)

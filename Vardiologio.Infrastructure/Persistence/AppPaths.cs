@@ -42,6 +42,12 @@ public static class AppPaths
 		}
 	}
 
+	/// <summary>
+	/// The user's order of the shift codes on the shift parameters page (display only), next to
+	/// the database.
+	/// </summary>
+	public static string ShiftCodeOrderPath => Path.Combine(DataDir, "shift-code-order.json");
+
 	/// <summary>SQLite connection string pointing at <see cref="DbPath"/>.</summary>
 	public static string ConnectionString => $"Data Source={DbPath}";
 }
