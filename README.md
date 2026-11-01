@@ -82,7 +82,7 @@ changes requested by its users.
 | Official shift table (Πίνακας βαρδιών εργασίας) | The same roster in the organisation's single-sheet layout, with weekends and holidays shaded. | A3 landscape, one page |
 | Staff attendance (Πίνακας παρουσιών) | One mark per employee per day, per fortnight. Three forms: permanent and open-ended staff, fixed-term staff, head of the directorate. | A4 landscape |
 | Individual overtime certificate | One employee, one month: declaration, paid hours in six columns, signature. | A4 landscape |
-| Overtime certificate per contract | The six hour columns for every employee, grouped by contract under coloured bands, with a running number through the whole form. | A4 landscape, page flow |
+| Overtime certificate per contract | The six hour columns for every employee, grouped by contract under coloured bands. Two forms: permanent and open-ended staff one under the other, and fixed-term staff; the running number goes through each form. | A4 landscape, page flow |
 | Monthly hours report | Declared, paid and excess hours per pay category for every employee. | A4 landscape |
 | Individual monthly sheet | Day-by-day analysis of one employee: shift and overtime times, hours, attendance, summary blocks, two signatures. | A4 landscape, one page |
 

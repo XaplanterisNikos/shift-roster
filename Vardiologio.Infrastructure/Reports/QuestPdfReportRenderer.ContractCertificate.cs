@@ -9,8 +9,8 @@ namespace Vardiologio.Infrastructure.Reports;
 /// <summary>
 /// Collective overtime certificate per contract ("ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι") — A4 landscape, as many
 /// pages as the employees need. Same top as the individual certificate (reuses CertHead /
-/// CertIntro); one table with the three contracts one under the other, each under a coloured
-/// band, the table header repeated on every page, and the signatures once at the end, always on
+/// CertIntro); one table with the contracts of the form one under the other (no page break),
+/// each under a coloured band, the table header repeated on every page, and the signatures once at the end, always on
 /// the same page as the last employee.
 /// </summary>
 public partial class QuestPdfReportRenderer

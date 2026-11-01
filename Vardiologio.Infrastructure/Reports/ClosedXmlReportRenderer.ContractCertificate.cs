@@ -8,8 +8,8 @@ namespace Vardiologio.Infrastructure.Reports;
 /// Collective overtime certificate per contract ("ΙΔΟΧ / ΙΔΑΧ / Μόνιμοι") — A4 landscape, as many
 /// pages as the employees need. Same top and same columns as the individual certificate
 /// (reuses its column constants and <see cref="CertificateHead"/>); the table has one row per
-/// employee under a coloured band per contract — permanent, open-ended, fixed-term, one under the
-/// other — and the table header is repeated at the top of every printed page.
+/// employee under a coloured band per contract, the contracts of the form one under the other
+/// (no page break between them), and the table header is repeated at the top of every printed page.
 /// </summary>
 public partial class ClosedXmlReportRenderer
 {
@@ -17,7 +17,7 @@ public partial class ClosedXmlReportRenderer
 	public byte[] Render(ContractCertificateModel m)
 	{
 		using var wb = new XLWorkbook();
-		var ws = wb.AddWorksheet(ContractCertificateTexts.SheetName);
+		var ws = wb.AddWorksheet(ContractCertificateTexts.SheetName(m.Sheet));
 		var center = XLAlignmentHorizontalValues.Center;
 		var bandFill = XLColor.FromHtml(m.Colors[ReportColorCatalog.ContractCertificateBand]);
 

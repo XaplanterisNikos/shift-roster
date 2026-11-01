@@ -3,12 +3,22 @@ using Vardiologio.Application.ReportTexts;
 
 namespace Vardiologio.Application.Reports;
 
+/// <summary>Which of the two collective certificates a model holds (one printed form each).</summary>
+public enum ContractCertificateSheet
+{
+	/// <summary>Permanent staff, then open-ended contracts (ΙΔΑΧ): one form, two groups.</summary>
+	PermanentAndOpenEnded,
+
+	/// <summary>Fixed-term contracts (ΙΔΟΧ): one form, one group.</summary>
+	FixedTerm
+}
+
 /// <summary>
 /// Data for one collective "ΠΙΣΤΟΠΟΙΗΣΗ ΥΠΕΡΩΡΙΑΚΗΣ ΚΑΙ ΛΟΙΠΗΣ ΕΡΓΑΣΙΑΣ" per contract: the same six
 /// hour columns as the individual certificate, one row per employee, grouped by contract.
 /// The hours are the <b>paid</b> hours, so every row agrees with that employee's own certificate.
-/// One form for all three contracts: permanent, then open-ended (ΙΔΑΧ), then fixed-term (ΙΔΟΧ),
-/// one under the other, each under its own band.
+/// Two forms: permanent staff with the open-ended contracts (ΙΔΑΧ) one under the other, each under
+/// its own band, and the fixed-term contracts (ΙΔΟΧ) on their own.
 /// </summary>
 public class ContractCertificateModel
 {
@@ -18,14 +28,17 @@ public class ContractCertificateModel
 	/// <summary>Certificate month (1–12).</summary>
 	public int Month { get; set; }
 
+	/// <summary>Which of the two forms this is.</summary>
+	public ContractCertificateSheet Sheet { get; set; }
+
 	/// <summary>
-	/// The contract groups of the form, in print order (permanent, open-ended, fixed-term).
-	/// A contract without employees this month has no group, so its band is not printed.
+	/// The contract groups of the form, in print order. A contract without employees this month
+	/// has no group, so its band is not printed.
 	/// </summary>
 	public List<ContractCertificateGroup> Groups { get; set; } = new();
 
 	/// <summary>
-	/// Active employees left out of the form because their contract is missing or is not one
+	/// Active employees left out of both forms because their contract is missing or is not one
 	/// of the three kinds ("Επώνυμο Όνομα"). The page lists them so the user can fix the contract.
 	/// </summary>
 	public List<string> WithoutContract { get; set; } = new();
@@ -56,7 +69,7 @@ public class ContractCertificateGroup
 /// <summary>One employee's row on a collective certificate.</summary>
 public class ContractCertificateRow
 {
-	/// <summary>Α/Α: runs on through the whole form, from one group to the next.</summary>
+	/// <summary>Α/Α: runs on through the whole form, from one group to the next; each form starts at 1.</summary>
 	public int Index { get; set; }
 
 	public string LastName { get; set; } = "";

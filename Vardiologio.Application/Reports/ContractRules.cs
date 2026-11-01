@@ -44,11 +44,14 @@ public static class ContractRules
 	}
 
 	/// <summary>
-	/// The three kinds in print order (permanent, open-ended, fixed-term): the order of the
-	/// groups on the collective certificate and on the Σ.Ω.
+	/// The kinds of contract printed on each of the two collective certificates, in print order:
+	/// permanent then open-ended on the first, fixed-term alone on the second.
 	/// </summary>
-	public static readonly ContractKind[] PrintOrder =
-		[ContractKind.Permanent, ContractKind.OpenEnded, ContractKind.FixedTerm];
+	/// <param name="sheet">The form.</param>
+	public static ContractKind[] KindsOf(ContractCertificateSheet sheet) =>
+		sheet == ContractCertificateSheet.FixedTerm
+			? [ContractKind.FixedTerm]
+			: [ContractKind.Permanent, ContractKind.OpenEnded];
 
 	/// <summary>Upper case without accents, dots or spaces ("Α.Χ" → "ΑΧ"); "" for null.</summary>
 	private static string Fold(string? text) =>

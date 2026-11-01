@@ -15,7 +15,7 @@ public class ContractCertificateService : IContractCertificateService
 	public ContractCertificateService(IDbContextFactory<AppDbContext> factory) => _factory = factory;
 
 	/// <inheritdoc/>
-	public async Task<ContractCertificateModel> BuildAsync(int year, int month)
+	public async Task<ContractCertificateModel> BuildAsync(int year, int month, ContractCertificateSheet sheet)
 	{
 		var first = new DateOnly(year, month, 1);
 		var last = new DateOnly(year, month, DateTime.DaysInMonth(year, month));
@@ -61,6 +61,7 @@ public class ContractCertificateService : IContractCertificateService
 		{
 			Year = year,
 			Month = month,
+			Sheet = sheet,
 			Texts = await ReportTextService.LoadSetAsync(db, ReportForm.ContractCertificate),
 			Colors = await ReportColorService.LoadSetAsync(db),
 			WithoutContract = staff
@@ -70,7 +71,7 @@ public class ContractCertificateService : IContractCertificateService
 		};
 
 		var index = 1;
-		foreach (var kind in ContractRules.PrintOrder)
+		foreach (var kind in ContractRules.KindsOf(sheet))
 		{
 			var members = staff.Where(x => x.Kind == kind).Select(x => x.Employee).ToList();
 			if (members.Count == 0) continue;
