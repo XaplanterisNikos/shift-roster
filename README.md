@@ -118,6 +118,8 @@ Common to every form:
   in the same transaction as the data. Report exports, database transfers and archives are
   recorded too.
 - **Database export and import.** A dated copy of the database goes to the documents folder.
+  Every Friday the users are reminded: a red message in the top bar and the menu entry and the
+  export button blinking red, until an export is made (it carries on after Friday if none is made).
   An import accepts only a database of the same schema. It backs up the current data first,
   keeps the installation's users and signs everybody out.
 - **Error log.** Startup errors, unhandled exceptions, failed saves and failed exports are

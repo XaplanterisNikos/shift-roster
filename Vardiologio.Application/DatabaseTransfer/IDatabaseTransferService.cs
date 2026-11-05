@@ -26,6 +26,12 @@ public interface IDatabaseTransferService
 	/// </summary>
 	Task<string> ExportAsync();
 
+	/// <summary>
+	/// Local time of the latest database export on this installation (from the activity log, which
+	/// an import never replaces); null when there has been none. Used by <see cref="ExportReminder"/>.
+	/// </summary>
+	Task<DateTime?> GetLastExportAsync();
+
 	/// <summary>Checks whether the file can be imported. Call before <see cref="ImportAsync"/>.</summary>
 	/// <param name="path">Full path of the chosen file.</param>
 	Task<DatabaseFileCheck> CheckAsync(string path);

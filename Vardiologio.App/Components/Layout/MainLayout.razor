@@ -1,18 +1,29 @@
 ﻿@inherits LayoutComponentBase
 @using Vardiologio.Application.Auth
+@using Vardiologio.Application.DatabaseTransfer
+@using Vardiologio.Application.Logging
 @inject IUserSession Session
+@inject IDatabaseTransferService Transfer
+@inject IErrorLog ErrorLog
 @inject NavigationManager Nav
 @implements IDisposable
 
 @* Shell (top bar + side menu + content) shown only when signed in; otherwise the guard below
    redirects to /login. Colours and sizes come from Theme/AppTheme.cs; the few extra rules
-   (.app-bar, .app-drawer, ...) are in wwwroot/app.css. *@
+   (.app-bar, .app-drawer, ...) are in wwwroot/app.css.
+   Weekly database-export reminder (ExportReminder): for the users (not the administrator, who has
+   no export), from Friday until an export is made, a red message in the middle of the top bar and the
+   database entry of the menu blinking red. Checked at sign-in and on every page change. *@
 @if (Session.IsAuthenticated)
 {
     <MudLayout>
         <MudAppBar Elevation="0" Class="app-bar">
             <AboutButton Class="@SectionClass" />
             <MudText Typo="Typo.h6" Class="brand-name">Βαρδιολόγιο</MudText>
+            @if (exportDue)
+            {
+                <span class="export-due-banner">ΠΡΑΓΜΑΤΟΠΟΙΗΣΤΕ ΕΞΑΓΩΓΗ ΒΑΣΗΣ</span>
+            }
             <MudSpacer />
             @if (!IsAdmin)
             {
@@ -90,7 +101,7 @@
                     <MudIcon Icon="@Icons.Material.Rounded.Storage" Size="Size.Small" />
                     <span>Διαχείριση</span>
                 </div>
-                <DbTransferButton OpenChanged="OnDbDialogChanged" />
+                <DbTransferButton OpenChanged="OnDbDialogChanged" Remind="exportDue" Exported="OnExported" />
                 }
             </MudNavMenu>
         </MudDrawer>
@@ -137,6 +148,9 @@
     /// <summary>Database dialog visible (it has no page of its own).</summary>
     private bool dbDialogOpen;
 
+    /// <summary>A weekly database export is due (see <see cref="ExportReminder"/>).</summary>
+    private bool exportDue;
+
     /// <summary>
     /// Colour modifier of the app icon, by section of the side menu: operations keep the brand
     /// blue (no modifier), reports are green, parameters grey, database management red.
@@ -174,7 +188,41 @@
         if (!Session.IsAuthenticated) Nav.NavigateTo("/login");
         GuardAdminPages();
     }
-    private void OnChanged() => InvokeAsync(() => { GuardAdminPages(); StateHasChanged(); });
+
+    protected override Task OnInitializedAsync() => RefreshExportReminderAsync();
+
+    /// <summary>
+    /// Works out whether the weekly export is due for the signed-in user (never for the
+    /// administrator). A failed check only logs the error and shows no reminder.
+    /// </summary>
+    private async Task RefreshExportReminderAsync()
+    {
+        if (!Session.IsAuthenticated || IsAdmin)
+        {
+            exportDue = false;
+            return;
+        }
+
+        try
+        {
+            exportDue = ExportReminder.IsDue(await Transfer.GetLastExportAsync(), DateTime.Now);
+        }
+        catch (Exception ex)
+        {
+            ErrorLog.Error("Export reminder", ex);
+            exportDue = false;
+        }
+    }
+
+    /// <summary>An export was just made: the reminder stops at once.</summary>
+    private void OnExported() => exportDue = false;
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        GuardAdminPages();
+        await RefreshExportReminderAsync();
+        StateHasChanged();
+    });
     private void Logout() { panel = SidePanel.None; Session.SignOut(); Nav.NavigateTo("/login"); }
 
     /// <summary>Content of the side drawer.</summary>
@@ -207,7 +255,12 @@
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         route = CurrentRoute();
-        InvokeAsync(() => { GuardAdminPages(); StateHasChanged(); });
+        InvokeAsync(async () =>
+        {
+            GuardAdminPages();
+            await RefreshExportReminderAsync();
+            StateHasChanged();
+        });
     }
 
     public void Dispose()

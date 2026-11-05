@@ -49,8 +49,19 @@ public class DatabaseTransferService : IDatabaseTransferService
 			return copy;
 		});
 
-		await _activity.RecordAsync("Εξαγωγή βάσης", "Βάση δεδομένων", Path.GetFileName(target));
+		await _activity.RecordAsync(ExportReminder.ExportAction, "Βάση δεδομένων", Path.GetFileName(target));
 		return target;
+	}
+
+	/// <inheritdoc/>
+	public async Task<DateTime?> GetLastExportAsync()
+	{
+		await using var db = await _factory.CreateDbContextAsync();
+		return await db.ActivityEntries
+			.Where(e => e.Action == ExportReminder.ExportAction)
+			.OrderByDescending(e => e.Timestamp)
+			.Select(e => (DateTime?)e.Timestamp)
+			.FirstOrDefaultAsync();
 	}
 
 	/// <inheritdoc/>

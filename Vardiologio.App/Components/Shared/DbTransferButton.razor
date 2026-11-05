@@ -14,8 +14,10 @@
    Import: the user picks a file; if it is a database of this application with the same schema
    and the user confirms, the current data is backed up internally and then replaced. The users
    of this installation are kept. After an import everybody is signed out, so no page keeps
-   showing the old data. *@
-<MudNavLink OnClick="Open">Εισαγωγή / Εξαγωγή βάσης</MudNavLink>
+   showing the old data.
+   Weekly reminder (Remind, set by MainLayout from ExportReminder): the menu entry and the
+   "Εξαγωγή" button blink red until an export is made; a successful export raises Exported. *@
+<MudNavLink OnClick="Open" Class="@(Remind ? "export-due" : null)">Εισαγωγή / Εξαγωγή βάσης</MudNavLink>
 
 <MudDialog Visible="open" Options="DialogOptions">
     <TitleContent>
@@ -77,6 +79,7 @@
             <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@Locked"
                        StartIcon="@Icons.Material.Rounded.Download" OnClick="PickFileAsync">Εισαγωγή…</MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Disabled="@Locked"
+                       Class="@(Remind ? "export-due" : null)"
                        StartIcon="@Icons.Material.Rounded.Upload" OnClick="ExportAsync">Εξαγωγή</MudButton>
         }
     </DialogActions>
@@ -92,6 +95,12 @@
 
     /// <summary>Raised with true when the dialog opens and false when it closes (MainLayout colours the app icon).</summary>
     [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>An export is due (weekly reminder): the menu entry and the export button blink red.</summary>
+    [Parameter] public bool Remind { get; set; }
+
+    /// <summary>Raised after a successful export, so the reminder stops at once.</summary>
+    [Parameter] public EventCallback Exported { get; set; }
 
     /// <summary>Dialog visible.</summary>
     private bool open;
@@ -133,12 +142,15 @@
     /// <summary>Writes a copy of the database and says where the user can find it.</summary>
     private async Task ExportAsync()
     {
+        var exported = false;
         await RunAsync("Database export", async () =>
         {
             var path = await Transfer.ExportAsync();
+            exported = true;
             Show(Severity.Success,
                 $"Η εξαγωγή ολοκληρώθηκε. Αρχείο: {System.IO.Path.GetFileName(path)}, στα Έγγραφα, φάκελος Vardiologio\\Database.");
         });
+        if (exported) await Exported.InvokeAsync();
     }
 
     /// <summary>Import, step 1: Windows file picker, then the check of the chosen file.</summary>

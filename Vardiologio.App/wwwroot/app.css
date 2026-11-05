@@ -45,6 +45,33 @@
 	border-bottom: 1px solid var(--mud-palette-lines-default);
 }
 
+/* Weekly database-export reminder (MainLayout + Shared/DbTransferButton.razor): from Friday
+   until an export is made, a red message in the top bar, and the database entry of the menu and
+   the "Εξαγωγή" button blinking red. The animation wins over MudBlazor's own colours. */
+/* Centred in the whole top bar (the bar is the positioned box), whatever sits on its sides;
+   it lets clicks through to anything under it. */
+.export-due-banner {
+	position: absolute;
+	left: 50%;
+	transform: translateX(-50%);
+	pointer-events: none;
+	font-size: 1.35rem;
+	font-weight: 800;
+	letter-spacing: .02em;
+	color: var(--mud-palette-error);
+	white-space: nowrap;
+}
+
+@keyframes export-due-blink {
+	0%, 100% { background-color: var(--mud-palette-error); color: #fff; }
+	50% { background-color: transparent; color: var(--mud-palette-error); }
+}
+
+.mud-nav-item.export-due .mud-nav-link,
+.mud-button-root.export-due {
+	animation: export-due-blink 1.2s ease-in-out infinite;
+}
+
 /* Rounded square with the app icon (top bar; larger on the login card). */
 .brand-mark {
 	width: 40px;
