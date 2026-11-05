@@ -1,9 +1,10 @@
 namespace Vardiologio.Application.ShiftCodes;
 
 /// <summary>
-/// The order in which the shift codes are listed on the shift parameters page, as the user
-/// arranged it by dragging. Display only: it is kept on this computer, outside the database,
-/// and changes nothing in how the codes work or how the reports list them.
+/// The order in which the shift codes are shown, as the user arranged it by dragging: one
+/// order for the list of the shift parameters page and the box of codes of the shift entry
+/// page, so a move on either page shows on both. Display only: it is kept on this computer,
+/// outside the database, and changes nothing in how the codes work or how the reports list them.
 /// </summary>
 public interface IShiftCodeOrderStore
 {

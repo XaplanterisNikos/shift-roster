@@ -71,7 +71,9 @@ changes requested by its users.
 - **Shift codes.** Codes, times, allowed days and the hour split per pay category are edited
   on a settings page. A code is never deleted, only retired, so old roster entries keep their
   meaning. Changing a code that is already used asks for confirmation. The list can be
-  rearranged by drag and drop; that order is display only and is kept on the computer.
+  rearranged by drag and drop; the box of codes on the shift entry screen follows the same order
+  and can be rearranged too (hold a tile, then drag it). That order is display only and is kept
+  on the computer.
 - **Holidays and limits.** Holidays per year, with a suggestion of the movable ones calculated
   from Orthodox Easter. The monthly limits per pay category, and a combined limit, are editable.
 
@@ -239,7 +241,7 @@ copied into the build only where it exists. A committed fallback keeps a fresh c
 ## Files on disk
 
 - **Database:** `%LOCALAPPDATA%\Vardiologio\vardiologio.db`. It is hidden and survives every
-  reinstall. `shift-code-order.json` next to it keeps the user's order of the shift codes list. The `Backups` folder next to it keeps a copy for every export and before every
+  reinstall. `shift-code-order.json` next to it keeps the user's order of the shift codes (list and box of codes). The `Backups` folder next to it keeps a copy for every export and before every
   import, up to the latest 20.
 - **Documents\Vardiologio** (Latin names only):
   - `Reports\<report>\yyyy-MM Month\` holds the exported forms.

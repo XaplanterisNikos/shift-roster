@@ -724,7 +724,7 @@ mark.search-hit {
 	font-weight: 800;
 }
 
-/* Every code in one grid, in the order of the codes. */
+/* Every code in one grid, in the order the user arranged (the same as the shift codes list). */
 .code-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
@@ -756,6 +756,29 @@ mark.search-hit {
 .code-tile:disabled {
 	cursor: default;
 	opacity: .5;
+}
+
+/* A tile held down long enough to be moved: no text selection, the grabbing hand over the
+   whole box, no hover lift, and the moved tile outlined. */
+.code-grid-dragging {
+	user-select: none;
+	cursor: grabbing;
+}
+
+.code-grid-dragging .code-tile {
+	cursor: grabbing;
+}
+
+.code-grid-dragging .code-tile:hover:not(:disabled) {
+	transform: none;
+	box-shadow: none;
+}
+
+.code-tile.code-tile-dragging,
+.code-grid-dragging .code-tile.code-tile-dragging:hover {
+	outline: 3px dashed var(--mud-palette-primary);
+	outline-offset: 2px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, .25);
 }
 
 .code-tile.tag-day { background: #FFEFD0; color: #6B4500; }

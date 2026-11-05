@@ -1,8 +1,12 @@
 ﻿@page "/"
+@using System.IO
 @using Vardiologio.Application.Hours
+@using Vardiologio.Application.ShiftCodes
 @using Vardiologio.Application.ShiftEntry
 @using Vardiologio.Domain.Enums
+@implements IDisposable
 @inject IShiftEntryService ShiftService
+@inject IShiftCodeOrderStore OrderStore
 @inject ISnackbar Snackbar
 @inject IDialogService Dialogs
 
@@ -11,7 +15,12 @@
    clicking it in the box of codes next to the days; save once for the month (upsert).
    Every change re-checks the (unsaved) month live: per-day warnings (code not allowed on
    that kind of day, code 12 on the 1st) and the month's hours against the limits.
-   Warnings never block saving. Page-specific styles: "Shift entry" block in app.css. *@
+   Warnings never block saving.
+   The codes of the box follow the order the user arranged (IShiftCodeOrderStore), the same
+   order as the list of Παράμετροι → Βαρδιών. Holding a tile down arms a move (plain pointer
+   events, since the browser's own drag and drop does not reach the page in the desktop window);
+   while armed, the tile takes the place of the tile the pointer enters, and releasing saves the
+   order. An armed press never picks the code. Page-specific styles: "Shift entry" block in app.css. *@
 
 <div class="page-head">
     <div>
@@ -137,13 +146,16 @@ else
                            OnClick="ClearDayAsync">Κενό</MudButton>
             </div>
 
-            <div class="code-grid">
+            <div class="@("code-grid" + (dragged is null ? "" : " code-grid-dragging"))"
+                 @onpointerup="EndDrag" @onpointerleave="EndDrag">
                 @foreach (var code in shiftCodes)
                 {
                     var c = code;   // copy for the click handler
-                    <button type="button" class="code-tile @SegmentClass(c) @(IsChosen(c) ? "chosen" : "") @(WouldWarn(c) ? "wrong" : "")"
+                    <button type="button" class="code-tile @SegmentClass(c) @(IsChosen(c) ? "chosen" : "") @(WouldWarn(c) ? "wrong" : "") @(c.Id == dragged?.Id ? "code-tile-dragging" : "")"
                             title="@c.Label" aria-pressed="@(IsChosen(c) ? "true" : "false")"
-                            disabled="@(selected is null)" @onclick="() => PickAsync(c)">
+                            disabled="@(selected is null)" @onclick="() => PickAsync(c)"
+                            @onpointerdown="() => PressAsync(c)" @onpointerdown:preventDefault="true"
+                            @onpointerenter="() => DragOver(c)">
                         <span class="code-tile-num">@c.Code</span>
                         <span class="code-tile-desc">@c.Description</span>
                     </button>
@@ -181,7 +193,7 @@ else
 
 @code {
     private IReadOnlyList<EmployeeListItem> employees = Array.Empty<EmployeeListItem>();
-    private IReadOnlyList<ShiftCodeOption> shiftCodes = Array.Empty<ShiftCodeOption>();
+    private List<ShiftCodeOption> shiftCodes = [];
     private int year = DateTime.Today.Year;
     private int month = DateTime.Today.Month;
     private int employeeId;
@@ -194,10 +206,28 @@ else
     /// <summary>The day the next code goes to (null until a month is loaded).</summary>
     private DayEntry? selected;
 
+    /// <summary>How long a tile must be held down before it can be moved.</summary>
+    private const int HoldMilliseconds = 400;
+
+    /// <summary>Counts the hold of the pressed tile; cancelled when the press ends early.</summary>
+    private CancellationTokenSource? hold;
+
+    /// <summary>The tile armed for a move by a long press; null when no move is in progress.</summary>
+    private ShiftCodeOption? dragged;
+
+    /// <summary>True when the armed tile has moved since it was armed.</summary>
+    private bool dragMoved;
+
+    /// <summary>
+    /// True from the end of an armed press until the next press: the click that the browser
+    /// sends after the release must not pick the code.
+    /// </summary>
+    private bool skipClick;
+
     protected override async Task OnInitializedAsync()
     {
         employees = await ShiftService.GetEmployeesAsync();
-        shiftCodes = await ShiftService.GetShiftCodesAsync();
+        shiftCodes = InSavedOrder(await ShiftService.GetShiftCodesAsync());
     }
 
     private async Task LoadAsync()
@@ -208,7 +238,7 @@ else
         selected = entry.Days.FirstOrDefault();
 
         var usedIds = entry.Days.Where(d => d.ShiftCodeId.HasValue).Select(d => d.ShiftCodeId!.Value).Distinct().ToList();
-        shiftCodes = await ShiftService.GetShiftCodesAsync(usedIds);
+        shiftCodes = InSavedOrder(await ShiftService.GetShiftCodesAsync(usedIds));
 
         await RecheckAsync();
     }
@@ -261,6 +291,11 @@ else
     /// </summary>
     private async Task PickAsync(ShiftCodeOption code)
     {
+        if (skipClick)
+        {
+            skipClick = false;
+            return;
+        }
         if (entry is null || selected is null) return;
 
         selected.ShiftCodeId = code.Id;
@@ -273,6 +308,73 @@ else
             tab = TabOf(selected);
         }
     }
+
+    /// <summary>The codes in the order the user arranged; codes never arranged follow at the end.</summary>
+    private List<ShiftCodeOption> InSavedOrder(IReadOnlyList<ShiftCodeOption> codes) =>
+        ShiftCodeOrder.Apply(codes, OrderStore.Load(), c => c.Code);
+
+    /// <summary>
+    /// A tile was pressed: after <see cref="HoldMilliseconds"/> without a release it is armed
+    /// for a move. A shorter press stays an ordinary click that picks the code.
+    /// </summary>
+    private async Task PressAsync(ShiftCodeOption code)
+    {
+        CancelHold();
+        skipClick = false;
+        var timer = hold = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(HoldMilliseconds, timer.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+        dragged = code;
+        dragMoved = false;
+    }
+
+    /// <summary>While a tile is armed, it takes the place of the tile the pointer enters.</summary>
+    private void DragOver(ShiftCodeOption target)
+    {
+        if (dragged is null || target.Id == dragged.Id) return;
+        if (ShiftCodeOrder.Move(shiftCodes, dragged, shiftCodes.IndexOf(target))) dragMoved = true;
+    }
+
+    /// <summary>
+    /// Ends a press (button released, or the pointer left the box). After an armed press the
+    /// following click is skipped, and a changed order is saved on this computer; codes not in
+    /// the box (inactive codes) keep their place in it.
+    /// </summary>
+    private void EndDrag()
+    {
+        CancelHold();
+        if (dragged is null) return;
+        dragged = null;
+        skipClick = true;
+        if (!dragMoved) return;
+        dragMoved = false;
+
+        try
+        {
+            OrderStore.Save(ShiftCodeOrder.Merge(OrderStore.Load(), shiftCodes.Select(c => c.Code).ToList()));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Snackbar.Add("Η σειρά δεν αποθηκεύτηκε: " + ex.Message, Severity.Error);
+        }
+    }
+
+    /// <summary>Stops counting the hold of a pressed tile, if one is being counted.</summary>
+    private void CancelHold()
+    {
+        hold?.Cancel();
+        hold?.Dispose();
+        hold = null;
+    }
+
+    /// <summary>Stops a hold still being counted when the page closes.</summary>
+    public void Dispose() => CancelHold();
 
     /// <summary>Trash: empties the picked day, after asking. The day stays picked.</summary>
     private async Task ClearDayAsync()
