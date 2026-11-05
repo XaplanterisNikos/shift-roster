@@ -1,8 +1,10 @@
 @page "/overtime-certificate"
 @using System.Diagnostics
+@using System.Globalization
 @using System.IO
 @using Vardiologio.Application.Files
 @using Vardiologio.Application.Logging
+@using Vardiologio.Application.Printing
 @using Vardiologio.Application.Reports
 @using Vardiologio.Application.ShiftEntry
 @inject IOvertimeCertificateService CertificateService
@@ -10,12 +12,15 @@
 @inject IExcelReportRenderer Excel
 @inject IPdfReportRenderer Pdf
 @inject IReportFileStore FileStore
+@inject IPdfPrinter Printer
 @inject IErrorLog ErrorLog
 @inject ISnackbar Snackbar
 
 @* Individual overtime certificate ("ΠΙΣΤΟΠΟΙΗΣΗ ΥΠΕΡΩΡΙΑΚΗΣ ΚΑΙ ΛΟΙΠΗΣ ΕΡΓΑΣΙΑΣ") of one employee
    for one month. The preview is the PDF itself (exactly what gets printed); Excel / PDF write
-   one file for the selected employee. *@
+   one file for the selected employee. "Εκτυπώσεις" opens the batch list (BatchPrintPanel):
+   the ticked employees are printed one after the other on the printer chosen once, each
+   previewed and saved as its PDF first, with "3 από 20" on the button. *@
 <div class="page-head">
     <div>
         <MudText Typo="Typo.h4">Εξαγωγή Βεβαίωσης Ατομικής</MudText>
@@ -24,16 +29,22 @@
 </div>
 
 <ReportToolbar @bind-Year="year" @bind-Month="month" Busy="busy" Disabled="@(employeeId == 0)"
-               OnPreview="PreviewAsync" OnExcel="ExportExcelAsync" OnPdf="ExportPdfAsync">
+               OnPreview="PreviewAsync" OnExcel="ExportExcelAsync" OnPdf="ExportPdfAsync"
+               OnBatch="ToggleBatch" BatchText="@batchText">
     <EmployeePicker Employees="employees" @bind-Value="employeeId" Class="report-employee" />
 </ReportToolbar>
+
+@if (batchOpen)
+{
+    <BatchPrintPanel Employees="employees" Subtitle="@BatchMonth" OnPrint="PrintBatchAsync" OnClose="ToggleBatch" />
+}
 
 @if (error is not null)
 {
     <MudAlert Severity="Severity.Error" Dense="true" Class="report-alert">@error</MudAlert>
 }
 
-@if (pdfDataUri is null && error is null && !busy)
+@if (pdfDataUri is null && error is null && !busy && !batchOpen)
 {
     <MudPaper Elevation="0" Class="empty-state">
         <MudIcon Icon="@Icons.Material.Rounded.PersonSearch" Size="Size.Large" />
@@ -54,6 +65,17 @@
     private bool busy;
     private string? error, pdfDataUri;
 
+    /// <summary>The batch list is open under the toolbar.</summary>
+    private bool batchOpen;
+
+    /// <summary>Text of the batch button while a batch runs ("3 από 20"); null otherwise.</summary>
+    private string? batchText;
+
+    /// <summary>Last PDF saved by the batch: its folder opens from the closing message.</summary>
+    private string? batchSaved;
+
+    private static readonly CultureInfo El = CultureInfo.GetCultureInfo("el-GR");
+
     /// <summary>Loads the active employees for the picker.</summary>
     protected override async Task OnInitializedAsync()
         => employees = await ShiftService.GetEmployeesAsync();
@@ -72,6 +94,50 @@
         finally { busy = false; }
     }
 
+    /// <summary>Opens or closes the batch list; it opens with nothing ticked.</summary>
+    private void ToggleBatch() => batchOpen = !batchOpen;
+
+    /// <summary>Month of the batch, for the list's subtitle.</summary>
+    private string BatchMonth => new DateTime(year, month, 1).ToString("MMMM yyyy", El);
+
+    /// <summary>
+    /// Prints the ticked employees: the printer is chosen once (cancel = nothing happens, the list
+    /// stays open), the list closes, and each certificate is previewed, saved as PDF and printed
+    /// before the next one. Failures are logged and listed at the end; the batch goes on.
+    /// </summary>
+    private async Task PrintBatchAsync(IReadOnlyList<EmployeeListItem> chosen)
+    {
+        if (Printer.ChoosePrinter() is not { } target) return;
+
+        batchOpen = false; busy = true; error = null; batchSaved = null;
+        var result = await BatchPrint.RunAsync(chosen, e => e.Display, ShowBatchProgressAsync,
+            MakeBatchPdfAsync, target,
+            (e, ex) => ErrorLog.Error($"Overtime certificate / Batch print {e.Display}", ex));
+        busy = false; batchText = null;
+        Snackbar.BatchPrinted(result, chosen.Count, batchSaved);
+    }
+
+    /// <summary>Shows "n από total" on the batch button and lets the page draw it.</summary>
+    private async Task ShowBatchProgressAsync(int number, int total)
+    {
+        batchText = $"{number} από {total}";
+        await ShowBusyAsync();
+    }
+
+    /// <summary>
+    /// One certificate of the batch: built, shown as the preview, saved like the PDF export
+    /// (without opening it), and returned for the printer.
+    /// </summary>
+    private async Task<byte[]> MakeBatchPdfAsync(EmployeeListItem employee)
+    {
+        var model = await CertificateService.BuildAsync(employee.Id, year, month);
+        var pdf = Pdf.Render(model);
+        pdfDataUri = "data:application/pdf;base64," + Convert.ToBase64String(pdf);
+        await ShowBusyAsync();
+        batchSaved = await FileStore.SaveAsync(ReportFolder.OvertimeCertificate, year, month, FileName(model, "pdf"), pdf);
+        return pdf;
+    }
+
     private Task ExportExcelAsync() => ExportAsync(m => Excel.Render(m), "xlsx");
     private Task ExportPdfAsync() => ExportAsync(m => Pdf.Render(m), "pdf");
 
@@ -86,14 +152,17 @@
         try
         {
             var model = await CertificateService.BuildAsync(employeeId, year, month);
-            var fileName = $"Certificate_{GreekText.ToLatin(model.LastName)}_{year}_{month:00}.{ext}";
-            var path = await FileStore.SaveAsync(ReportFolder.OvertimeCertificate, year, month, fileName, render(model));
+            var path = await FileStore.SaveAsync(ReportFolder.OvertimeCertificate, year, month, FileName(model, ext), render(model));
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
             Snackbar.ReportSaved(path);
         }
         catch (Exception ex) { Fail("Excel/PDF export", ex); }
         finally { busy = false; }
     }
+
+    /// <summary>Certificate_SURNAME_yyyy_MM.ext (Latin characters): the name of every saved certificate.</summary>
+    private string FileName(OvertimeCertificateModel model, string ext) =>
+        $"Certificate_{GreekText.ToLatin(model.LastName)}_{year}_{month:00}.{ext}";
 
     /// <summary>
     /// Draws the progress bar before the report work starts: building and rendering a report

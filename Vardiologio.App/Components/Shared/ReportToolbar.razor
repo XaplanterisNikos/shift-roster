@@ -1,7 +1,8 @@
 @using System.Globalization
 
 @* Row above every report: the month (one picker for year and month), the page's own filters
-   (ChildContent, e.g. the employee picker), and the preview / Excel / PDF buttons.
+   (ChildContent, e.g. the employee picker), the preview / Excel / PDF buttons and, on the
+   pages that print in batches, the "Εκτυπώσεις" button (shows "3 από 20" while a batch runs).
    A thin bar under the row runs while the page builds or exports the report.
    Bound like two plain values: @bind-Year and @bind-Month.
    Styles: "Reports" block in app.css. *@
@@ -31,6 +32,12 @@
     <MudButton Variant="Variant.Outlined" Color="Color.Error" DropShadow="false"
                StartIcon="@Icons.Material.Rounded.PictureAsPdf"
                Disabled="Blocked" OnClick="OnPdf">Εξαγωγή PDF</MudButton>
+    @if (OnBatch.HasDelegate)
+    {
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" DropShadow="false"
+                   StartIcon="@Icons.Material.Rounded.Print"
+                   Disabled="Busy" OnClick="OnBatch">@(BatchText ?? "Εκτυπώσεις")</MudButton>
+    }
 </div>
 
 <div class="report-progress">
@@ -76,6 +83,15 @@
 
     /// <summary>PDF export button.</summary>
     [Parameter] public EventCallback OnPdf { get; set; }
+
+    /// <summary>
+    /// Optional "Εκτυπώσεις" button: opens the batch printing list of the page. It needs no
+    /// employee picked, only that the page is not busy.
+    /// </summary>
+    [Parameter] public EventCallback OnBatch { get; set; }
+
+    /// <summary>Text of the batch button while a batch runs ("3 από 20"); null = "Εκτυπώσεις".</summary>
+    [Parameter] public string? BatchText { get; set; }
 
     /// <summary>The page's own filters, placed between the month and the buttons.</summary>
     [Parameter] public RenderFragment? ChildContent { get; set; }

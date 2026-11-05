@@ -1375,6 +1375,88 @@ div.report-bar .mud-input-control.mud-input-control {
 	background: var(--mud-palette-surface);
 }
 
+/* Batch printing (Shared/BatchPrintPanel.razor): the list of employees under the toolbar of
+   the individual report pages; the table scrolls inside the card and its header stays in view. */
+.batch-panel {
+	margin-top: 12px;
+	padding: 14px 16px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 16px;
+	background: var(--mud-palette-surface);
+}
+
+.batch-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px 16px;
+	margin-bottom: 10px;
+}
+
+.batch-title {
+	font-size: 1.05rem;
+	font-weight: 800;
+}
+
+.batch-sub {
+	font-size: .8rem;
+	color: var(--mud-palette-text-secondary);
+}
+
+.batch-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+}
+
+.batch-scroll {
+	max-height: 60vh;
+	overflow: auto;
+}
+
+.batch-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: .85rem;
+}
+
+.batch-table th {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	padding: 6px 8px;
+	text-align: left;
+	font-size: .75rem;
+	font-weight: 700;
+	color: var(--mud-palette-text-secondary);
+	background: var(--mud-palette-surface);
+	border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+.batch-table td {
+	padding: 2px 8px;
+	border-bottom: 1px solid var(--mud-palette-lines-default);
+	vertical-align: middle;
+}
+
+.batch-table tr.batch-chosen td {
+	background: var(--mud-palette-primary-hover);
+}
+
+.batch-table .batch-check { width: 44px; }
+.batch-table .batch-name { font-weight: 600; cursor: pointer; }
+.batch-table .batch-spec { color: var(--mud-palette-text-secondary); }
+.batch-table .batch-signer { width: 300px; }
+.batch-table .batch-date { width: 190px; }
+
+/* Row inputs stand on the line of the row, without the margins of labelled inputs. */
+.batch-table .mud-input-control.mud-input-control {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
 /* Monthly hours report on screen: the table scrolls inside this box, while the two header
    rows and the first two columns (number, name) stay in view. */
 .hours-scroll {

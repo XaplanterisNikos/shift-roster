@@ -1,0 +1,97 @@
+@using Vardiologio.Application.ShiftEntry
+
+@* Batch printing list of the individual report pages: every employee of the page's list with a
+   checkbox (nothing ticked when it opens), "Επιλογή όλων" / "Αποεπιλογή όλων", and "Εκτύπωση",
+   which hands the ticked employees, in list order, to the page. The page may add its own
+   columns per employee (ExtraHeaders / ExtraCells). The batch itself runs in the page
+   (BatchPrint), because the panel closes when it starts. Styles: "Batch printing" block in app.css. *@
+<MudPaper Elevation="0" Class="batch-panel">
+    <div class="batch-head">
+        <div>
+            <div class="batch-title">Εκτυπώσεις</div>
+            <div class="batch-sub">@Subtitle · @chosen.Count από @Employees.Count επιλεγμένοι</div>
+        </div>
+        <div class="batch-actions">
+            <MudButton Variant="Variant.Text" Color="Color.Primary" DropShadow="false"
+                       StartIcon="@Icons.Material.Rounded.DoneAll" OnClick="SelectAll">Επιλογή όλων</MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" DropShadow="false"
+                       StartIcon="@Icons.Material.Rounded.RemoveDone" OnClick="SelectNone">Αποεπιλογή όλων</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+                       StartIcon="@Icons.Material.Rounded.Print" Disabled="@(chosen.Count == 0)"
+                       OnClick="PrintAsync">Εκτύπωση</MudButton>
+            <MudIconButton Icon="@Icons.Material.Rounded.Close" Size="Size.Small"
+                           aria-label="Κλείσιμο" OnClick="OnClose" />
+        </div>
+    </div>
+
+    <div class="batch-scroll">
+        <table class="batch-table">
+            <thead>
+                <tr>
+                    <th class="batch-check"></th>
+                    <th>Ονοματεπώνυμο</th>
+                    <th>Ειδικότητα</th>
+                    @ExtraHeaders
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var employee in Employees)
+                {
+                    var e = employee;
+                    <tr class="@(chosen.Contains(e.Id) ? "batch-chosen" : "")">
+                        <td class="batch-check">
+                            <MudCheckBox T="bool" Value="@chosen.Contains(e.Id)" ValueChanged="v => Toggle(e.Id, v)"
+                                         Color="Color.Primary" Dense="true" />
+                        </td>
+                        <td class="batch-name" @onclick="() => Toggle(e.Id, !chosen.Contains(e.Id))">@EmployeeSearch.Name(e)</td>
+                        <td class="batch-spec">@EmployeeSearch.Speciality(e)</td>
+                        @if (ExtraCells is not null)
+                        {
+                            @ExtraCells(e)
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</MudPaper>
+
+@code {
+    /// <summary>The employees of the page's list, in its order (the order they print in).</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<EmployeeListItem> Employees { get; set; } = [];
+
+    /// <summary>Short text under the title, e.g. the month of the batch.</summary>
+    [Parameter] public string Subtitle { get; set; } = "";
+
+    /// <summary>"Εκτύπωση" was pressed: the ticked employees, in list order (never empty).</summary>
+    [Parameter] public EventCallback<IReadOnlyList<EmployeeListItem>> OnPrint { get; set; }
+
+    /// <summary>The close button was pressed.</summary>
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    /// <summary>Header cells of the page's own columns, after "Ειδικότητα".</summary>
+    [Parameter] public RenderFragment? ExtraHeaders { get; set; }
+
+    /// <summary>Cells of the page's own columns for one employee (one &lt;td&gt; per header).</summary>
+    [Parameter] public RenderFragment<EmployeeListItem>? ExtraCells { get; set; }
+
+    /// <summary>Ids of the ticked employees; empty every time the panel opens.</summary>
+    private readonly HashSet<int> chosen = [];
+
+    /// <summary>Ticks or unticks one employee.</summary>
+    private void Toggle(int id, bool on)
+    {
+        if (on) chosen.Add(id);
+        else chosen.Remove(id);
+    }
+
+    /// <summary>Ticks every employee of the list.</summary>
+    private void SelectAll() => chosen.UnionWith(Employees.Select(e => e.Id));
+
+    /// <summary>Unticks every employee.</summary>
+    private void SelectNone() => chosen.Clear();
+
+    /// <summary>Hands the ticked employees to the page, in list order.</summary>
+    private Task PrintAsync() =>
+        OnPrint.InvokeAsync(Employees.Where(e => chosen.Contains(e.Id)).ToList());
+}

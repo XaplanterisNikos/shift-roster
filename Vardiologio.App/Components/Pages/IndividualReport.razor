@@ -4,6 +4,7 @@
 @using Vardiologio.Application.Parameters
 @using Vardiologio.Application.Files
 @using Vardiologio.Application.Logging
+@using Vardiologio.Application.Printing
 @using Vardiologio.Application.ReportColors
 @using Vardiologio.Application.Reports
 @using Vardiologio.Application.ShiftEntry
@@ -13,12 +14,17 @@
 @inject IExcelReportRenderer Excel
 @inject IPdfReportRenderer Pdf
 @inject IReportFileStore FileStore
+@inject IPdfPrinter Printer
 @inject IErrorLog ErrorLog
 @inject ISnackbar Snackbar
 
 @* Individual analytical sheet of one employee for one month: on-screen preview, Excel and PDF.
    Columns, cell values and the summary come from IndividualSheetLayout (Application), so the
-   three outputs always agree. Styles: "table.indiv" rules in app.css. *@
+   three outputs always agree. "Εκτυπώσεις" opens the batch list (BatchPrintPanel) with two
+   columns of this page: who signs and the date, per employee (his own supervisor and the date
+   of the page to start with). The ticked employees are printed one after the other on the
+   printer chosen once, each previewed and saved as its PDF first, with "3 από 20" on the button.
+   Styles: "table.indiv" rules and "Batch printing" block in app.css. *@
 <div class="page-head">
     <div>
         <MudText Typo="Typo.h4">Ατομικό φύλλο (Ανάλυση παρουσιών & ωραρίων)</MudText>
@@ -27,7 +33,8 @@
 </div>
 
 <ReportToolbar @bind-Year="year" @bind-Month="month" Busy="busy" Disabled="@(employeeId == 0)"
-               OnPreview="PreviewAsync" OnExcel="ExportExcelAsync" OnPdf="ExportPdfAsync">
+               OnPreview="PreviewAsync" OnExcel="ExportExcelAsync" OnPdf="ExportPdfAsync"
+               OnBatch="ToggleBatchAsync" BatchText="@batchText">
     <EmployeePicker Employees="employees" @bind-Value="employeeId" @bind-Value:after="OnEmployeeChangedAsync" Class="report-employee" />
 
     <MudSelect T="int?" Label="Υπογράφει (εξαγωγή)" @bind-Value="signatoryId"
@@ -45,12 +52,39 @@
                    Disabled="@(employeeId == 0 || busy)" />
 </ReportToolbar>
 
+@if (batchOpen)
+{
+    <BatchPrintPanel Employees="employees" Subtitle="@BatchMonth" OnPrint="PrintBatchAsync" OnClose="ToggleBatchAsync">
+        <ExtraHeaders>
+            <th>Υπογράφει</th>
+            <th>Ημερομηνία</th>
+        </ExtraHeaders>
+        <ExtraCells Context="e">
+            <td class="batch-signer">
+                <MudSelect T="int?" Value="@batchSigners.GetValueOrDefault(e.Id)" ValueChanged="v => batchSigners[e.Id] = v"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" ToStringFunc="SignatoryText">
+                    <MudSelectItem T="int?" Value="@((int?)null)">— χωρίς υπογράφοντα —</MudSelectItem>
+                    @foreach (var s in signatories.Where(x => x.IsActive || x.Id == batchSigners.GetValueOrDefault(e.Id)))
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)s.Id)">@SignatoryItem.Label(s.FullName, s.Role)</MudSelectItem>
+                    }
+                </MudSelect>
+            </td>
+            <td class="batch-date">
+                <MudDatePicker Date="@batchDates.GetValueOrDefault(e.Id)" DateChanged="d => batchDates[e.Id] = d"
+                               Culture="El" DateFormat="dd/MM/yyyy" Placeholder="1η επόμενου μήνα"
+                               Clearable="true" AutoClose="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </td>
+        </ExtraCells>
+    </BatchPrintPanel>
+}
+
 @if (error is not null)
 {
     <MudAlert Severity="Severity.Error" Dense="true" Class="report-alert">@error</MudAlert>
 }
 
-@if (model is null && error is null && !busy)
+@if (model is null && error is null && !busy && !batchOpen)
 {
     <MudPaper Elevation="0" Class="empty-state">
         <MudIcon Icon="@Icons.Material.Rounded.PersonSearch" Size="Size.Large" />
@@ -154,6 +188,21 @@
 
     private static readonly CultureInfo El = CultureInfo.GetCultureInfo("el-GR");
 
+    /// <summary>The batch list is open under the toolbar.</summary>
+    private bool batchOpen;
+
+    /// <summary>Text of the batch button while a batch runs ("3 από 20"); null otherwise.</summary>
+    private string? batchText;
+
+    /// <summary>Last PDF saved by the batch: its folder opens from the closing message.</summary>
+    private string? batchSaved;
+
+    /// <summary>Who signs each employee's sheet in the batch (employee id → supervisor id or null).</summary>
+    private Dictionary<int, int?> batchSigners = new();
+
+    /// <summary>Date of each employee's sheet in the batch (null = the 1st of the next month).</summary>
+    private Dictionary<int, DateTime?> batchDates = new();
+
     /// <summary>Loads the active employees for the picker and the supervisors for the export.</summary>
     protected override async Task OnInitializedAsync()
     {
@@ -172,15 +221,81 @@
         signatories.FirstOrDefault(x => x.Id == id) is { } s ? SignatoryItem.Label(s.FullName, s.Role) : "— χωρίς υπογράφοντα —";
 
     /// <summary>
-    /// Puts the page's export choices on the model: the supervisor picked here (or none) and
-    /// the date, when one was set. Used only for the Excel / PDF, not for the preview.
+    /// Puts the export choices on the model: the supervisor (or none) and the date, when one was
+    /// set. Used only for the Excel / PDF, not for the preview.
     /// </summary>
-    private void ApplyExportChoices(IndividualReportModel m)
+    /// <param name="m">The built sheet.</param>
+    /// <param name="signer">Id of the supervisor who signs; null = nobody.</param>
+    /// <param name="date">Date printed top right; null = the 1st of the next month.</param>
+    private void ApplyExportChoices(IndividualReportModel m, int? signer, DateTime? date)
     {
-        m.Supervisor = signatories.FirstOrDefault(x => x.Id == signatoryId) is { } s
+        m.Supervisor = signatories.FirstOrDefault(x => x.Id == signer) is { } s
             ? new IndividualSigner(s.RoleLines, s.FullName, s.Title ?? "")
             : null;
-        if (issueDate is { } date) m.IssueDate = DateOnly.FromDateTime(date);
+        if (date is { } d) m.IssueDate = DateOnly.FromDateTime(d);
+    }
+
+    /// <summary>
+    /// Opens the batch list (nothing ticked; each employee with his own supervisor and the date
+    /// of the page) or closes it.
+    /// </summary>
+    private async Task ToggleBatchAsync()
+    {
+        if (batchOpen)
+        {
+            batchOpen = false;
+            return;
+        }
+
+        try
+        {
+            var own = (await SignatoryService.GetEmployeesAsync()).ToDictionary(x => x.Id, x => x.SignatoryId);
+            batchSigners = employees.ToDictionary(e => e.Id, e => own.GetValueOrDefault(e.Id));
+            batchDates = employees.ToDictionary(e => e.Id, _ => issueDate);
+            batchOpen = true;
+        }
+        catch (Exception ex) { Fail("Batch list", ex); }
+    }
+
+    /// <summary>Month of the batch, for the list's subtitle.</summary>
+    private string BatchMonth => new DateTime(year, month, 1).ToString("MMMM yyyy", El);
+
+    /// <summary>
+    /// Prints the ticked employees: the printer is chosen once (cancel = nothing happens, the list
+    /// stays open), the list closes, and each sheet is previewed, saved as PDF and printed before
+    /// the next one. Failures are logged and listed at the end; the batch goes on.
+    /// </summary>
+    private async Task PrintBatchAsync(IReadOnlyList<EmployeeListItem> chosen)
+    {
+        if (Printer.ChoosePrinter() is not { } target) return;
+
+        batchOpen = false; busy = true; error = null; batchSaved = null;
+        var result = await BatchPrint.RunAsync(chosen, e => e.Display, ShowBatchProgressAsync,
+            MakeBatchPdfAsync, target,
+            (e, ex) => ErrorLog.Error($"Individual sheet / Batch print {e.Display}", ex));
+        busy = false; batchText = null;
+        Snackbar.BatchPrinted(result, chosen.Count, batchSaved);
+    }
+
+    /// <summary>Shows "n από total" on the batch button and lets the page draw it.</summary>
+    private async Task ShowBatchProgressAsync(int number, int total)
+    {
+        batchText = $"{number} από {total}";
+        await ShowBusyAsync();
+    }
+
+    /// <summary>
+    /// One sheet of the batch: built and shown on the page, given the supervisor and date of its
+    /// row, saved like the PDF export (without opening it), and returned for the printer.
+    /// </summary>
+    private async Task<byte[]> MakeBatchPdfAsync(EmployeeListItem employee)
+    {
+        model = await Report.BuildAsync(employee.Id, year, month);
+        await ShowBusyAsync();
+        ApplyExportChoices(model, batchSigners.GetValueOrDefault(employee.Id), batchDates.GetValueOrDefault(employee.Id));
+        var pdf = Pdf.Render(model);
+        batchSaved = await FileStore.SaveAsync(ReportFolder.IndividualSheet, year, month, FileName(model, "pdf"), pdf);
+        return pdf;
     }
 
     /// <summary>Builds the sheet and shows it on the page (no file written).</summary>
@@ -211,15 +326,18 @@
         try
         {
             model = await Report.BuildAsync(employeeId, year, month);
-            ApplyExportChoices(model);
-            var fileName = $"Individual_{GreekText.ToLatin(model.LastName)}_{year}_{month:00}.{ext}";
-            var path = await FileStore.SaveAsync(ReportFolder.IndividualSheet, year, month, fileName, render(model));
+            ApplyExportChoices(model, signatoryId, issueDate);
+            var path = await FileStore.SaveAsync(ReportFolder.IndividualSheet, year, month, FileName(model, ext), render(model));
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
             Snackbar.ReportSaved(path);
         }
         catch (Exception ex) { Fail("Excel/PDF export", ex); }
         finally { busy = false; }
     }
+
+    /// <summary>Individual_SURNAME_yyyy_MM.ext (Latin characters): the name of every saved sheet.</summary>
+    private string FileName(IndividualReportModel m, string ext) =>
+        $"Individual_{GreekText.ToLatin(m.LastName)}_{year}_{month:00}.{ext}";
 
     /// <summary>
     /// Draws the progress bar before the report work starts: building and rendering a report

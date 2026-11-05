@@ -14,6 +14,7 @@ using Vardiologio.Application.Reports;
 using Vardiologio.Application.ReportColors;
 using Vardiologio.Application.ReportTexts;
 using Vardiologio.Application.Parameters;
+using Vardiologio.Application.Printing;
 using Vardiologio.Application.ShiftCodes;
 using Vardiologio.Application.ShiftEntry;
 using Vardiologio.Infrastructure.Activity;
@@ -31,6 +32,7 @@ using Vardiologio.Infrastructure.ReportTexts;
 using Vardiologio.Infrastructure.Parameters;
 using Vardiologio.Infrastructure.ShiftCodes;
 using Vardiologio.Infrastructure.ShiftEntry;
+using Vardiologio.App.Printing;
 
 namespace Vardiologio.App;
 
@@ -92,6 +94,7 @@ public partial class App : System.Windows.Application
 
 			services.AddSingleton<IExcelReportRenderer, ClosedXmlReportRenderer>();
 			services.AddSingleton<IPdfReportRenderer, QuestPdfReportRenderer>();
+			services.AddSingleton<IPdfPrinter, WpfPdfPrinter>();
 
 			services.AddSingleton<IReportFileStore, ReportFileStore>();
 			services.AddSingleton<IErrorLog, FileErrorLog>();

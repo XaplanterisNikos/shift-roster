@@ -93,6 +93,11 @@ Common to every form:
 
 - **Preview, Excel and PDF.** The preview is the PDF itself, so the screen shows exactly what
   gets printed. Reports that need no employee open with the current month already shown.
+- **Batch printing of the individual forms.** On the individual certificate and the individual
+  monthly sheet, "Εκτυπώσεις" lists every employee with a checkbox (the sheet also with who
+  signs and the date, per employee). The ticked employees print one after the other on a
+  printer chosen once: each is previewed, saved as PDF and sent to the printer, with the
+  progress ("3 από 20") on the button.
 - **Editable texts and colours.** The letterhead, titles, decisions, addressee and signatories
   of every form, and the fill colours of the reports, are stored in the database and edited on a
   settings page, with undo of the last save. Dates and periods are always filled in automatically.
