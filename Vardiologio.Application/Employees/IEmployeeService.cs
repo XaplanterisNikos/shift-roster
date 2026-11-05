@@ -23,4 +23,13 @@ public interface IEmployeeService
 
 	/// <summary>Soft-delete (isActive=false) or restore (true).</summary>
 	Task SetActiveAsync(int id, bool isActive);
+
+	/// <summary>The years that have roster entries for the employee, latest first (works for inactive too).</summary>
+	Task<IReadOnlyList<int>> GetEntryYearsAsync(int employeeId);
+
+	/// <summary>
+	/// The employee's year for the statistics of the card: hours per month and pay category (as in
+	/// the hours report), how the days were spent, and three totals.
+	/// </summary>
+	Task<EmployeeYearSummary> GetYearSummaryAsync(int employeeId, int year);
 }

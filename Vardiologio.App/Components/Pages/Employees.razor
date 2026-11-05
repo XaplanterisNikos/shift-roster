@@ -9,7 +9,8 @@
 @* Employees CRUD (master-detail): pick a specialty (auto-reloads the list),
    select a name to edit, or "Νέος" to add. The search box is a second way in: picking a name
    there shows that employee's specialty with the employee selected. Soft-delete/restore live in the form.
-   Styles: "Master-detail" block in app.css. *@
+   Next to the card of a saved employee: the statistics of his year (EmployeeYearStats).
+   Styles: "Master-detail" and "Employee statistics" blocks in app.css. *@
 
 <div class="page-head">
     <div>
@@ -49,7 +50,7 @@
 }
 else
 {
-    <div class="md-grid">
+    <div class="md-grid md-grid-stats">
         <MudPaper Elevation="0" Class="md-list">
             <div class="md-list-head">@list.Count @(list.Count == 1 ? "εργαζόμενος" : "εργαζόμενοι")</div>
             @if (list.Count == 0)
@@ -175,6 +176,11 @@ else
                     </div>
                 </EditForm>
             </MudPaper>
+
+            @if (form.Id != 0)
+            {
+                <EmployeeYearStats EmployeeId="form.Id" />
+            }
         }
     </div>
 }

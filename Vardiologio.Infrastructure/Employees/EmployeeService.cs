@@ -136,4 +136,40 @@ public class EmployeeService : IEmployeeService
 		entity.IsActive = isActive;
 		await db.SaveChangesAsync();
 	}
+
+	/// <inheritdoc/>
+	public async Task<IReadOnlyList<int>> GetEntryYearsAsync(int employeeId)
+	{
+		await using var db = await _factory.CreateDbContextAsync();
+		var dates = await db.ShiftDays
+			.Where(s => s.EmployeeId == employeeId)
+			.Select(s => s.Date)
+			.ToListAsync();
+
+		return dates.Select(d => d.Year).Distinct().OrderByDescending(y => y).ToList();
+	}
+
+	/// <inheritdoc/>
+	public async Task<EmployeeYearSummary> GetYearSummaryAsync(int employeeId, int year)
+	{
+		var first = new DateOnly(year, 1, 1);
+		var last = new DateOnly(year, 12, 31);
+
+		await using var db = await _factory.CreateDbContextAsync();
+
+		var days = await db.ShiftDays.AsNoTracking()
+			.Where(s => s.EmployeeId == employeeId && s.Date >= first && s.Date <= last)
+			.ToListAsync();
+		var codes = await db.ShiftCodes.AsNoTracking().ToDictionaryAsync(c => c.Id);
+		var hours = await db.ShiftCodeHours.AsNoTracking().ToListAsync();
+		var holidays = (await db.Holidays
+			.Where(h => h.Date >= first && h.Date <= last)
+			.Select(h => h.Date)
+			.ToListAsync())
+			.ToHashSet();
+		var limits = await db.HourLimits.AsNoTracking().OrderBy(l => l.Id).FirstOrDefaultAsync()
+			?? throw new InvalidOperationException("HourLimits row not found.");
+
+		return EmployeeYearSummaryBuilder.Build(year, days, codes, hours, holidays, limits);
+	}
 }

@@ -1,0 +1,178 @@
+@using Vardiologio.Application.Employees
+@using Vardiologio.Application.Hours
+@using Vardiologio.Application.Logging
+@using Vardiologio.Domain.Enums
+@inject IEmployeeService EmployeeService
+@inject IErrorLog ErrorLog
+
+@* Statistics of one employee's year, next to his card on the Employees page: three totals, the
+   hours of every month (paid hours by pay category, and in red the hours above the limits, so the
+   whole bar is the declared hours) and how the days were spent. The year picker lists only the
+   years with entries (the current one first when it has entries). Read-only; the numbers come
+   from IEmployeeService.GetYearSummaryAsync, the same calculation as the hours report.
+   Styles: "Employee statistics" block in app.css. *@
+<MudPaper Elevation="0" Class="md-stats">
+    <div class="stats-head">
+        <MudText Typo="Typo.h6">Στατιστικά έτους</MudText>
+        @if (years.Count > 0)
+        {
+            <MudSelect T="int" Label="Έτος" Value="year" ValueChanged="OnYearChangedAsync"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="stats-year" Disabled="loading">
+                @foreach (var y in years)
+                {
+                    <MudSelectItem T="int" Value="@y">@y</MudSelectItem>
+                }
+            </MudSelect>
+        }
+    </div>
+
+    @if (loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Rounded="true" Size="Size.Small" />
+    }
+    else if (error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true">@error</MudAlert>
+    }
+    else if (summary is null)
+    {
+        <MudText Typo="Typo.body2" Class="stats-empty">Δεν υπάρχουν καταχωρίσεις για το έτος.</MudText>
+    }
+    else
+    {
+        <div class="stats-tiles">
+            <div class="stats-tile">
+                <div class="stats-tile-value">@Num(summary.PaidHours)</div>
+                <div class="stats-tile-label">Πληρωτέες ώρες</div>
+            </div>
+            <div class="stats-tile">
+                <div class="stats-tile-value">@summary.NightShifts</div>
+                <div class="stats-tile-label">Νυχτερινές βάρδιες</div>
+            </div>
+            <div class="stats-tile">
+                <div class="stats-tile-value">@summary.SundayHolidayShifts</div>
+                <div class="stats-tile-label">Κυριακές και αργίες με βάρδια</div>
+            </div>
+        </div>
+
+        <div class="stats-title">Ώρες ανά μήνα</div>
+        <div class="stats-note">
+            Χρωματιστά οι πληρωτέες ώρες ανά κατηγορία, κόκκινο οι ώρες πάνω από τα όρια (δεν πληρώνονται).
+            Όλη η μπάρα είναι οι δηλωμένες ώρες του μήνα.
+        </div>
+        <MudChart T="double" ChartType="ChartType.StackedBar" ChartSeries="hourSeries" ChartLabels="MonthLabels"
+                  ChartOptions="barOptions" Width="100%" Height="300px" />
+
+        <div class="stats-title">Οι ημέρες του έτους</div>
+        <MudChart T="double" ChartType="ChartType.Donut" ChartSeries="daySeries" ChartLabels="dayLabels"
+                  ChartOptions="donutOptions" LegendPosition="Position.Right" Width="100%" Height="240px" />
+    }
+</MudPaper>
+
+@code {
+    /// <summary>The employee shown on the card.</summary>
+    [Parameter, EditorRequired] public int EmployeeId { get; set; }
+
+    /// <summary>Short month names, the labels under the bars.</summary>
+    private static readonly string[] MonthLabels =
+        ["Ιαν", "Φεβ", "Μαρ", "Απρ", "Μάι", "Ιουν", "Ιουλ", "Αυγ", "Σεπ", "Οκτ", "Νοε", "Δεκ"];
+
+    /// <summary>Colour of each pay category's paid hours, in HourCategory order.</summary>
+    private static readonly string[] CategoryColours = ["#1E88E5", "#43A047", "#2A2F8F", "#F9A825", "#8E24AA"];
+
+    /// <summary>Colour of the hours above the limits.</summary>
+    private const string ExcessColour = "#E53935";
+
+    /// <summary>Colours of the status codes' slices, in turn (one slice per code).</summary>
+    private static readonly string[] StatusColours = ["#2E7D32", "#66BB6A", "#00897B", "#80CBC4", "#9E9D24", "#C5E1A5"];
+
+    /// <summary>The employee whose years are loaded (another one reloads everything).</summary>
+    private int loadedFor;
+
+    private IReadOnlyList<int> years = [];
+    private int year;
+    private bool loading;
+    private string? error;
+    private EmployeeYearSummary? summary;
+
+    private List<ChartSeries<double>> hourSeries = [];
+    private List<ChartSeries<double>> daySeries = [];
+    private string[] dayLabels = [];
+    private StackedBarChartOptions barOptions = new();
+    private DonutChartOptions donutOptions = new();
+
+    /// <summary>
+    /// Another employee: loads his years and shows the current year, or his latest year with
+    /// entries when the current one has none.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (EmployeeId == loadedFor) return;
+        loadedFor = EmployeeId;
+
+        loading = true; error = null; summary = null; years = [];
+        try
+        {
+            years = await EmployeeService.GetEntryYearsAsync(EmployeeId);
+            year = years.Contains(DateTime.Today.Year) ? DateTime.Today.Year : years.FirstOrDefault();
+            if (years.Count > 0) await LoadYearAsync();
+        }
+        catch (Exception ex) { Fail(ex); }
+        finally { loading = false; }
+    }
+
+    /// <summary>Another year was picked.</summary>
+    private async Task OnYearChangedAsync(int picked)
+    {
+        year = picked;
+        loading = true; error = null;
+        try { await LoadYearAsync(); }
+        catch (Exception ex) { Fail(ex); }
+        finally { loading = false; }
+    }
+
+    /// <summary>Loads the year and turns it into the two charts.</summary>
+    private async Task LoadYearAsync()
+    {
+        summary = await EmployeeService.GetYearSummaryAsync(EmployeeId, year);
+
+        hourSeries = Enum.GetValues<HourCategory>()
+            .Select(c => new ChartSeries<double>
+            {
+                Name = HoursLabels.Category(c),
+                Data = summary.Months.Select(m => (double)m.First(h => h.Category == c).Paid).ToArray()
+            })
+            .ToList();
+        hourSeries.Add(new ChartSeries<double>
+        {
+            Name = "Πάνω από όριο",
+            Data = summary.Months.Select(m => (double)m.Sum(h => h.Excess)).ToArray()
+        });
+        barOptions = new StackedBarChartOptions { ChartPalette = [.. CategoryColours, ExcessColour] };
+
+        daySeries = [new ChartSeries<double> { Name = "Ημέρες", Data = summary.Days.Select(d => (double)d.Days).ToArray() }];
+        dayLabels = summary.Days.Select(d => $"{d.Label} ({d.Days})").ToArray();
+        var status = 0;
+        donutOptions = new DonutChartOptions
+        {
+            ChartPalette = summary.Days.Select(d => d.Kind switch
+            {
+                DayKind.Day => "#F2A93B",
+                DayKind.Night => "#2A2F8F",
+                DayKind.Intermediate => "#8E6CCB",
+                DayKind.Status => StatusColours[status++ % StatusColours.Length],
+                _ => "#BDBDBD"
+            }).ToArray()
+        };
+    }
+
+    /// <summary>Logs the error (Documents\Vardiologio\Logs) and shows what went wrong in the card.</summary>
+    private void Fail(Exception ex)
+    {
+        ErrorLog.Error("Employee statistics", ex);
+        error = ex.Message;
+    }
+
+    /// <summary>Hours as "6,5" / "120" (current culture, no trailing zeros).</summary>
+    private static string Num(decimal value) => value.ToString("0.##");
+}

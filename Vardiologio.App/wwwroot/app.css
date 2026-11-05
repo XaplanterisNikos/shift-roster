@@ -1610,6 +1610,88 @@ div.md-bar .mud-input-control.mud-input-control {
 	.md-grid { grid-template-columns: 1fr; }
 }
 
+/* Employees page: a third column for the statistics of the year (Shared/EmployeeYearStats.razor);
+   on a narrower window it moves under the list and the card, and on a narrow one everything stacks. */
+.md-grid.md-grid-stats {
+	grid-template-columns: minmax(260px, 340px) minmax(320px, 560px) minmax(380px, 1fr);
+}
+
+@media (max-width: 1350px) {
+	.md-grid.md-grid-stats { grid-template-columns: minmax(260px, 340px) minmax(320px, 560px); }
+	.md-grid.md-grid-stats .md-stats { grid-column: 1 / -1; }
+}
+
+@media (max-width: 900px) {
+	.md-grid.md-grid-stats { grid-template-columns: 1fr; }
+}
+
+/* Employee statistics (Shared/EmployeeYearStats.razor). */
+.md-stats {
+	padding: 16px 18px 18px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 16px;
+	min-width: 0;
+}
+
+.stats-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.stats-head .stats-year {
+	width: 120px;
+	flex: none;
+}
+
+.stats-head .mud-input-control.mud-input-control {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+.stats-empty {
+	color: var(--mud-palette-text-secondary);
+}
+
+.stats-tiles {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 10px;
+	margin-bottom: 16px;
+}
+
+.stats-tile {
+	padding: 10px 12px;
+	border: 1px solid var(--mud-palette-lines-default);
+	border-radius: 12px;
+}
+
+.stats-tile-value {
+	font-size: 1.5rem;
+	font-weight: 800;
+	line-height: 1.1;
+}
+
+.stats-tile-label {
+	font-size: .75rem;
+	color: var(--mud-palette-text-secondary);
+}
+
+.stats-title {
+	margin-top: 10px;
+	font-size: .8rem;
+	font-weight: 700;
+	color: var(--mud-palette-text-secondary);
+}
+
+.stats-note {
+	font-size: .72rem;
+	color: var(--mud-palette-text-secondary);
+	margin-bottom: 4px;
+}
+
 /* The list scrolls inside its card, so the form next to it stays in view. */
 .md-list {
 	border: 1px solid var(--mud-palette-lines-default);

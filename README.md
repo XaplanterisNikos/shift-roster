@@ -68,6 +68,9 @@ changes requested by its users.
 - **Employees.** Create, edit, deactivate and restore employees, organised by speciality, with
   contract, work position, placement and supervisor. A search box (surname and/or first name,
   any order, case- and accent-insensitive) finds an employee on every page that needs one.
+  Next to an employee's card, the statistics of a year: paid hours, night shifts and Sunday or
+  holiday shifts, the hours of every month (paid by pay category, and above the limits in red)
+  and how the days were spent.
 - **Shift codes.** Codes, times, allowed days and the hour split per pay category are edited
   on a settings page. A code is never deleted, only retired, so old roster entries keep their
   meaning. Changing a code that is already used asks for confirmation. The list can be
